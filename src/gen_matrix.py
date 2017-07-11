@@ -1,5 +1,8 @@
-class Generate_Matrix:
+class GenerateMatrix:
     def __init__(self):
+        self.M = []
+        self.C = []
+        self.K = []
         return
     
     def stiffness(self, data):
@@ -22,8 +25,7 @@ class Generate_Matrix:
         self.K = lil_matrix(np.zeros((data.coord.shape[0] * 6, data.coord.shape[0] * 6)))
     
         return
-    
-    
+
     def damping_Rayleigh(self, settings):
         r"""
         Rayleigh damping generation.

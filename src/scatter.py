@@ -23,7 +23,7 @@ def scatter(mesh_file, boundaries, inp_settings):
     
     # generate matrix internal
     # M, C, K
-    matrix = gen_matrix.Generate_Matrix()
+    matrix = gen_matrix.GenerateMatrix()
     matrix.stiffness(model)
     matrix.mass(model)
     matrix.damping(inp_settings)
