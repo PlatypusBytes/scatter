@@ -1,4 +1,4 @@
-def scatter(mesh_file, boundaries, inp_settings):
+def scatter(mesh_file, materials, boundaries, inp_settings):
     r"""
     3D finite element code.
 
@@ -10,21 +10,15 @@ def scatter(mesh_file, boundaries, inp_settings):
     import mesher
     import gen_matrix
     
-    # read gmesh mesh
+    # read gmsh mesh
     model = mesher.ReadMesh(mesh_file)
     model.read_gmsh()
     model.read_bc(boundaries)
 
-    # here read the file
-    
-    #model.mesh_square(50, 30, 60, 10, 10, 10)
-    # ToDo: think about BC
-    
-    
     # generate matrix internal
     # M, C, K
-    matrix = gen_matrix.GenerateMatrix()
-    matrix.stiffness(model)
+    matrix = gen_matrix.GenerateMatrix(model.NEQ, inp_settings['int_order'])
+    matrix.stiffness(model, materials)
     matrix.mass(model)
     matrix.damping(inp_settings)
     
@@ -41,7 +35,8 @@ def scatter(mesh_file, boundaries, inp_settings):
 if __name__ == "__main__":
     # computational settings
     sett = {"alpha": 0.25,
-            "beta": 0.5}
+            "beta": 0.5,
+            "int_order": 2}
     # boundary conditions
     BC = {"bottom": ["010", [[0, 0, 0], [10, 0, 0], [0, 0, 3], [10, 0, 3]]],
           "left": ["100", [[0, 0, 0], [0, 6, 0], [0, 0, 3], [0, 6, 3]]],
@@ -50,7 +45,7 @@ if __name__ == "__main__":
           "back": ["001", [[0, 0, 0], [10, 0, 0], [10, 6, 0], [0, 6, 0]]],
           }
     # material dictionary: E, v
-    material = {'mat 1': [30e5, 0.2],
-                'mat 1': [20e2, 0.15]}
+    mat = {'top': [30e5, 0.2],
+           'bottom': [20e2, 0.15]}
     # run scatter
-    scatter(r"./../gmsh_test/test_linear_elem.msh", BC, sett)
+    scatter(r"./../gmsh_test/test.msh", mat, BC, sett)
