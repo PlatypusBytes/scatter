@@ -67,8 +67,9 @@ class ReadMesh:
         self.materials = []  # materials
         self.BC = []  # BC list
         self.NEQ = 0  # number of equations
-        self.ID = []  # ID list containing equation number for the corresponding dof at each node
-        self.LM = []  # list containing equation numbers for the dof's of each element
+        self.ID = []  # list containing equation number for the dof's of each node
+        self.LM = []  # list containing equation number for the dof's of each element
+        self.dimension = 3  # Dimension of the problem
 
         return
         
@@ -133,7 +134,7 @@ class ReadMesh:
         return
 
     def read_bc(self, bc):
-        """" read boundary conditions
+        """ read boundary conditions
 
              Assumes that the three coordinates are non-collinear.
         """
@@ -142,8 +143,8 @@ class ReadMesh:
         import numpy as np
 
         # variables generation
-        self.BC = np.zeros((len(self.nodes), 3))
-        self.ID = np.zeros((len(self.nodes), 3)).astype('int')
+        self.BC = np.zeros((len(self.nodes), self.dimension))
+        self.ID = np.zeros((len(self.nodes), self.dimension))
 
         # for each boundary plane
         for boundary in bc:
@@ -165,13 +166,13 @@ class ReadMesh:
         # NEQ and ID
         for i in range(len(self.BC)):
             for j in range(len(self.BC[i])):
-
-                if self.BC[i, j] == 0:
+                if self.BC[i][j] == 0:
                     self.NEQ += int(1)
-                    self.ID[i, j] = int(self.NEQ)
+                    self.ID[i, j] = self.NEQ
+                else:
+                    self.ID[i, j] = np.nan
 
         # LM
         for i in range(len(self.elem)):
-            print(i)
-            self.LM.append(self.ID[self.elem[i][5:]].flatten())
+            self.LM.append(self.ID[self.elem[i][5:] - 1].flatten())
         return

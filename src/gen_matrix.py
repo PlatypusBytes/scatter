@@ -28,8 +28,8 @@ class GenerateMatrix:
         from scipy.sparse import lil_matrix
 
         # generation of variable
-        # self.M = lil_matrix(np.zeros((nb_equations, nb_equations)))
-        # self.C = lil_matrix(np.zeros((nb_equations, nb_equations)))
+        self.M = lil_matrix(np.zeros((nb_equations, nb_equations)))
+        self.C = lil_matrix(np.zeros((nb_equations, nb_equations)))
         self.K = lil_matrix(np.zeros((nb_equations, nb_equations)))
 
         # order of the Gauss integration
@@ -45,6 +45,8 @@ class GenerateMatrix:
 
         :param data: data.
         :type data: class.
+        :param material: list of materials.
+        :type data: dict.
 
         :return K: Global stiffness matrix.
         """
@@ -53,9 +55,8 @@ class GenerateMatrix:
         import shape_functions
         import numpy as np
 
-
         # compute material matrix for isotropic elasticity
-        for elem in data.elem:
+        for idx, elem in enumerate(data.elem):
 
             # element type
             elem_type = elem[1]
@@ -93,9 +94,9 @@ class GenerateMatrix:
             # compute stiffness
             Ke = N.compute_stiffness(D)
             # assemble
-
-
-
+            i1 = data.LM[idx][~np.isnan(data.LM[idx])]
+            i2 = np.where(~np.isnan(data.LM[idx]))[0]
+            self.K[(i1 - 1).reshape(len(i1), 1), i1 - 1] += Ke[i2, i2]
 
         return
 
