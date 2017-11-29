@@ -35,7 +35,7 @@ class ShapeFunction:
                 for i3 in range(self.n):
                     X = [coords[i1], coords[i2], coords[i3]]
                     Wt = np.prod([weights[i1], weights[i2], weights[i3]])
-                    N, dN = shape20(X)
+                    # N, dN = shape20(X)
 
                     if self.type == 'linear':
                         N, dN = shape8(X)
@@ -81,6 +81,28 @@ class ShapeFunction:
 
         return
 
+    def int_H(self): #ToDo
+        import numpy as np
+
+        for dnx in self.N:
+            H = np.zeros((3, dnx.shape[0] * dnx.shape[1]))
+
+            for i in range(int(dnx[0].shape[0])):
+                N = (i - 1) * 3
+                H[0, N] = dnx[i, 0]
+                H[1, N + 1] = dnx[i, 1]
+                H[2, N + 2] = dnx[i, 2]
+                H[3, N + 0] = dnx[i, 1]
+                H[3, N + 1] = dnx[i, 0]
+                H[4, N + 1] = dnx[i, 2]
+                H[4, N + 2] = dnx[i, 1]
+                H[5, N + 0] = dnx[i, 2]
+                H[5, N + 2] = dnx[i, 0]
+
+            self.H.append(H)
+
+        return
+
     def compute_stiffness(self, D):
         import numpy as np
 
@@ -89,6 +111,15 @@ class ShapeFunction:
             Ke += np.dot(np.dot(np.transpose(b), D), b) * self.d_jacob[i] * self.W[i]
 
         return Ke
+
+    def compute_mass(self, rho):
+        import numpy as np
+
+        Me = np.zeros((self.H[0].shape[1], self.H[0].shape[1]))
+        for i, H in enumerate(self.H):
+            Me += np.dot(np.dot(np.transpose(H), rho), H) * self.d_jacob[i] * self.W[i]
+
+        return Me
 
 
 def Gauss_weights(n):

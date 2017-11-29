@@ -5,6 +5,8 @@ def scatter(mesh_file, materials, boundaries, inp_settings):
     Mesh is generated with gmsh (add the link)
     the coordinate system is the same as defined in gmsh
 
+    Consistent mass matrix
+
     """
 
     import mesher
@@ -36,7 +38,7 @@ if __name__ == "__main__":
     # computational settings
     sett = {"alpha": 0.25,
             "beta": 0.5,
-            "int_order": 2}
+            "int_order": 3}
     # boundary conditions
     BC = {"bottom": ["010", [[0, 0, 0], [10, 0, 0], [0, 0, 3], [10, 0, 3]]],
           "left": ["100", [[0, 0, 0], [0, 6, 0], [0, 0, 3], [0, 6, 3]]],
@@ -44,8 +46,8 @@ if __name__ == "__main__":
           "front": ["001", [[0, 0, 3], [10, 0, 3], [10, 6, 3], [0, 6, 3]]],
           "back": ["001", [[0, 0, 0], [10, 0, 0], [10, 6, 0], [0, 6, 0]]],
           }
-    # material dictionary: E, v
-    mat = {'top': [30e5, 0.2],
-           'bottom': [20e2, 0.15]}
+    # material dictionary: rho, E, v
+    mat = {'top': [1500, 30e5, 0.2],
+           'bottom': [1800, 20e2, 0.15]}
     # run scatter
     scatter(r"./../gmsh_test/test.msh", mat, BC, sett)

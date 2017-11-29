@@ -39,7 +39,7 @@ class GenerateMatrix:
     
     def stiffness(self, data, material):
         r"""
-        Global stiffness generation.
+        Global stiffness matrix generation.
 
         Generates and assembles the global stiffness matrix for the structure.
 
@@ -73,8 +73,8 @@ class GenerateMatrix:
                     key = i[2]
 
             # solid elastic properties
-            E = material[key][0]
-            v = material[key][1]
+            E = material[key][1]
+            v = material[key][2]
 
             # element stiffness matrix
             D = stiffness_elasticity(E, v)
@@ -87,7 +87,7 @@ class GenerateMatrix:
 
             # call shape function
             N.generate()
-            # jacobian
+            # Jacobian
             N.jacob(xyz)
             # matrix B strain-displacement
             N.matrix_B()
@@ -97,6 +97,69 @@ class GenerateMatrix:
             i1 = data.LM[idx][~np.isnan(data.LM[idx])]
             i2 = np.where(~np.isnan(data.LM[idx]))[0]
             self.K[(i1 - 1).reshape(len(i1), 1), i1 - 1] += Ke[i2, i2]
+
+        return
+
+    def mass(self, data, material):
+        r"""
+        Global mass matrix generation.
+
+        Generates and assembles the global mass matrix for the structure.
+
+        :param data: data.
+        :type data: class.
+        :param material: list of materials.
+        :type data: dict.
+
+        :return M: Global mass matrix.
+        """
+
+        # import packages
+        import shape_functions
+        import numpy as np
+
+        # compute material matrix for isotropic elasticity
+        for idx, elem in enumerate(data.elem):
+
+            # element type
+            elem_type = elem[1]
+
+            # call shape functions
+            N = shape_functions.ShapeFunction(elem_type, self.order)
+
+            # material index
+            mat_idx = elem[2]
+
+            # find material index
+            for i in data.materials:
+                if i[1] == mat_idx:
+                    key = i[2]
+
+            # solid elastic properties
+            rho = material[key][0]
+
+            # coordinates for all the nodes in one element
+            xyz = []
+            for node in elem[5:]:
+                # get global coordinates of the node
+                xyz.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
+
+            # call shape function
+            N.generate()
+            # Jacobian
+            N.jacob(xyz)
+
+            # ToDo - compute matrix H: displacement interpolation matrix
+            # displacement interpolation matrix
+            N.int_H()
+
+            # compute mass
+            Me = N.compute_mass(rho)
+
+            # assemble
+            i1 = data.LM[idx][~np.isnan(data.LM[idx])]
+            i2 = np.where(~np.isnan(data.LM[idx]))[0]
+            self.M[(i1 - 1).reshape(len(i1), 1), i1 - 1] += Me[i2, i2]
 
         return
 
