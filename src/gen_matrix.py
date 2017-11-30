@@ -149,7 +149,6 @@ class GenerateMatrix:
             # Jacobian
             N.jacob(xyz)
 
-            # ToDo - compute matrix H: displacement interpolation matrix
             # displacement interpolation matrix
             N.int_H()
 

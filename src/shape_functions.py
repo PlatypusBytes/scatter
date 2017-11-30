@@ -20,6 +20,8 @@ class ShapeFunction:
         self.DNX = []
         # strain displacement matrix
         self.B = []
+        # displacement interpolation matrix
+        self.H = []
 
         return
 
@@ -65,39 +67,33 @@ class ShapeFunction:
         for dnx in self.DNX:
             B = np.zeros((6, dnx.shape[0] * dnx.shape[1]))
 
-            for i in range(int(dnx[0].shape[0])):
-                N = (i - 1) * 3
-                B[0, N] = dnx[i, 0]  # E_xx
-                B[1, N + 1] = dnx[i, 1]  # E_yy
-                B[2, N + 2] = dnx[i, 2]  # E_zz
-                B[3, N + 0] = dnx[i, 1]  # 2 * E_xy
-                B[3, N + 1] = dnx[i, 0]
-                B[4, N + 1] = dnx[i, 2]  # 2 * E_yz
-                B[4, N + 2] = dnx[i, 1]
-                B[5, N + 0] = dnx[i, 2]  # 2 * E_xz
-                B[5, N + 2] = dnx[i, 0]
+            for i in range(int(dnx.shape[0])):
+                idx = i * 3
+                B[0, idx + 0] = dnx[i, 0]  # E_xx
+                B[1, idx + 1] = dnx[i, 1]  # E_yy
+                B[2, idx + 2] = dnx[i, 2]  # E_zz
+                B[3, idx + 0] = dnx[i, 1]  # 2 * E_xy
+                B[3, idx + 1] = dnx[i, 0]
+                B[4, idx + 1] = dnx[i, 2]  # 2 * E_yz
+                B[4, idx + 2] = dnx[i, 1]
+                B[5, idx + 0] = dnx[i, 2]  # 2 * E_xz
+                B[5, idx + 2] = dnx[i, 0]
 
             self.B.append(B)
 
         return
 
-    def int_H(self): #ToDo
+    def int_H(self):
         import numpy as np
 
-        for dnx in self.N:
-            H = np.zeros((3, dnx.shape[0] * dnx.shape[1]))
+        for N in self.N:
+            H = np.zeros((3, self.dN[0].shape[0] * self.dN[0].shape[1]))
 
-            for i in range(int(dnx[0].shape[0])):
-                N = (i - 1) * 3
-                H[0, N] = dnx[i, 0]
-                H[1, N + 1] = dnx[i, 1]
-                H[2, N + 2] = dnx[i, 2]
-                H[3, N + 0] = dnx[i, 1]
-                H[3, N + 1] = dnx[i, 0]
-                H[4, N + 1] = dnx[i, 2]
-                H[4, N + 2] = dnx[i, 1]
-                H[5, N + 0] = dnx[i, 2]
-                H[5, N + 2] = dnx[i, 0]
+            for i in range(int(N.shape[0])):
+                idx = i * 3
+                H[0, idx + 0] = N[i]
+                H[1, idx + 1] = N[i]
+                H[2, idx + 2] = N[i]
 
             self.H.append(H)
 

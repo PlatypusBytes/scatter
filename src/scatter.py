@@ -22,8 +22,8 @@ def scatter(mesh_file, materials, boundaries, inp_settings):
     matrix = gen_matrix.GenerateMatrix(model.NEQ, inp_settings['int_order'])
     matrix.stiffness(model, materials)
     matrix.mass(model, materials)
-    matrix.damping(inp_settings)
-    
+    # matrix.damping(inp_settings)
+
     # generate matrix external
     # F = 
     # solver
