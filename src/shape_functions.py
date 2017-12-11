@@ -68,16 +68,16 @@ class ShapeFunction:
             B = np.zeros((6, dnx.shape[0] * dnx.shape[1]))
 
             for i in range(int(dnx.shape[0])):
-                idx = i * 3
-                B[0, idx + 0] = dnx[i, 0]  # E_xx
-                B[1, idx + 1] = dnx[i, 1]  # E_yy
-                B[2, idx + 2] = dnx[i, 2]  # E_zz
-                B[3, idx + 0] = dnx[i, 1]  # 2 * E_xy
-                B[3, idx + 1] = dnx[i, 0]
-                B[4, idx + 1] = dnx[i, 2]  # 2 * E_yz
-                B[4, idx + 2] = dnx[i, 1]
-                B[5, idx + 0] = dnx[i, 2]  # 2 * E_xz
-                B[5, idx + 2] = dnx[i, 0]
+                N = i * 3
+                B[0, N + 0] = dnx[i, 0]  # E_xx
+                B[1, N + 1] = dnx[i, 1]  # E_yy
+                B[2, N + 2] = dnx[i, 2]  # E_zz
+                B[3, N + 0] = dnx[i, 1]  # 2 * E_xy
+                B[3, N + 1] = dnx[i, 0]
+                B[4, N + 1] = dnx[i, 2]  # 2 * E_yz
+                B[4, N + 2] = dnx[i, 1]
+                B[5, N + 0] = dnx[i, 2]  # 2 * E_xz
+                B[5, N + 2] = dnx[i, 0]
 
             self.B.append(B)
 
@@ -86,14 +86,14 @@ class ShapeFunction:
     def int_H(self):
         import numpy as np
 
-        for N in self.N:
-            H = np.zeros((3, self.dN[0].shape[0] * self.dN[0].shape[1]))
+        for nx in self.N:
+            H = np.zeros((self.n, nx.shape[0] * self.n))
 
-            for i in range(int(N.shape[0])):
-                idx = i * 3
-                H[0, idx + 0] = N[i]
-                H[1, idx + 1] = N[i]
-                H[2, idx + 2] = N[i]
+            for i in range(int(nx.shape[0])):
+                N = i * 3
+                H[0, N] = nx[i]
+                H[1, N + 1] = nx[i]
+                H[2, N + 2] = nx[i]
 
             self.H.append(H)
 
