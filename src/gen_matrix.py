@@ -162,7 +162,7 @@ class GenerateMatrix:
 
         return
 
-    def damping_Rayleigh(self, settings):
+    def damping_Rayleigh(self, damp):
         r"""
         Rayleigh damping generation.
 
@@ -173,7 +173,26 @@ class GenerateMatrix:
 
         :return C: Global stiffness matrix.
         """
-        
-        self.C = settings['alpha'] * self.M + settings['beta'] * self.K
+
+        # import packages
+        import numpy as np
+        f1 = damp[0]
+        d1 = damp[1]
+        f2 = damp[2]
+        d2 = damp[3]
+
+        if f1 == f2:
+            raise SystemExit('Frequencies for the Rayleigh damping are the same.')
+
+        # damping matrix
+        damp_mat = 1 / 2 * np.array([[1 / (2 * np.pi * f1), 2 * np.pi * f1],
+                                     [1 / (2 * np.pi * f2), 2 * np.pi * f2]])
+
+        damp_qsi = np.array([d1, d2])
+
+        # solution
+        coefs = np.linalg.solve(damp_mat, damp_qsi)
+
+        self.C = coefs[0] * self.M + coefs[1] * self.K
         
         return

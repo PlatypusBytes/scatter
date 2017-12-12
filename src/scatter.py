@@ -1,4 +1,4 @@
-def scatter(mesh_file, materials, boundaries, inp_settings):
+def scatter(mesh_file, materials, boundaries, inp_settings, loading):
     r"""
     3D finite element code.
 
@@ -11,7 +11,9 @@ def scatter(mesh_file, materials, boundaries, inp_settings):
 
     import mesher
     import gen_matrix
-    
+    import force_external
+    import solver
+
     # read gmsh mesh
     model = mesher.ReadMesh(mesh_file)
     model.read_gmsh()
@@ -22,11 +24,19 @@ def scatter(mesh_file, materials, boundaries, inp_settings):
     matrix = gen_matrix.GenerateMatrix(model.NEQ, inp_settings['int_order'])
     matrix.stiffness(model, materials)
     matrix.mass(model, materials)
-    matrix.damping(inp_settings)
+    matrix.damping_Rayleigh(inp_settings["damping"])
 
     # generate matrix external
-    # F = 
+    F = force_external.Force()
+    if loading["type"] == "pulse":
+        F.pulse_load(model.NEQ, model.ID, loading, loading["node"])
+    elif loading["type"] == "heaviside":
+        F.heaviside_load(model.NEQ, model.ID, loading, loading["node"])
+
+    print("solver started")
     # solver
+    res = solver.Solver(model.NEQ)
+    res.newmark(inp_settings, matrix.M, matrix.C, matrix.K, F.force, 0.1, 1)
 
     # post processing
     # do something with paraview
@@ -37,9 +47,10 @@ def scatter(mesh_file, materials, boundaries, inp_settings):
 
 if __name__ == "__main__":
     # computational settings
-    sett = {"alpha": 0.25,
-            "beta": 0.5,
-            "int_order": 3}
+    sett = {"gamma": 0.5,
+            "beta": 0.25,
+            "int_order": 3,
+            "damping": [1, 0.05, 10, 0.05]}
     # boundary conditions
     BC = {"bottom": ["010", [[0, 0, 0], [10, 0, 0], [0, 0, 3], [10, 0, 3]]],
           "left": ["100", [[0, 0, 0], [0, 6, 0], [0, 0, 3], [0, 6, 3]]],
@@ -48,7 +59,12 @@ if __name__ == "__main__":
           "back": ["001", [[0, 0, 0], [10, 0, 0], [10, 6, 0], [0, 6, 0]]],
           }
     # material dictionary: rho, E, v
-    mat = {'top': [1500, 30e5, 0.2],
-           'bottom': [1800, 20e2, 0.15]}
+    mat = {"top": [1500, 30e5, 0.2],
+           "bottom": [1800, 20e2, 0.15]}
+    load = {"force": [0, 1000, 0],
+            "node": 2821,
+            "time": 1,
+            "type": "heaviside"}  # pulse or heaviside
+
     # run scatter
-    scatter(r"./../gmsh_test/test.msh", mat, BC, sett)
+    scatter(r"./../gmsh_test/test.msh", mat, BC, sett, load)
