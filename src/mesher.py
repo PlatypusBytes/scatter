@@ -143,7 +143,7 @@ class ReadMesh:
         import numpy as np
 
         # variables generation
-        self.BC = np.zeros((len(self.nodes), self.dimension))
+        self.BC = np.zeros((len(self.nodes), self.dimension), dtype=int)
         self.ID = np.zeros((len(self.nodes), self.dimension))
 
         # for each boundary plane
@@ -161,14 +161,15 @@ class ReadMesh:
             indices = np.where(residual == 0.)[0]
 
             for idx in indices:
-                self.BC[idx] = [j for j in dof]
+                for j, val in enumerate(dof):
+                    self.BC[idx, j] += int(val)
 
         # NEQ and ID
         for i in range(len(self.BC)):
             for j in range(len(self.BC[i])):
                 if self.BC[i][j] == 0:
-                    self.NEQ += int(1)
                     self.ID[i, j] = self.NEQ
+                    self.NEQ += int(1)
                 else:
                     self.ID[i, j] = np.nan
 

@@ -17,7 +17,8 @@ class Force:
         factor = load_set["force"]
 
         for i, eq in enumerate(ID[node - 1]):
-            self.force[eq, 1] = 1.0 * float(factor[i])
+            if ~np.isnan(eq):
+                self.force[int(eq), 1] = 1.0 * float(factor[i])
 
         return
 
@@ -34,6 +35,7 @@ class Force:
         factor = load_set["force"]
 
         for i, eq in enumerate(ID[node - 1]):
-            self.force[eq, 1:] = 1.0 * float(factor[i])
+            if ~np.isnan(eq):
+                self.force[int(eq), 1:] = 1.0 * float(factor[i])
 
         return

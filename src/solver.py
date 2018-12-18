@@ -54,12 +54,12 @@ def init(m_global, c_global, k_global, force_ini, u, v):
     :raises ValueError:
     :raises TypeError:
     """
-    from scipy.linalg import inv
+    from scipy.linalg import pinv
 
     k_part = k_global.dot(u)
     c_part = c_global.dot(v)
 
-    a = inv(m_global.todense()).dot(force_ini - k_part - c_part)
+    a = pinv(m_global.todense()).dot(force_ini - k_part - c_part)
 
     return a
 
@@ -68,8 +68,8 @@ class Solver:
     def __init__(self, NEQ):
         import numpy as np
 
-        self.u0 = np.zeros((NEQ))
-        self.v0 = np.zeros((NEQ))
+        self.u0 = np.zeros(NEQ)
+        self.v0 = np.zeros(NEQ)
 
         self.u = []
         return
@@ -85,7 +85,7 @@ class Solver:
         u = self.u0
         v = self.v0
 
-        a = init(M, C, K, F[:, 0], u, v)
+        a = init(M, C, K, F[:, 0].todense(), u, v)
 
         K_till = K + C.dot(a4) + M.dot(a1)
 
@@ -99,9 +99,11 @@ class Solver:
             c_part = C.dot(c_part)
 
             # external force
-            force_ext = F[:, t] + m_part + c_part
+            force_ext = F[:, t].todense() + m_part + c_part
             # solve
-            uu = spsolve(K_till, force_ext)
+            # uu = spsolve(K_till, force_ext)
+            from scipy.linalg import pinv
+            uu = pinv(K_till.todense()).dot(force_ext)
 
             # velocity calculated through Newmark relation
             vv = a.dot(a6) - v.dot(a5) + (uu - u).dot(a4)

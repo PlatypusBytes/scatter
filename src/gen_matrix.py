@@ -65,7 +65,7 @@ class GenerateMatrix:
             N = shape_functions.ShapeFunction(elem_type, self.order)
 
             # material index
-            mat_idx = elem[2]
+            mat_idx = elem[3]
 
             # find material index
             for i in data.materials:
@@ -128,7 +128,7 @@ class GenerateMatrix:
             N = shape_functions.ShapeFunction(elem_type, self.order)
 
             # material index
-            mat_idx = elem[2]
+            mat_idx = elem[3]
 
             # find material index
             for i in data.materials:

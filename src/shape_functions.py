@@ -87,7 +87,7 @@ class ShapeFunction:
         import numpy as np
 
         for nx in self.N:
-            H = np.zeros((self.n, nx.shape[0] * self.n))
+            H = np.zeros((self.DNX[0][0].shape[0], nx.shape[0] * self.DNX[0][0].shape[0]))
 
             for i in range(int(nx.shape[0])):
                 N = i * 3
@@ -154,6 +154,7 @@ def shape8(xyz):
           [1, 1, -1],
           [-1, 1, -1],
           [-1, -1, 1],
+          [1, -1, 1],
           [1, 1, 1],
           [-1, 1, 1],
           ]
