@@ -1,46 +1,3 @@
-def define_plane(p1, p2, p3):
-    import numpy as np
-
-    p1 = np.array(p1)
-    p2 = np.array(p2)
-    p3 = np.array(p3)
-
-    # These two vectors are in the plane
-    v1 = p3 - p1
-    v2 = p2 - p1
-
-    # the cross product is a vector normal to the plane
-    cp = np.cross(v1, v2)
-    a, b, c = cp
-
-    # This evaluates a * x3 + b * y3 + c * z3 which equals d
-    d = np.dot(cp, p3)
-
-    return [a, b, c, d]
-
-
-def search_idx(data, string1, string2):
-
-    # search string1
-    idx = [i for i, val in enumerate(data) if val.startswith(string1)][0]
-    nb = int(data[idx + 1])
-
-    # search string2
-    idx_end_nodes = [i for i, val in enumerate(data) if val.startswith(string2)][0]
-
-    res = []
-    for i in range(idx + 2, idx_end_nodes):
-        aux = []
-        for j in data[i].split():
-            try:
-                aux.append(float(j))
-            except ValueError:
-                aux.append(str(j.replace('"', '')))
-        res.append(aux)
-
-    return res, nb
-
-
 class ReadMesh:
 
     def __init__(self, file_name):
@@ -62,13 +19,11 @@ class ReadMesh:
         self.nodes = []  # node list
         self.elem = []  # element list
         self.nb_nodes_elem = []  # number of nodes
-        # self.nb_elem = []  # number of elements
-        # self.elem_type = []  # element type
         self.materials = []  # materials
         self.BC = []  # BC list
-        self.NEQ = 0  # number of equations
-        self.ID = []  # list containing equation number for the dof's of each node
-        self.LM = []  # list containing equation number for the dof's of each element
+        self.number_eq = []  # number of equations
+        self.eq_nb_dof = []  # list containing equation number for the dof's per node
+        self.eq_nb_elem = []  # list containing equation number for the dof's per element
         self.dimension = 3  # Dimension of the problem
 
         return
@@ -103,20 +58,21 @@ class ReadMesh:
         # import packages
         import numpy as np
         import sys
+        import utils
 
         # read the file
         with open(self.file_name, 'r') as f:
             data = f.readlines()
 
         # read Nodes
-        nodes, nb_nodes = search_idx(data, r"$Nodes", r"$EndNodes")
+        nodes, nb_nodes = utils.search_idx(data, r"$Nodes", r"$EndNodes")
         nodes = np.array(nodes)
 
         # read PhysicalNames
-        names, nb_names = search_idx(data, r"$PhysicalNames", r"$EndPhysicalNames")
+        names, nb_names = utils.search_idx(data, r"$PhysicalNames", r"$EndPhysicalNames")
 
         # read Elements
-        elem, nb_elem = search_idx(data, r"$Elements", r"$EndElements")
+        elem, nb_elem = utils.search_idx(data, r"$Elements", r"$EndElements")
         elem = [list(map(int, i)) for i in elem]
         elem = np.array(elem)
 
@@ -134,17 +90,17 @@ class ReadMesh:
         return
 
     def read_bc(self, bc):
-        """ read boundary conditions
+        """ determines boundary conditions for all nodes
 
              Assumes that the three coordinates are non-collinear.
         """
 
         # import packages
         import numpy as np
+        import utils
 
         # variables generation
         self.BC = np.zeros((len(self.nodes), self.dimension), dtype=int)
-        self.ID = np.zeros((len(self.nodes), self.dimension))
 
         # for each boundary plane
         for boundary in bc:
@@ -153,7 +109,7 @@ class ReadMesh:
 
             # find all the nodes that are within this plane
             # assuming that the three points are non-collinear
-            plane = define_plane(nodes[0], nodes[1], nodes[2])
+            plane = utils.define_plane(nodes[0], nodes[1], nodes[2])
 
             residual = self.nodes[:, 1] * plane[0] + self.nodes[:, 2] * plane[1] + self.nodes[:, 3] * plane[2] - plane[3]
 
@@ -163,17 +119,47 @@ class ReadMesh:
             for idx in indices:
                 for j, val in enumerate(dof):
                     self.BC[idx, j] += int(val)
+        return
 
-        # NEQ and ID
+    def mapping(self):
+        r"""
+        define equation numbers for each dof in each node
+
+        """
+        import numpy as np
+
+        # initialise variables
+        self.eq_nb_dof = np.zeros((len(self.nodes), self.dimension))
+
+        # equation number:
+        equation_nb = 0
+
+        # loop in all all the nodes
         for i in range(len(self.BC)):
+            # loop in all the dof of a node
             for j in range(len(self.BC[i])):
+                # if BC = 0: it is an equation
                 if self.BC[i][j] == 0:
-                    self.ID[i, j] = self.NEQ
-                    self.NEQ += int(1)
+                    self.eq_nb_dof[i, j] = equation_nb
+                    equation_nb += int(1)
+                # else it is a boundary
                 else:
-                    self.ID[i, j] = np.nan
+                    self.eq_nb_dof[i, j] = np.nan
 
-        # LM
+        self.number_eq = equation_nb
+        return
+
+    def connectivities(self):
+        r"""
+        define equation numbers for each dof in each element
+
+        """
+        import numpy as np
+
+        # initialise variables
+        self.eq_nb_elem = np.zeros((len(self.elem), self.nb_nodes_elem * self.dimension))
+
+        # loop element
         for i in range(len(self.elem)):
-            self.LM.append(self.ID[self.elem[i][5:] - 1].flatten())
+            self.eq_nb_elem[i, :] = self.eq_nb_dof[self.elem[i][5:] - 1].flatten()
         return

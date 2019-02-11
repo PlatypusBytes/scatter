@@ -113,7 +113,7 @@ class ShapeFunction:
 
         Me = np.zeros((self.H[0].shape[1], self.H[0].shape[1]))
         for i, H in enumerate(self.H):
-            Me += np.dot(np.dot(np.transpose(H), rho), H) * self.d_jacob[i] * self.W[i]
+            Me += rho * np.dot(np.transpose(H), H) * self.d_jacob[i] * self.W[i]
 
         return Me
 

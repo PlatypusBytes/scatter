@@ -22,13 +22,13 @@ class Force:
 
         return
 
-    def heaviside_load(self, nb_equations, ID, load_set, node):
+    def heaviside_load(self, nb_equations, ID, load_set, node, time_step):
         import numpy as np
         from scipy.sparse import lil_matrix
 
         # time
         time = load_set["time"]
-        time = np.linspace(0, float(time), 100)
+        time = np.linspace(0, time, np.ceil(time / time_step))
         # generation of variable
         self.force = lil_matrix(np.zeros((nb_equations, len(time))))
 

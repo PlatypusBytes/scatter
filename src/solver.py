@@ -54,24 +54,25 @@ def init(m_global, c_global, k_global, force_ini, u, v):
     :raises ValueError:
     :raises TypeError:
     """
-    from scipy.linalg import pinv
+    from scipy.sparse.linalg import inv
 
     k_part = k_global.dot(u)
     c_part = c_global.dot(v)
 
-    a = pinv(m_global.todense()).dot(force_ini - k_part - c_part)
+    a = inv(m_global.tocsc()).dot(force_ini - c_part - k_part)
 
     return a
 
 
 class Solver:
-    def __init__(self, NEQ):
+    def __init__(self, number_equations):
         import numpy as np
 
-        self.u0 = np.zeros(NEQ)
-        self.v0 = np.zeros(NEQ)
+        self.u0 = np.zeros(number_equations)
+        self.v0 = np.zeros(number_equations)
 
         self.u = []
+        self.time = []
         return
 
     def newmark(self, settings, M, C, K, F, t_step, t_total):
@@ -84,36 +85,57 @@ class Solver:
         # initial conditions
         u = self.u0
         v = self.v0
+        F_ini = np.array([float(i) for i in F.getcol(0).todense()])
 
-        a = init(M, C, K, F[:, 0].todense(), u, v)
+        a = init(M, C, K, F_ini, u, v)
 
         K_till = K + C.dot(a4) + M.dot(a1)
 
-        time = np.linspace(0, t_total, np.ceil(t_total / t_step))
+        self.time = np.linspace(0, t_total, int(np.ceil(t_total / t_step)))
 
-        for t in range(len(time)):
-
+        for t in range(len(self.time)):
             m_part = u.dot(a1) + v.dot(a2) + a.dot(a3)
             c_part = u.dot(a4) + v.dot(a5) + a.dot(a6)
             m_part = M.dot(m_part)
             c_part = C.dot(c_part)
 
             # external force
-            force_ext = F[:, t].todense() + m_part + c_part
+            force = np.array([float(i) for i in F.getcol(t).todense()])
+            force_ext = force + m_part + c_part
             # solve
-            # uu = spsolve(K_till, force_ext)
-            from scipy.linalg import pinv
-            uu = pinv(K_till.todense()).dot(force_ext)
-
+            uu = spsolve(K_till, force_ext)
             # velocity calculated through Newmark relation
-            vv = a.dot(a6) - v.dot(a5) + (uu - u).dot(a4)
+            vv = (uu - u).dot(a4) - v.dot(a5) - a.dot(a6)
             # acceleration calculated through equilibrium equation (to preserve equilibrium at each time step)
-            aa = init(M, C, K, force_ext, uu, vv)
+            # aa = init(M, C, K, force_ext, uu, vv)
+            aa = (uu - u).dot(a1) - v.dot(a2) - a.dot(a3)
 
             self.u.append(uu)
 
-            u == uu
-            a == aa
-            v == vv
+            u = uu
+            a = aa
+            v = vv
+
+        self.u = np.array(self.u)
+        return
+
+    def static(self, settings, K, F, t_step, t_total):
+        import numpy as np
+        from scipy.sparse.linalg import spsolve
+
+        # initial conditions
+        u = self.u0
+        self.time = np.linspace(0, t_total, np.ceil(t_total / t_step))
+
+        for t in range(len(self.time)):
+            # external force
+            force = np.array([float(i) for i in F.getcol(t).todense()])
+
+            # solve
+            uu = spsolve(K.tocsr(), force)
+
+            self.u.append(uu)
+
+        self.u = np.array(self.u)
 
         return
