@@ -27,7 +27,10 @@ tim, dis, stress, vel = compute_analytical(30e6, 1500, 0.2, 1000*4, 10, 10)
 fig = plt.figure(1, figsize=(6, 5))
 plt.axes().set_position([0.15, 0.1, 0.8, 0.8])
 # plot numerical
-plt.plot(data["time"], data["velocity"][:, 0], label="numerical")
+plt.plot(data["time"], data["velocity"]["3"]["y"], label="node 3")
+plt.plot(data["time"], data["velocity"]["4"]["y"], label="node 4")
+plt.plot(data["time"], data["velocity"]["7"]["y"], label="node 7")
+plt.plot(data["time"], data["velocity"]["8"]["y"], label="node 8")
 # plot analytical
 plt.plot(tim, vel[10, :], label="analytical")
 plt.grid()
