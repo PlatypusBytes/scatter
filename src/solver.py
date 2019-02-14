@@ -65,8 +65,7 @@ def init(m_global, c_global, k_global, force_ini, u, v):
 
 
 class Solver:
-    def __init__(self, number_equations, output_folder):
-        import os
+    def __init__(self, number_equations):
         import numpy as np
 
         self.u0 = np.zeros(number_equations)
@@ -77,11 +76,6 @@ class Solver:
         self.a = []
         self.time = []
 
-        # check if output folder exists. if not creates
-        if not os.path.isdir(output_folder):
-            os.makedirs(output_folder)
-
-        self.output_folder = output_folder
         return
 
     def newmark(self, settings, M, C, K, F, t_step, t_total):

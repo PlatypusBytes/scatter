@@ -79,7 +79,7 @@ class GenerateMatrix:
             i2 = np.where(~np.isnan(data.eq_nb_elem[idx]))[0]
 
             # assign to the global stiffness matrix
-            self.K[i1.reshape(len(i1), 1), i1 - 1] += Ke[i2.reshape(len(i2), 1), i2]
+            self.K[i1.reshape(len(i1), 1), i1] += Ke[i2.reshape(len(i2), 1), i2]
 
         return
 
@@ -145,7 +145,7 @@ class GenerateMatrix:
             i2 = np.where(~np.isnan(data.eq_nb_elem[idx]))[0]
 
             # assign to the global mass matrix
-            self.M[i1.reshape(len(i1), 1), i1 - 1] += Me[i2.reshape(len(i2), 1), i2]
+            self.M[i1.reshape(len(i1), 1), i1] += Me[i2.reshape(len(i2), 1), i2]
 
         return
 

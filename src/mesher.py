@@ -1,6 +1,6 @@
 class ReadMesh:
 
-    def __init__(self, file_name):
+    def __init__(self, file_name, output_folder):
         import os
         import sys
 
@@ -25,6 +25,12 @@ class ReadMesh:
         self.eq_nb_dof = []  # list containing equation number for the dof's per node
         self.eq_nb_elem = []  # list containing equation number for the dof's per element
         self.dimension = 3  # Dimension of the problem
+
+        # check if output folder exists. if not creates
+        if not os.path.isdir(output_folder):
+            os.makedirs(output_folder)
+
+        self.output_folder = output_folder
 
         return
         
@@ -162,4 +168,76 @@ class ReadMesh:
         # loop element
         for i in range(len(self.elem)):
             self.eq_nb_elem[i, :] = self.eq_nb_dof[self.elem[i][5:] - 1].flatten()
+        return
+
+    def remap_results(self, time, dis, vel, acc):
+        import os
+        import numpy as np
+        import pickle
+
+        # dict with results
+        data = {}
+        data.update({"time": time,
+                     "nodes": self.nodes[:, 0],
+                     "position": self.nodes[:, 1:],
+                     "displacement": {},
+                     "velocity": {},
+                     "acceleration": {},
+                     })
+
+        for i in range(len(self.nodes)):
+            dof_x = self.eq_nb_dof[i][0]
+            dof_y = self.eq_nb_dof[i][1]
+            dof_z = self.eq_nb_dof[i][2]
+
+            # x direction
+            if np.isnan(dof_x):
+                ux = np.ones(len(time)) * np.nan
+                vx = np.ones(len(time)) * np.nan
+                ax = np.ones(len(time)) * np.nan
+            else:
+                ux = dis[:, int(dof_x)]
+                vx = vel[:, int(dof_x)]
+                ax = acc[:, int(dof_x)]
+
+            # y direction
+            if np.isnan(dof_y):
+                uy = np.ones(len(time)) * np.nan
+                vy = np.ones(len(time)) * np.nan
+                ay = np.ones(len(time)) * np.nan
+            else:
+                uy = dis[:, int(dof_y)]
+                vy = vel[:, int(dof_y)]
+                ay = acc[:, int(dof_y)]
+
+            # z direction
+            if np.isnan(dof_z):
+                uz = np.ones(len(time)) * np.nan
+                vz = np.ones(len(time)) * np.nan
+                az = np.ones(len(time)) * np.nan
+            else:
+                uz = dis[:, int(dof_z)]
+                vz = vel[:, int(dof_z)]
+                az = acc[:, int(dof_z)]
+
+            # update dic
+            data["displacement"].update({str(i + 1): {"x": ux,
+                                                      "y": uy,
+                                                      "z": uz
+                                                      }
+                                         })
+            data["velocity"].update({str(i + 1): {"x": vx,
+                                                  "y": vy,
+                                                  "z": vz
+                                                  }
+                                     })
+            data["acceleration"].update({str(i + 1): {"x": ax,
+                                                      "y": ay,
+                                                      "z": az
+                                                      }
+                                         })
+
+        # dump data
+        with open(os.path.join(self.output_folder, "data.pickle"), "wb") as f:
+            pickle.dump(data, f)
         return

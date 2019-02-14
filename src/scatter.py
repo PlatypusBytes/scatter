@@ -14,7 +14,7 @@ def scatter(mesh_file, outfile_folder, materials, boundaries, inp_settings, load
 
     # read gmsh mesh
     # create structure
-    model = mesher.ReadMesh(mesh_file)
+    model = mesher.ReadMesh(mesh_file, outfile_folder)
     # read gmesh file: file_name, dimension, nb_nodes_elem, materials, nodes, elem
     model.read_gmsh()
     # define boundary conditions
@@ -40,11 +40,12 @@ def scatter(mesh_file, outfile_folder, materials, boundaries, inp_settings, load
 
     print("solver started")
     # solver
-    res = solver.Solver(model.number_eq, outfile_folder)
+    res = solver.Solver(model.number_eq)
     # res.static(inp_settings, matrix.K, F.force, time_step, loading["time"])
     res.newmark(inp_settings, matrix.M, matrix.C, matrix.K, F.force, time_step, loading["time"])
-    # save data
-    res.save_data()
+
+    # remap the data to output structure
+    model.remap_results(res.time, res.u, res.v, res.a)
 
     # print
     print("Analysis done")
@@ -59,7 +60,7 @@ if __name__ == "__main__":
             "damping": [1, 0.001, 50, 0.001]}
     # boundary conditions
     BC = {"bottom": ["010", [[0, 0, 0], [1, 0, 0], [0, 0, -1], [1, 0, -1]]],
-          "left": ["100", [[0, 0, 0], [0, 0, -1], [0, 0, 10], [0, 10, -1]]],
+          "left": ["100", [[0, 0, 0], [0, 0, -1], [0, 10, 0], [0, 10, -1]]],
           "right": ["100", [[1, 0, 0], [1, 0, -1], [1, 10, 0], [1, 10, -1]]],
           "front": ["001", [[0, 0, 0], [1, 0, 0], [0, 10, 0], [1, 10, 0]]],
           "back": ["001", [[0, 0, -1], [1, 0, -1], [0, 10, -1], [1, 10, -1]]],
