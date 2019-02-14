@@ -65,14 +65,23 @@ def init(m_global, c_global, k_global, force_ini, u, v):
 
 
 class Solver:
-    def __init__(self, number_equations):
+    def __init__(self, number_equations, output_folder):
+        import os
         import numpy as np
 
         self.u0 = np.zeros(number_equations)
         self.v0 = np.zeros(number_equations)
 
         self.u = []
+        self.v = []
+        self.a = []
         self.time = []
+
+        # check if output folder exists. if not creates
+        if not os.path.isdir(output_folder):
+            os.makedirs(output_folder)
+
+        self.output_folder = output_folder
         return
 
     def newmark(self, settings, M, C, K, F, t_step, t_total):
@@ -93,7 +102,14 @@ class Solver:
 
         self.time = np.linspace(0, t_total, int(np.ceil(t_total / t_step)))
 
+        # define progress bar
+        from tqdm import tqdm
+        pbar = tqdm(total=len(self.time), unit_scale=True, unit_divisor=1000, unit="steps")
+
         for t in range(len(self.time)):
+            # update progress bar
+            pbar.update(1)
+
             m_part = u.dot(a1) + v.dot(a2) + a.dot(a3)
             c_part = u.dot(a4) + v.dot(a5) + a.dot(a6)
             m_part = M.dot(m_part)
@@ -106,17 +122,25 @@ class Solver:
             uu = spsolve(K_till, force_ext)
             # velocity calculated through Newmark relation
             vv = (uu - u).dot(a4) - v.dot(a5) - a.dot(a6)
-            # acceleration calculated through equilibrium equation (to preserve equilibrium at each time step)
-            # aa = init(M, C, K, force_ext, uu, vv)
+            # acceleration calculated through Newmark relation
             aa = (uu - u).dot(a1) - v.dot(a2) - a.dot(a3)
 
             self.u.append(uu)
+            self.v.append(vv)
+            self.a.append(aa)
 
+            # update variables
             u = uu
             a = aa
             v = vv
 
+        # convert to numpy arrays
         self.u = np.array(self.u)
+        self.v = np.array(self.v)
+        self.a = np.array(self.a)
+
+        # close the progress bas
+        pbar.close()
         return
 
     def static(self, settings, K, F, t_step, t_total):
@@ -138,4 +162,19 @@ class Solver:
 
         self.u = np.array(self.u)
 
+        return
+
+    def save_data(self):
+        import os
+        import pickle
+
+        # construct dic structure
+        data = {"displacement": self.u,
+                "velocity": self.v,
+                "acceleration": self.a,
+                "time": self.time}
+
+        # dump data
+        with open(os.path.join(self.output_folder, "data.pickle"), "wb") as f:
+            pickle.dump(data, f)
         return

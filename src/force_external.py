@@ -22,7 +22,7 @@ class Force:
 
         return
 
-    def heaviside_load(self, nb_equations, ID, load_set, node, time_step):
+    def heaviside_load(self, nb_equations, eq_nb_dof, load_set, node, time_step):
         import numpy as np
         from scipy.sparse import lil_matrix
 
@@ -34,8 +34,10 @@ class Force:
 
         factor = load_set["force"]
 
-        for i, eq in enumerate(ID[node - 1]):
-            if ~np.isnan(eq):
-                self.force[int(eq), 1:] = 1.0 * float(factor[i])
+        # for each node with load
+        for n in node:
+            for i, eq in enumerate(eq_nb_dof[n - 1]):
+                if ~np.isnan(eq):
+                    self.force[int(eq), 1:] = float(factor[i])
 
         return

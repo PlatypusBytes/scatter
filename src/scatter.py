@@ -1,9 +1,9 @@
-def scatter(mesh_file, materials, boundaries, inp_settings, loading, time_step=0.1):
+def scatter(mesh_file, outfile_folder, materials, boundaries, inp_settings, loading, time_step=0.1):
     r"""
     3D finite element code.
-
-    Mesh is generated with gmsh (add the link)
-    the coordinate system is the same as defined in gmsh
+                                                         y ^
+    Mesh is generated with gmsh (add the link)             | /z
+    the coordinate system is the same as defined in gmsh    --> x
 
     Consistent mass matrix
     """
@@ -40,17 +40,13 @@ def scatter(mesh_file, materials, boundaries, inp_settings, loading, time_step=0
 
     print("solver started")
     # solver
-    res = solver.Solver(model.number_eq)
+    res = solver.Solver(model.number_eq, outfile_folder)
     # res.static(inp_settings, matrix.K, F.force, time_step, loading["time"])
     res.newmark(inp_settings, matrix.M, matrix.C, matrix.K, F.force, time_step, loading["time"])
+    # save data
+    res.save_data()
 
-    # post processing
-    # do something with paraview
-    import pickle
-    data = {"displacement": res.u,
-            "time": res.time}
-    with open("./res.pickle", "wb") as f:
-        pickle.dump(data, f)
+    # print
     print("Analysis done")
     return
 
@@ -60,24 +56,22 @@ if __name__ == "__main__":
     sett = {"gamma": 0.5,
             "beta": 0.25,
             "int_order": 2,
-            "damping": [1, 0.05, 10, 0.05]}
+            "damping": [1, 0.001, 50, 0.001]}
     # boundary conditions
-    # BC = {"bottom": ["010", [[0, 0, 0], [10, 0, 0], [0, 0, -10], [10, 0, -10]]],
-    #       "left": ["100", [[0, 0, 0], [0, 10, 0], [0, 0, -10], [0, 10, -10]]],
-    #       "right": ["100", [[10, 0, 0], [10, 0, -10], [10, 10, 0], [10, 10, -10]]],
-    #       "front": ["001", [[0, 0, -10], [10, 0, -10], [10, 10, -10], [0, 10, -10]]],
-    #       "back": ["001", [[0, 0, 0], [10, 0, 0], [10, 10, 0], [0, 10, 0]]],
-    #       }
-    BC = {"bottom": ["111", [[0, 0, 0], [10, 0, 0], [0, 0, -10], [10, 0, -10]]],
+    BC = {"bottom": ["010", [[0, 0, 0], [1, 0, 0], [0, 0, -1], [1, 0, -1]]],
+          "left": ["100", [[0, 0, 0], [0, 0, -1], [0, 0, 10], [0, 10, -1]]],
+          "right": ["100", [[1, 0, 0], [1, 0, -1], [1, 10, 0], [1, 10, -1]]],
+          "front": ["001", [[0, 0, 0], [1, 0, 0], [0, 10, 0], [1, 10, 0]]],
+          "back": ["001", [[0, 0, -1], [1, 0, -1], [0, 10, -1], [1, 10, -1]]],
           }
 
     # material dictionary: rho, E, v
-    mat = {"top": [1500, 30e5, 0.2],
+    mat = {"solid": [1500, 30e6, 0.2],
            "bottom": [1800, 20e4, 0.15]}
-    load = {"force": [10, 10, 0],
-            "node": 2,
-            "time": 0.001,
+    load = {"force": [0, -1000, 0],
+            "node": [3, 4, 7, 8],
+            "time": 1,
             "type": "heaviside"}  # pulse or heaviside
 
     # run scatter
-    scatter(r"./../gmsh_test/test_1E.msh", mat, BC, sett, load, time_step=1e-5)
+    scatter(r"./../gmsh_test/column.msh", "../results", mat, BC, sett, load, time_step=0.5e-3)
