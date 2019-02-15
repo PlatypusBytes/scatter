@@ -127,8 +127,8 @@ def Gauss_weights(n):
     import sys
 
     if n == 1:
-        x = 0.
-        w = 2.
+        x = [0.]
+        w = [2.]
     elif n == 2:
         x = [-np.sqrt(1. / 3.), np.sqrt(1. / 3.)]
         w = [1., 1.]
@@ -173,6 +173,7 @@ def shape20(xyz):
     """shape functions 20 node element"""
     import numpy as np
 
+    # ToDo: check shape functions and derivaties for shape20
     N = np.zeros((20, 1))
     dN = np.zeros((20, 3))
 

@@ -34,7 +34,7 @@ def scatter(mesh_file, outfile_folder, materials, boundaries, inp_settings, load
     # generate matrix external
     F = force_external.Force()
     if loading["type"] == "pulse":
-        F.pulse_load(model.number_eq, model.eq_nb_dof, loading, loading["node"])
+        F.pulse_load(model.number_eq, model.eq_nb_dof, loading, loading["node"], time_step)
     elif loading["type"] == "heaviside":
         F.heaviside_load(model.number_eq, model.eq_nb_dof, loading, loading["node"], time_step)
 
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     sett = {"gamma": 0.5,
             "beta": 0.25,
             "int_order": 2,
-            "damping": [1, 0.001, 50, 0.001]}
+            "damping": [1, 0.01, 30, 0.01]}
     # boundary conditions
     BC = {"bottom": ["010", [[0, 0, 0], [1, 0, 0], [0, 0, -1], [1, 0, -1]]],
           "left": ["100", [[0, 0, 0], [0, 0, -1], [0, 10, 0], [0, 10, -1]]],
