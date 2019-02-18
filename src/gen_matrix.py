@@ -5,9 +5,9 @@ class GenerateMatrix:
         from scipy.sparse import lil_matrix
 
         # generation of variable
-        self.M = lil_matrix(np.zeros((nb_equations, nb_equations)))
-        self.C = lil_matrix(np.zeros((nb_equations, nb_equations)))
-        self.K = lil_matrix(np.zeros((nb_equations, nb_equations)))
+        self.M = lil_matrix((nb_equations, nb_equations))
+        self.C = lil_matrix((nb_equations, nb_equations))
+        self.K = lil_matrix((nb_equations, nb_equations))
 
         # order of the Gauss integration
         self.order = order

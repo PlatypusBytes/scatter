@@ -10,7 +10,7 @@ class Force:
         time = load_set["time"]
         time = np.linspace(0, time, np.ceil(time / time_step))
         # generation of variable
-        self.force = lil_matrix(np.zeros((nb_equations, len(time))))
+        self.force = lil_matrix((nb_equations, len(time)))
 
         factor = load_set["force"]
 
