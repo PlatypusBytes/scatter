@@ -1,4 +1,4 @@
-def scatter(mesh_file, outfile_folder, materials, boundaries, inp_settings, loading, time_step=0.1):
+def scatter(mesh_file, outfile_folder, materials, boundaries, inp_settings, loading, time_step=0.1, random_props=False):
     r"""
     3D finite element code.
                                                          y ^
@@ -11,6 +11,7 @@ def scatter(mesh_file, outfile_folder, materials, boundaries, inp_settings, load
     import gen_matrix
     import force_external
     import solver
+    import random_fields
 
     # read gmsh mesh
     # create structure
@@ -23,6 +24,13 @@ def scatter(mesh_file, outfile_folder, materials, boundaries, inp_settings, load
     model.mapping()
     # connectivities
     model.connectivities()
+    if random_props:
+        # model.remap_elements()
+        rf = random_fields.RF(random_props)
+        rf.generate(model.nodes, model.elem)
+        materials = rf.new_material
+        model.materials = rf.new_model_material
+        model.elem = rf.new_elements
 
     # generate matrix internal
     # M, C, K
@@ -74,5 +82,15 @@ if __name__ == "__main__":
             "time": 1,
             "type": "heaviside"}  # pulse or heaviside
 
+    RF_props = {"number_realisations": 1,
+                "element_size": 1,
+                "theta": 5,
+                "seed_number": -26021981,
+                "material": mat["solid"],
+                "index_material": 1,
+                "std_value": 0.05,
+                }
+
     # run scatter
     scatter(r"./../gmsh_test/column.msh", "../results", mat, BC, sett, load, time_step=0.5e-3)
+    scatter(r"./../gmsh_test/column.msh", "../results_RF", mat, BC, sett, load, time_step=0.5e-3, random_props=RF_props)

@@ -46,7 +46,7 @@ def plot_surface(X, Z, coords, data_plane, time, t, folder):
     ax.text2D(0.80, 0.95, "time = " + str(time) + " s", transform=ax.transAxes)
     ax.set_xlabel("Distance X [m]")
     ax.set_ylabel("Distance Z [m]")
-    ax.set_zlabel(r"Vertical displacement $\times 10 ^{6}$ [m]")
+    ax.set_zlabel(r"Vertical displacement $\times 10 ^{-6}$ [m]")
     ax.view_init(35, -135)
     plt.savefig(os.path.join(folder, str(t).zfill(3) + ".png"))
     plt.close()

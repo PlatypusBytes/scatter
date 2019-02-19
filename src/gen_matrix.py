@@ -49,6 +49,7 @@ class GenerateMatrix:
             for i in data.materials:
                 if i[1] == mat_idx:
                     key = i[2]
+                    break
 
             # solid elastic properties
             E = material[key][1]
@@ -117,6 +118,7 @@ class GenerateMatrix:
             for i in data.materials:
                 if i[1] == mat_idx:
                     key = i[2]
+                    break
 
             # solid elastic properties
             rho = material[key][0]

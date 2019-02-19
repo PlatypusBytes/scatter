@@ -68,12 +68,13 @@ def rand3d(n, max_lvl, cellsize, theta, xcells, ycells, zcells, seed, mean, sd, 
                    stretchy_ptr, lognormal_ptr, fieldfromcentre_ptr)
         fields.append(np.array(field))
         seed = seed - 1
+        print(seed)
     return fields
 
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    n = 1           # number of realisations in one set
+    n = 2           # number of realisations in one set
     max_lvl = 7     # number of levels of subdivision (2**max_lvl) is size.
     cellsize = 0.5  # Cell size
     theta = 32.0
