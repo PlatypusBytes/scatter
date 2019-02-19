@@ -70,6 +70,7 @@ class Solver:
 
         self.u0 = np.zeros(number_equations)
         self.v0 = np.zeros(number_equations)
+        self.a0 = np.zeros(number_equations)
 
         self.u = []
         self.v = []
@@ -88,9 +89,10 @@ class Solver:
         # initial conditions
         u = self.u0
         v = self.v0
+        a = self.a0
         F_ini = np.array([float(i) for i in F.getcol(0).todense()])
 
-        a = init(M, C, K, F_ini, u, v)
+        # a = init(M, C, K, F_ini, u, v)
 
         K_till = K + C.dot(a4) + M.dot(a1)
 
