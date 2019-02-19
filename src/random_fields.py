@@ -2,7 +2,7 @@ class RF:
 
     def __init__(self, random_properties):
         self.n = random_properties["number_realisations"]  # number of realisations in one set
-        self.max_lvl = 7  # number of levels of subdivision (2**max_lvl) is size.
+        self.max_lvl = []  # number of levels of subdivision (2**max_lvl) is size.
         self.cellsize = random_properties["element_size"]  # Cell size
         self.theta = random_properties["theta"]
         self.xcells = []  # Number of cells x dir
@@ -31,6 +31,11 @@ class RF:
         self.xcells = int((np.max(nodes[:, 1]) - np.min(nodes[:, 1])) / self.cellsize)
         self.ycells = int((np.max(nodes[:, 2]) - np.min(nodes[:, 2])) / self.cellsize)
         self.zcells = int((np.max(nodes[:, 3]) - np.min(nodes[:, 3])) / self.cellsize)
+
+        # maximum number of cells
+        max_nb_cells = np.max([self.xcells, self.ycells, self.zcells]) + 16
+
+        self.max_lvl = int(np.ceil(np.log(max_nb_cells) / np.log(2)))
 
         # generate random field
         self.fields = rand3d(self.n, self.max_lvl, self.cellsize, self.theta, self.xcells, self.ycells, self.zcells,
