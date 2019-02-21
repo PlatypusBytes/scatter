@@ -26,8 +26,9 @@ def scatter(mesh_file, outfile_folder, materials, boundaries, inp_settings, load
     model.connectivities()
     if random_props:
         # model.remap_elements()
-        rf = random_fields.RF(random_props)
+        rf = random_fields.RF(random_props, outfile_folder)
         rf.generate(model.nodes, model.elem)
+        rf.dump()
         materials = rf.new_material
         model.materials = rf.new_model_material
         model.elem = rf.new_elements
@@ -66,12 +67,15 @@ if __name__ == "__main__":
             "beta": 0.25,
             "int_order": 2,
             "damping": [1, 0.01, 30, 0.01]}
-    # boundary conditions
-    BC = {"bottom": ["010", [[0, 0, 0], [1, 0, 0], [0, 0, -1], [1, 0, -1]]],
-          "left": ["100", [[0, 0, 0], [0, 0, -1], [0, 10, 0], [0, 10, -1]]],
-          "right": ["100", [[1, 0, 0], [1, 0, -1], [1, 10, 0], [1, 10, -1]]],
-          "front": ["001", [[0, 0, 0], [1, 0, 0], [0, 10, 0], [1, 10, 0]]],
-          "back": ["001", [[0, 0, -1], [1, 0, -1], [0, 10, -1], [1, 10, -1]]],
+
+    x = 1
+    y = 10
+    z = -1
+    BC = {"bottom": ["010", [[0, 0, 0], [x, 0, 0], [0, 0, z], [x, 0, z]]],
+          "left": ["100", [[0, 0, 0], [0, 0, z], [0, y, 0], [0, y, z]]],
+          "right": ["100", [[x, 0, 0], [x, 0, z], [x, y, 0], [x, y, z]]],
+          "front": ["001", [[0, 0, 0], [z, 0, 0], [0, y, 0], [x, y, 0]]],
+          "back": ["001", [[0, 0, z], [x, 0, z], [0, y, z], [x, y, z]]],
           }
 
     # material dictionary: rho, E, v
@@ -82,15 +86,16 @@ if __name__ == "__main__":
             "time": 1,
             "type": "heaviside"}  # pulse or heaviside
 
+    # Random field properties
     RF_props = {"number_realisations": 1,
                 "element_size": 1,
                 "theta": 5,
                 "seed_number": -26021981,
                 "material": mat["solid"],
                 "index_material": 1,
-                "std_value": 0.05,
+                "std_value": 0.25,
                 }
 
     # run scatter
-    scatter(r"./../gmsh_test/column.msh", "../results", mat, BC, sett, load, time_step=0.5e-3)
-    scatter(r"./../gmsh_test/column.msh", "../results_RF", mat, BC, sett, load, time_step=0.5e-3, random_props=RF_props)
+    scatter(r"../mesh/column.msh", "../results", mat, BC, sett, load, time_step=0.5e-3)
+    scatter(r"../mesh/column.msh", "../results_RF", mat, BC, sett, load, time_step=0.5e-3, random_props=RF_props)

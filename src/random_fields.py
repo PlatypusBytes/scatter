@@ -1,6 +1,6 @@
 class RF:
 
-    def __init__(self, random_properties):
+    def __init__(self, random_properties, output_folder):
         self.n = random_properties["number_realisations"]  # number of realisations in one set
         self.max_lvl = []  # number of levels of subdivision (2**max_lvl) is size.
         self.cellsize = random_properties["element_size"]  # Cell size
@@ -21,6 +21,7 @@ class RF:
         self.new_material = {}
         self.new_model_material = []
         self.new_elements = []
+        self.output_folder = output_folder
 
         return
 
@@ -73,6 +74,21 @@ class RF:
             self.new_material.update({str(idx + 1): vals})
             # update model material
             self.new_model_material.append([3, idx, str(idx + 1)])
+        return
+
+    def dump(self):
+        import os
+        # dump information about the RF
+        with open(os.path.join(self.output_folder, 'rf_props.txt'), 'w') as fo:
+            fo.write('Random field properties\n')
+            fo.write('Number of subdivisions: ' + str(self.max_lvl) + '\n')
+            fo.write('Cell size: ' + str(self.cellsize) + '\n')
+            fo.write('Theta: ' + str(self.theta) + '\n')
+            fo.write('Seed number: ' + str(self.seed) + '\n')
+            fo.write('Mean value: ' + str(self.materials[self.index]) + '\n')
+            fo.write('Std value: ' + str(self.materials[self.index] * self.sd) + '\n')
+            fo.write('Log normal: ' + str(self.lognormal) + '\n')
+            fo.write('Field from centre: ' + str(self.fieldfromcentre) + '\n')
         return
 
 
