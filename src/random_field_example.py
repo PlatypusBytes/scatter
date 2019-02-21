@@ -63,12 +63,11 @@ def rand3d(n, max_lvl, cellsize, theta, xcells, ycells, zcells, seed, mean, sd, 
     fields = []
 
     for realisation in range(n):
+        # print(seed)
         blackbox3d(a_27c_ptr, c_27c_ptr, xcells_ptr, ycells_ptr, zcells_ptr, meantop_ptr, sdtop_ptr, meanbot_ptr,
                    sdbot_ptr, theta_ptr, cellsize_ptr, level_ptr, seed_ptr, field_ptr, squash_ptr, stretchx_ptr,
                    stretchy_ptr, lognormal_ptr, fieldfromcentre_ptr)
         fields.append(np.array(field))
-        seed = seed - 1
-        print(seed)
     return fields
 
 
@@ -91,7 +90,10 @@ if __name__ == '__main__':
 
     # everytime you call this you need a new seed number.
     fields = rand3d(n, max_lvl, cellsize, theta, xcells, ycells, zcells, seed, mean, sd, lognormal, fieldfromcentre)
+    plt.subplot(1, 2, 1)
     plt.imshow(fields[0][:, :, 15])
+    plt.subplot(1, 2, 2)
+    plt.imshow(fields[1][:, :, 15])
     plt.show()
 
 
