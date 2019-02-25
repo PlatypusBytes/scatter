@@ -33,11 +33,6 @@ def plot_surface(X, Z, coords, data_plane, time, t, folder):
     ax.plot_surface(X, Z, Y * 1e6, rstride=1, cstride=1, linewidth=0,
                     antialiased=False, facecolors=illuminated_surface)
 
-    # # plot
-    # surf = ax.plot_surface(X, Z, Y * 1e6, cmap=plt.cm.coolwarm,
-    #                        linewidth=1, antialiased=False,
-    #                        )
-
     ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
     ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
     ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
@@ -100,4 +95,9 @@ def make_movie(data_location, y_ref, elem_size, dimension, t_max,
 
 
 if __name__ == "__main__":
-    make_movie(r"..\integration_test\Brick_test\results/data.pickle", 10, 0.5, 10, 0.1, output_file="brick.gif")
+    make_movie(r"..\integration_test\Brick_test_heaviside\results/data.pickle", 10, 0.5, 15, 0.1, output_file="brick.gif")
+    make_movie(r"..\integration_test\Brick_test_heaviside_RF\results/data.pickle", 10, 0.5, 15, 0.1, output_file="brick_RF.gif")
+    make_movie(r"..\integration_test\Brick_test_pulse\results/data.pickle", 10, 0.5, 15, 0.1, output_file="pulse.gif")
+    make_movie(r"..\integration_test\Brick_test_pulse_RF\results/data.pickle", 10, 0.5, 15, 0.1, output_file="pulse_RF.gif")
+    make_movie(r"..\Brick_middle\results/data.pickle", 10, 0.5, 15, 0.1, output_file="brick_middle.gif")
+    make_movie(r"..\Brick_middle_RF\results/data.pickle", 10, 0.5, 15, 0.1, output_file="brick_middle_RF.gif")
