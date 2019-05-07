@@ -47,7 +47,7 @@ def rand3d(n, max_lvl, cellsize, theta, xcells, ycells, zcells, seed, mean, sd, 
 
     fieldfromcentre_ptr = ct.pointer(ct.c_bool(fieldfromcentre))
 
-    field = np.zeros([xcells,ycells,zcells])
+    field = np.zeros([zcells,ycells,xcells])
     field_ptr = np.ctypeslib.as_ctypes(field)
 
     a_27c = np.zeros([7, 27, max_lvl])
@@ -67,7 +67,7 @@ def rand3d(n, max_lvl, cellsize, theta, xcells, ycells, zcells, seed, mean, sd, 
         blackbox3d(a_27c_ptr, c_27c_ptr, xcells_ptr, ycells_ptr, zcells_ptr, meantop_ptr, sdtop_ptr, meanbot_ptr,
                    sdbot_ptr, theta_ptr, cellsize_ptr, level_ptr, seed_ptr, field_ptr, squash_ptr, stretchx_ptr,
                    stretchy_ptr, lognormal_ptr, fieldfromcentre_ptr)
-        fields.append(np.array(field))
+        fields.append(np.transpose(np.array(field)))
     return fields
 
 
@@ -77,9 +77,9 @@ if __name__ == '__main__':
     max_lvl = 7     # number of levels of subdivision (2**max_lvl) is size.
     cellsize = 0.5  # Cell size
     theta = 32.0
-    xcells = 64  # Number of cells x dir
-    ycells = 64  # Number of cells x dir
-    zcells = 64  # Number of cells x dir
+    xcells = 100  # Number of cells x dir
+    ycells = 75  # Number of cells x dir
+    zcells = 50  # Number of cells x dir
     seed = -26021981
     mean = 10.0
     sd = 0.5
@@ -90,6 +90,7 @@ if __name__ == '__main__':
 
     # everytime you call this you need a new seed number.
     fields = rand3d(n, max_lvl, cellsize, theta, xcells, ycells, zcells, seed, mean, sd, lognormal, fieldfromcentre)
+    print (fields[0].shape)
     plt.subplot(1, 2, 1)
     plt.imshow(fields[0][:, :, 15])
     plt.subplot(1, 2, 2)
