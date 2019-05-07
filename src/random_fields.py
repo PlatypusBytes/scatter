@@ -144,10 +144,10 @@ def rand3d(n, max_lvl, cellsize, theta, xcells, ycells, zcells, seed, mean, sd, 
     field = np.zeros([zcells,ycells,xcells])
     field_ptr = np.ctypeslib.as_ctypes(field)
 
-    a_27c = np.zeros([7, 27, max_lvl])
+    a_27c = np.zeros([27, max_lvl, 7])
     a_27c_ptr = np.ctypeslib.as_ctypes(a_27c)
 
-    c_27c = np.zeros([28, max_lvl])
+    c_27c = np.zeros([max_lvl, 28])
     c_27c_ptr = np.ctypeslib.as_ctypes(c_27c)
 
     initialiseblackbox(max_lvl_ptr, cellsize_ptr, theta_ptr, a_27c_ptr, c_27c_ptr,
