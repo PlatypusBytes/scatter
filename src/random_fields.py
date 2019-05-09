@@ -40,7 +40,7 @@ class RF:
 
         # generate random field
         self.fields = rand3d(self.n, self.max_lvl, self.cellsize, self.theta, self.xcells, self.ycells, self.zcells,
-                             self.seed, self.materials[self.index], self.materials[self.index] * self.sd,
+                             self.seed, self.materials[self.index], self.sd,
                              self.lognormal, self.fieldfromcentre)
 
         # remap fields into a list with materials according to the elements

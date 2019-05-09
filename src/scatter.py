@@ -93,7 +93,7 @@ if __name__ == "__main__":
                 "seed_number": -26021981,
                 "material": mat["solid"],
                 "index_material": 1,
-                "std_value": 0.25,
+                "std_value": 1e5,
                 }
 
     # run scatter
