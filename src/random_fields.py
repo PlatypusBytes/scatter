@@ -86,7 +86,7 @@ class RF:
             fo.write('Theta: ' + str(self.theta) + '\n')
             fo.write('Seed number: ' + str(self.seed) + '\n')
             fo.write('Mean value: ' + str(self.materials[self.index]) + '\n')
-            fo.write('Std value: ' + str(self.materials[self.index] * self.sd) + '\n')
+            fo.write('Std value: ' + str(self.sd) + '\n')
             fo.write('Log normal: ' + str(self.lognormal) + '\n')
             fo.write('Field from centre: ' + str(self.fieldfromcentre) + '\n')
         return
