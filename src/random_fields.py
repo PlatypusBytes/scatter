@@ -13,6 +13,8 @@ class RF:
         self.index = random_properties["index_material"]
         # self.mean = random_properties["material"][random_properties["index_material"]]
         self.sd = random_properties["std_value"]
+        self.aniso_x = random_properties["aniso_x"]
+        self.aniso_y = random_properties["aniso_y"]
         self.lognormal = True
         self.fieldfromcentre = False
         self.fields = []
@@ -41,7 +43,7 @@ class RF:
         # generate random field
         self.fields = rand3d(self.n, self.max_lvl, self.cellsize, self.theta, self.xcells, self.ycells, self.zcells,
                              self.seed, self.materials[self.index], self.sd,
-                             self.lognormal, self.fieldfromcentre)
+                             self.lognormal, self.fieldfromcentre, anisox=self.aniso_x, anisoy=self.aniso_y)
 
         # remap fields into a list with materials according to the elements
         for el in elements:

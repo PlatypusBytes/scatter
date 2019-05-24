@@ -94,6 +94,8 @@ if __name__ == "__main__":
                 "material": mat["solid"],
                 "index_material": 1,
                 "std_value": 1e5,
+                "aniso_x": 1,
+                "aniso_y": 1,
                 }
 
     # run scatter
