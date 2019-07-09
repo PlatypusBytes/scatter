@@ -34,7 +34,9 @@ RF_props = {"number_realisations": 1,
             "seed_number": -26021981,
             "material": mat["solid"],
             "index_material": 1,
-            "std_value": 0.5,
+            "std_value": 3e6,
+            "aniso_x": 1,
+            "aniso_y": 1,
             }
 
 # run scatter
