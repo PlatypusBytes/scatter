@@ -17,7 +17,7 @@ class Force:
         factor = load_set["force"]
 
         # check that length of computation is bigger than the number of steps
-        if steps <= len(time):
+        if len(time) <= steps:
             sys.exit("Error: Number of loading steps smaller than " + str(steps))
 
         # for each node with load
@@ -44,7 +44,7 @@ class Force:
         factor = load_set["force"]
 
         # check that length of computation is bigger than the number of steps
-        if steps <= len(time):
+        if len(time) <= steps:
             sys.exit("Error: Number of loading steps smaller than " + str(steps))
 
         # for each node with load
