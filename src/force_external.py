@@ -1,9 +1,11 @@
+import sys
+
 class Force:
     def __init__(self):
         self.force = []
         return
 
-    def pulse_load(self, nb_equations, eq_nb_dof, load_set, node, time_step, steps=21):
+    def pulse_load(self, nb_equations, eq_nb_dof, load_set, node, time_step, steps=5):
         import numpy as np
         from scipy.sparse import lil_matrix
 
@@ -13,6 +15,10 @@ class Force:
         self.force = lil_matrix((nb_equations, len(time)))
 
         factor = load_set["force"]
+
+        # check that length of computation is bigger than the number of steps
+        if steps <= len(time):
+            sys.exit("Error: Number of loading steps smaller than " + str(steps))
 
         # for each node with load
         for n in node:
@@ -25,7 +31,7 @@ class Force:
 
         return
 
-    def heaviside_load(self, nb_equations, eq_nb_dof, load_set, node, time_step, steps=21):
+    def heaviside_load(self, nb_equations, eq_nb_dof, load_set, node, time_step, steps=5):
         import numpy as np
         from scipy.sparse import lil_matrix
 
@@ -36,6 +42,10 @@ class Force:
         self.force = lil_matrix(np.zeros((nb_equations, len(time))))
 
         factor = load_set["force"]
+
+        # check that length of computation is bigger than the number of steps
+        if steps <= len(time):
+            sys.exit("Error: Number of loading steps smaller than " + str(steps))
 
         # for each node with load
         for n in node:
