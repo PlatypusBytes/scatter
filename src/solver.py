@@ -81,7 +81,7 @@ class Solver:
 
     def newmark(self, settings, M, C, K, F, t_step, t_total):
         import numpy as np
-        from scipy.sparse.linalg import spsolve, inv
+        from scipy.sparse.linalg import spsolve
 
         # constants for the Newmark
         a1, a2, a3, a4, a5, a6 = const(settings["beta"], settings["gamma"], t_step)
@@ -96,7 +96,6 @@ class Solver:
         # a = init(M, C, K, F_ini, u, v)
 
         K_till = K + C.dot(a4) + M.dot(a1)
-        K_inv = inv(K_till.tocsc())
 
         self.time = np.linspace(0, t_total, int(np.ceil(t_total / t_step)))
 
@@ -117,7 +116,8 @@ class Solver:
             force = np.array([float(i) for i in F.getcol(t).todense()])
             force_ext = force + m_part + c_part
             # solve
-            uu = K_inv * force_ext
+            uu = spsolve(K_till, force_ext)
+
             # velocity calculated through Newmark relation
             vv = (uu - u).dot(a4) - v.dot(a5) - a.dot(a6)
             # acceleration calculated through Newmark relation
