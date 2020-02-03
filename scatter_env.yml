@@ -7,3 +7,4 @@ dependencies:
   - numpy=1.15.4
   - python=3.6.8
   - scipy=1.2.0
+  - tqdm=4.31.1
