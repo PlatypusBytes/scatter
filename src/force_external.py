@@ -37,7 +37,7 @@ class Force:
 
         # time
         time = load_set["time"]
-        time = np.linspace(0, time, np.ceil(time / time_step))
+        time = np.linspace(0, time, int(np.ceil(time / time_step)))
         # generation of variable
         self.force = lil_matrix(np.zeros((nb_equations, len(time))))
 
