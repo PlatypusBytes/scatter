@@ -12,9 +12,9 @@ def stiffness_elasticity(E, poisson):
                  [poisson, 1. - poisson, poisson],
                  [poisson, poisson, 1. - poisson]]
 
-    D[3:, 3:] = [[1. - 2. * poisson, poisson, poisson],
-                 [poisson, 1. - 2. * poisson, poisson],
-                 [poisson, poisson, 1. - 2. * poisson]]
+    D[3:, 3:] = [[(1. - 2. * poisson) / 2, 0, 0],
+                 [0, (1. - 2. * poisson) / 2, 0],
+                 [0, 0, (1. - 2. * poisson) / 2]]
 
     D *= E / ((1. + poisson) * (1. - 2. * poisson))
 
