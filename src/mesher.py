@@ -75,8 +75,64 @@ class ReadMesh:
             …
             $EndElements
 
-        The element type that are accepted are 5 (8 node brick element) and 17 (20 node brick element)
+        The element type that are accepted are 5 (8 node volume element) and 17 (20 node volume element).
+        There is also the need to use quadrilateral elements for absorbing boundary conditions
+        (4 node quad element for 8 node volume element and 8 node quaq element for 20 node volume element).
+        The node numbering is as follow:
+
+        8 node volume:
+               v
+        3----------2
+        |\     ^   |\
+        | \    |   | \
+        |  \   |   |  \
+        |   7------+---6
+        |   |  +-- |-- | -> u
+        0---+---\--1   |
+         \  |    \  \  |
+          \ |     \  \ |
+           \|      w  \|
+            4----------5
+
+        20 node volume:
+               v
+        3----13----2
+        |\     ^   |\
+        | 15   |   | 14
+        9  \   |   11 \
+        |   7----19+---6
+        |   |  +-- |-- | -> u
+        0---+-8-\--1   |
+         \  17   \  \  18
+         10 |     \  12|
+           \|      w  \|
+            4----16----5
+
+        4 node quad:
+              v
+              ^
+              |
+        3-----------2
+        |     |     |
+        |     |     |
+        |     +---- | --> u
+        |           |
+        |           |
+        0-----------1
+
+        8 node quad:
+              v
+              ^
+              |
+        3-----6-----2
+        |     |     |
+        |     |     |
+        7     +---- 5  --> u
+        |           |
+        |           |
+        0-----4-----1
         """
+
         # read the file
         with open(self.file_name, 'r') as f:
             data = f.readlines()
@@ -100,9 +156,9 @@ class ReadMesh:
 
         # add element type to self
         if all(x == 5 for x in element_type):
-            self.element_type = 'linear'
+            self.element_type = 'hexa8'
         elif all(x == 17 for x in element_type):
-            self.element_type = 'quad'
+            self.element_type = 'hexa20'
 
         # add variables to self
         self.nodes = nodes
