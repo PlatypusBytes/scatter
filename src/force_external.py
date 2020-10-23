@@ -1,4 +1,7 @@
 import sys
+import numpy as np
+from scipy.sparse import lil_matrix
+
 
 class Force:
     def __init__(self):
@@ -32,8 +35,6 @@ class Force:
         return
 
     def heaviside_load(self, nb_equations, eq_nb_dof, load_set, node, time_step, steps=5):
-        import numpy as np
-        from scipy.sparse import lil_matrix
 
         # time
         time = load_set["time"]

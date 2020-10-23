@@ -40,7 +40,7 @@ def calc_ana_sol(L, K, rho, p0, nb_ele, cycles=10, terms=100):
     # solid discretisation
     H_discre = np.linspace(0, L, nb_ele + 1)
     # time discretisation
-    time = np.linspace(0, (cycles * L / c), np.ceil(c / L)*10)
+    time = np.linspace(0, (cycles * L / c), int(np.ceil(c / L) * 10))
 
     # variable initialisation: u = displacement; p = pressure
     u = np.zeros((H_discre.shape[0], time.shape[0]))

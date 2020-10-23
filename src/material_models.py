@@ -1,10 +1,18 @@
-def stiffness_elasticity(E, poisson):
-    """
-    Stifness matrix for isotropic elastic material
+import numpy as np
+
+
+def stiffness_elasticity(E: float, poisson: float) -> np.ndarray:
+    r"""
+    Stiffness matrix for isotropic elastic material
 
     $\stress = \frac{1}{E} \times D \times \vareplison$
+
+    Parameters
+    ----------
+    :param E: Young modulus
+    :param poisson: Poisson ratio
+    :return: Stiffness matrix
     """
-    import numpy as np
 
     D = np.zeros((6, 6))
 

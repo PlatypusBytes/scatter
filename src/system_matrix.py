@@ -1,66 +1,69 @@
-class GenerateMatrix:
-    def __init__(self, nb_equations, order):
-        # import packages
-        import numpy as np
-        from scipy.sparse import lil_matrix
+import numpy as np
+from scipy.sparse import lil_matrix
 
+# import scatter packages
+from src import shape_functions
+from src import material_models
+
+
+class GenerateMatrix:
+    r"""
+    Define and assembles global matrices for the system of equations.
+    It uses sparse matrices.
+    """
+    def __init__(self, nb_equations: int, order: int) -> None:
+        """
+        Initialise global matrices
+
+        Parameters
+        ----------
+        :param nb_equations: number of equations in the system
+        :param order: order of Gaussian numerical integration
+        """
         # generation of variable
         self.M = lil_matrix((nb_equations, nb_equations))
         self.C = lil_matrix((nb_equations, nb_equations))
         self.K = lil_matrix((nb_equations, nb_equations))
+        self.absorbing_bc = lil_matrix((nb_equations, nb_equations))
 
         # order of the Gauss integration
         self.order = order
 
         return
     
-    def stiffness(self, data, material):
+    def stiffness(self, data: classmethod, material: dict) -> None:
         r"""
         Global stiffness matrix generation.
 
         Generates and assembles the global stiffness matrix for the structure.
 
-        :param data: data.
-        :type data: class.
-        :param material: list of materials.
-        :type data: dict.
-
-        :return K: Global stiffness matrix.
+        Parameters
+        ----------
+        :param data: mesh and geometry data class
+        :param material: material dictionary
         """
-    
-        # import packages
-        import shape_functions
-        import material_models
-        import numpy as np
 
         # compute material matrix for isotropic elasticity
         for idx, elem in enumerate(data.elem):
 
-            # element type
-            elem_type = elem[1]
-
             # call shape functions
-            shape_fct = shape_functions.ShapeFunction(elem_type, self.order)
+            shape_fct = shape_functions.ShapeFunctionVolume(data.element_type, self.order)
 
             # material index
-            mat_idx = elem[3]
-
-            # find material index
-            for i in data.materials:
-                if i[1] == mat_idx:
-                    key = i[2]
-                    break
+            mat_idx = data.materials_index[idx]
+            # find material name
+            name_material = [i[2] for i in data.materials if i[1] == mat_idx][0]
 
             # solid elastic properties
-            E = material[key][1]
-            v = material[key][2]
+            E = material[name_material]["Young"]
+            v = material[name_material]["poisson"]
 
             # element stiffness matrix
             D = material_models.stiffness_elasticity(E, v)
 
             # coordinates for all the nodes in one element
             xyz = []
-            for node in elem[5:]:
+            for node in elem:
                 # get global coordinates of the node
                 xyz.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
 
@@ -74,7 +77,7 @@ class GenerateMatrix:
             Ke = shape_fct.compute_stiffness(D)
 
             # assemble Stiffness matrix
-            # equation number where the mass matrix exists
+            # equation number where the stiff matrix exists
             i1 = data.eq_nb_elem[idx][~np.isnan(data.eq_nb_elem[idx])]
             # index where mass matrix exists
             i2 = np.where(~np.isnan(data.eq_nb_elem[idx]))[0]
@@ -84,48 +87,33 @@ class GenerateMatrix:
 
         return
 
-    def mass(self, data, material):
+    def mass(self, data: classmethod, material: dict) -> None:
         r"""
         Global mass matrix generation.
 
         Generates and assembles the global mass matrix for the structure.
 
-        :param data: data.
-        :type data: class.
-        :param material: list of materials.
-        :type data: dict.
-
-        :return M: Global mass matrix.
+        :param data:  mesh and geometry data class
+        :param material: material dictionary
         """
-
-        # import packages
-        import shape_functions
-        import numpy as np
 
         # compute material matrix for isotropic elasticity
         for idx, elem in enumerate(data.elem):
 
-            # element type
-            elem_type = elem[1]
-
             # call shape functions
-            shape_fct = shape_functions.ShapeFunction(elem_type, self.order)
+            shape_fct = shape_functions.ShapeFunctionVolume(data.element_type, self.order)
 
             # material index
-            mat_idx = elem[3]
-
-            # find material index
-            for i in data.materials:
-                if i[1] == mat_idx:
-                    key = i[2]
-                    break
+            mat_idx = data.materials_index[idx]
+            # find material name
+            name_material = [i[2] for i in data.materials if i[1] == mat_idx][0]
 
             # solid elastic properties
-            rho = material[key][0]
+            rho = material[name_material]["density"]
 
             # coordinates for all the nodes in one element
             xyz = []
-            for node in elem[5:]:
+            for node in elem:
                 # get global coordinates of the node
                 xyz.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
 
@@ -153,18 +141,17 @@ class GenerateMatrix:
 
     def damping_Rayleigh(self, damp):
         r"""
-        Rayleigh damping generation.
+        Global Rayleigh damping matrix
 
         Generates and assembles the Rayleigh damping matrix for the structure.
 
-        :param data: data.
-        :type data: class.
+        :param damp: settings for damping.
+        :type damp: dict.
 
-        :return C: Global stiffness matrix.
+        :return C: Global damping matrix.
         """
 
-        # import packages
-        import numpy as np
+        # damping and frequencies
         f1 = damp[0]
         d1 = damp[1]
         f2 = damp[2]
@@ -182,6 +169,6 @@ class GenerateMatrix:
         # solution
         coefs = np.linalg.solve(damp_mat, damp_qsi)
 
-        self.C = self.M.tocsr().dot(coefs[0]) + self.K.tocsr().dot(coefs[1])
+        self.C = (self.M.tocsr().dot(coefs[0]) + self.K.tocsr().dot(coefs[1])).tolil()
         
         return

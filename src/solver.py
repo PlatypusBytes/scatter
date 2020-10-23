@@ -1,3 +1,10 @@
+import pickle
+import os
+import numpy as np
+from scipy.sparse.linalg import inv, spsolve
+from tqdm import tqdm
+
+
 def const(beta, gamma, h):
     r"""
     Constants for the Newmark-Beta solver.
@@ -54,7 +61,6 @@ def init(m_global, c_global, k_global, force_ini, u, v):
     :raises ValueError:
     :raises TypeError:
     """
-    from scipy.sparse.linalg import inv
 
     k_part = k_global.dot(u)
     c_part = c_global.dot(v)
@@ -66,7 +72,6 @@ def init(m_global, c_global, k_global, force_ini, u, v):
 
 class Solver:
     def __init__(self, number_equations):
-        import numpy as np
 
         self.u0 = np.zeros(number_equations)
         self.v0 = np.zeros(number_equations)
@@ -79,28 +84,23 @@ class Solver:
 
         return
 
-    def newmark(self, settings, M, C, K, F, t_step, t_total):
-        import numpy as np
-        from scipy.sparse.linalg import spsolve
-
+    def newmark(self, settings, M, C, K, F, absorbing, t_step, t_total):
         # constants for the Newmark
         a1, a2, a3, a4, a5, a6 = const(settings["beta"], settings["gamma"], t_step)
 
         # initial conditions
         u = self.u0
         v = self.v0
-        a = self.a0
         F_ini = np.array([float(i) for i in F.getcol(0).todense()])
 
         # initial conditions
-        # a = init(M, C, K, F_ini, u, v)
+        a = init(M, C, K, F_ini, u, v)
 
         K_till = K + C.dot(a4) + M.dot(a1)
 
         self.time = np.linspace(0, t_total, int(np.ceil(t_total / t_step)))
 
         # define progress bar
-        from tqdm import tqdm
         pbar = tqdm(total=len(self.time), unit_scale=True, unit_divisor=1000, unit="steps")
 
         for t in range(len(self.time)):
@@ -114,7 +114,7 @@ class Solver:
 
             # external force
             force = np.array([float(i) for i in F.getcol(t).todense()])
-            force_ext = force + m_part + c_part
+            force_ext = force + m_part + c_part - np.transpose(absorbing.tocsr()) * v
             # solve
             uu = spsolve(K_till, force_ext)
 
@@ -142,8 +142,6 @@ class Solver:
         return
 
     def static(self, settings, K, F, t_step, t_total):
-        import numpy as np
-        from scipy.sparse.linalg import spsolve
 
         # initial conditions
         u = self.u0
@@ -163,8 +161,6 @@ class Solver:
         return
 
     def save_data(self):
-        import os
-        import pickle
 
         # construct dic structure
         data = {"displacement": self.u,

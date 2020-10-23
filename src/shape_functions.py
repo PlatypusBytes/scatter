@@ -1,33 +1,34 @@
-class ShapeFunction:
-    def __init__(self, elem_type, order):
+import numpy as np
+import sys
 
-        if elem_type == 5:
-            self.type = 'linear'
-        elif elem_type == 17:
-            self.type = 'quad'
 
+class ShapeFunctionVolume:
+    def __init__(self, elem_type: str = "linear", order: int = 1) -> None:
+        """
+        Shape function and numerical integration functions for volume elements.
+        Supported 8 and 20 node elements
+
+        Parameters
+        ----------
+        :param elem_type: element type (optional: default "linear")
+        :param order: order of Gaussian integration  (optional: default 1)
+        """
+        # element type
+        self.type = elem_type
         # order Gauss integration
         self.n = order
-        # shape functions
-        self.N = []
-        # derivative of the shape functions
-        self.dN = []
-        # weight of the Gauss integration
-        self.W = []
-        # determinant Jacobian
-        self.d_jacob = []
-        # derivative shape function in global coordinates
-        self.DNX = []
-        # strain displacement matrix
-        self.B = []
-        # displacement interpolation matrix
-        self.H = []
+        self.N = []  # shape functions
+        self.dN = []  # derivative of the shape functions
+        self.W = []  # weight of the Gauss integration
+        self.d_jacob = []  # determinant of Jacobian
+        self.dN_global = []  # derivative shape function in global coordinates
+        self.B_matrix = []  # strain displacement matrix
+        self.H_matrix = []  # displacement interpolation matrix
 
         return
 
     def generate(self):
         """" generate shape functions for solid """
-        import numpy as np
 
         # natural coordinates Gauss integration points
         coords, weights = Gauss_weights(self.n)
@@ -52,19 +53,17 @@ class ShapeFunction:
         return
 
     def jacob(self, xyz):
-        import numpy as np
 
         for deriv in self.dN:
             jcb = np.transpose(deriv).dot(xyz)
             self.d_jacob.append(np.linalg.det(jcb))
-            self.DNX.append(np.dot(deriv, np.linalg.inv(np.transpose(jcb))))
+            self.dN_global.append(np.dot(deriv, np.linalg.inv(np.transpose(jcb))))
 
         return
 
     def matrix_B(self):
-        import numpy as np
 
-        for dnx in self.DNX:
+        for dnx in self.dN_global:
             B = np.zeros((6, dnx.shape[0] * dnx.shape[1]))
 
             for i in range(int(dnx.shape[0])):
@@ -79,15 +78,14 @@ class ShapeFunction:
                 B[5, N + 0] = dnx[i, 2]  # 2 * E_xz
                 B[5, N + 2] = dnx[i, 0]
 
-            self.B.append(B)
+            self.B_matrix.append(B)
 
         return
 
     def int_H(self):
-        import numpy as np
 
         for nx in self.N:
-            H = np.zeros((self.DNX[0][0].shape[0], nx.shape[0] * self.DNX[0][0].shape[0]))
+            H = np.zeros((self.dN_global[0][0].shape[0], nx.shape[0] * self.dN_global[0][0].shape[0]))
 
             for i in range(int(nx.shape[0])):
                 N = i * 3
@@ -95,25 +93,23 @@ class ShapeFunction:
                 H[1, N + 1] = nx[i]
                 H[2, N + 2] = nx[i]
 
-            self.H.append(H)
+            self.H_matrix.append(H)
 
         return
 
     def compute_stiffness(self, D):
-        import numpy as np
 
-        Ke = np.zeros((self.B[0].shape[1], self.B[0].shape[1]))
-        for i, b in enumerate(self.B):
+        Ke = np.zeros((self.B_matrix[0].shape[1], self.B_matrix[0].shape[1]))
+        for i, b in enumerate(self.B_matrix):
             Ke += np.dot(np.dot(np.transpose(b), D), b) * self.d_jacob[i] * self.W[i]
 
         return Ke
 
     def compute_mass(self, rho):
-        import numpy as np
 
-        Me = np.zeros((self.H[0].shape[1], self.H[0].shape[1]))
-        for i, H in enumerate(self.H):
-            Me += rho * np.dot(np.transpose(H), H) * self.d_jacob[i] * self.W[i]
+        Me = np.zeros((self.H_matrix[0].shape[1], self.H_matrix[0].shape[1]))
+        for i, H in enumerate(self.H_matrix):
+            Me += np.dot(np.dot(np.transpose(H), rho), H) * self.d_jacob[i] * self.W[i]
 
         return Me
 
@@ -123,8 +119,6 @@ def Gauss_weights(n):
 
         points & weights
     """
-    import numpy as np
-    import sys
 
     if n == 1:
         x = [0.]
@@ -142,8 +136,7 @@ def Gauss_weights(n):
 
 
 def shape8(xyz):
-    """shape functions 8 node element"""
-    import numpy as np
+    """shape functions Volume 8 node element"""
 
     N = np.zeros((8, 1))
     dN = np.zeros((8, 3))
@@ -196,8 +189,7 @@ def shape8(xyz):
 
 
 def shape20(xyz):
-    """shape functions 20 node element"""
-    import numpy as np
+    """shape functions Volume 20 node element"""
 
     # ToDo: check shape functions and derivaties for shape20
     N = np.zeros((20, 1))

@@ -1,6 +1,6 @@
 import sys
 sys.path.append("../../src")
-import scatter
+from src import scatter
 
 # computational settings
 sett = {"gamma": 0.5,
@@ -20,8 +20,13 @@ BC = {"bottom": ["010", [[0, 0, 0], [x, 0, 0], [0, 0, z], [x, 0, z]]],
       }
 
 # material dictionary: rho, E, v
-mat = {"solid": [1500, 30e6, 0.2],
-       "bottom": [1800, 20e4, 0.15]}
+mat = {"solid": {"density": 1500,
+                 "Young": 30e6,
+                 "poisson": 0.2},
+       "bottom": {"density": 1200,
+                  "Young": 300e6,
+                  "poisson": 0.25}}
+
 load = {"force": [0, -1000, 0],
         "node": [3, 4, 7, 8],
         "time": 1,

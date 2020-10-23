@@ -1,9 +1,22 @@
+# import packages
+import os
+import sys
+import pickle
+import numpy as np
+# import scatter packages
+from src import utils
+
+
 class ReadMesh:
+    def __init__(self, file_name: str, output_folder: str) -> None:
+        """
+        Reads the mesh and creates the mesh geometry structure.
 
-    def __init__(self, file_name, output_folder):
-        import os
-        import sys
-
+        Parameters
+        ----------
+        :param file_name: filename of gmsh file
+        :param output_folder: location to save output results
+        """
         # check if file name exists
         if os.path.isfile(file_name):
             self.file_name = file_name
@@ -20,10 +33,14 @@ class ReadMesh:
         self.elem = []  # element list
         self.nb_nodes_elem = []  # number of nodes
         self.materials = []  # materials
-        self.BC = []  # BC list
+        self.BC = []  # Boundary conditions for each node
         self.number_eq = []  # number of equations
-        self.eq_nb_dof = []  # list containing equation number for the dof's per node
+        self.type_BC = []  # type of BC for each dof in node list
+        self.eq_nb_dof = []  # number of equation for each dof in node list
         self.eq_nb_elem = []  # list containing equation number for the dof's per element
+        self.type_BC_elem = []  # list containing type of BC for the dof's per element
+        self.element_type = []  # element type
+        self.materials_index = []  # list containing material index for each element
         self.dimension = 3  # Dimension of the problem
 
         # check if output folder exists. if not creates
@@ -34,38 +51,32 @@ class ReadMesh:
 
         return
         
-    def read_gmsh(self):
-        """" read gmsh mesh
+    def read_gmsh(self) -> None:
+        r"""
+        Read gmsh mesh
 
-             The file is organised as:
+        The file is organised as:
+            $MeshFormat
+            version-number file-type data-size
+            $EndMeshFormat
+            $PhysicalNames
+            number-of-names
+            physical-dimension physical-number "physical-name"
+            …
+            $EndPhysicalNames
+            $Nodes
+            number-of-nodes
+            node-number x-coord y-coord z-coord
+            …
+            $EndNodes
+            $Elements
+            number-of-elements
+            elm-number elm-type number-of-tags < tag > … node-number-list
+            …
+            $EndElements
 
-                $MeshFormat
-                version-number file-type data-size
-                $EndMeshFormat
-                $PhysicalNames
-                number-of-names
-                physical-dimension physical-number "physical-name"
-                …
-                $EndPhysicalNames
-                $Nodes
-                number-of-nodes
-                node-number x-coord y-coord z-coord
-                …
-                $EndNodes
-                $Elements
-                number-of-elements
-                elm-number elm-type number-of-tags < tag > … node-number-list
-                …
-                $EndElements
-
-             The element type that are accepted are 5 (8 node brick element) and 17 (20 node brick element)
-             """
-
-        # import packages
-        import numpy as np
-        import sys
-        import utils
-
+        The element type that are accepted are 5 (8 node brick element) and 17 (20 node brick element)
+        """
         # read the file
         with open(self.file_name, 'r') as f:
             data = f.readlines()
@@ -87,23 +98,30 @@ class ReadMesh:
         if not all(x in [5, 17] for x in element_type):
             sys.exit("ERROR: Element type not supported")
 
+        # add element type to self
+        if all(x == 5 for x in element_type):
+            self.element_type = 'linear'
+        elif all(x == 17 for x in element_type):
+            self.element_type = 'quad'
+
         # add variables to self
         self.nodes = nodes
-        self.elem = elem
+        self.elem = elem[:, 5:]
+        self.materials_index = elem[:, 3]
         self.materials = names
-        self.nb_nodes_elem = len(elem[0][5:])
+        self.nb_nodes_elem = len(self.elem[0])
 
         return
 
-    def read_bc(self, bc):
-        """ determines boundary conditions for all nodes
+    def read_bc(self, bc: dict) -> None:
+        r"""
+        Determines boundary conditions for all nodes.
+        Assumes that the three coordinates are non-collinear.
 
-             Assumes that the three coordinates are non-collinear.
+        Parameters
+        ----------
+        :param bc: Dictionary with boundary conditions
         """
-
-        # import packages
-        import numpy as np
-        import utils
 
         # variables generation
         self.BC = np.zeros((len(self.nodes), self.dimension), dtype=int)
@@ -127,15 +145,14 @@ class ReadMesh:
                     self.BC[idx, j] += int(val)
         return
 
-    def mapping(self):
+    def mapping(self) -> None:
         r"""
-        define equation numbers for each dof in each node
-
+        Define equation numbers and type of boundary condition for each *dof* in the node list
         """
-        import numpy as np
 
         # initialise variables
         self.eq_nb_dof = np.zeros((len(self.nodes), self.dimension))
+        self.type_BC = np.full((len(self.nodes), self.dimension), "Normal")
 
         # equation number:
         equation_nb = 0
@@ -144,37 +161,44 @@ class ReadMesh:
         for i in range(len(self.BC)):
             # loop in all the dof of a node
             for j in range(len(self.BC[i])):
-                # if BC = 0: it is an equation
+                # if BC = 0: there is no BC
                 if self.BC[i][j] == 0:
                     self.eq_nb_dof[i, j] = equation_nb
+                    self.type_BC[i, j] = "Normal"
                     equation_nb += int(1)
-                # else it is a boundary
-                else:
+                # if it is a fixed boundary
+                elif self.BC[i][j] == 1:
                     self.eq_nb_dof[i, j] = np.nan
+                    self.type_BC[i, j] = "Fixed"
+                # if it is an absorbing boundary
+                elif self.BC[i][j] == 2:
+                    self.eq_nb_dof[i, j] = equation_nb
+                    self.type_BC[i, j] = "Absorb"
+                    equation_nb += int(1)
+                else:
+                    sys.exit("Error in the boundary condition definition. \n"
+                             f"{self.BC[i][j]} is not a valid boundary condition.")
 
         self.number_eq = equation_nb
         return
 
-    def connectivities(self):
+    def connectivities(self) -> None:
         r"""
-        define equation numbers for each dof in each element
-
+        Define equation numbers and type of boundary condition for each *dof* in the element list
         """
-        import numpy as np
 
         # initialise variables
-        self.eq_nb_elem = np.zeros((len(self.elem), self.nb_nodes_elem * self.dimension))
+        self.eq_nb_elem = np.zeros((self.elem.shape[0], self.nb_nodes_elem * self.dimension))
+        self.type_BC_elem = np.full((self.elem.shape[0], self.nb_nodes_elem * self.dimension), "Normal")
 
         # loop element
-        for i in range(len(self.elem)):
-            self.eq_nb_elem[i, :] = self.eq_nb_dof[self.elem[i][5:] - 1].flatten()
+        for i in range(self.elem.shape[0]):
+            idx_nodes = [np.where(self.nodes[:, 0]==j)[0][0] for j in self.elem[i]]
+            self.eq_nb_elem[i, :] = self.eq_nb_dof[idx_nodes].flatten()
+            self.type_BC_elem[i, :] = self.type_BC[idx_nodes].flatten()
         return
 
     def remap_results(self, time, dis, vel, acc):
-        import os
-        import numpy as np
-        import pickle
-
         # dict with results
         data = {}
         data.update({"time": time,
