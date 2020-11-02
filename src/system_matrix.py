@@ -11,6 +11,7 @@ class GenerateMatrix:
     Define and assembles global matrices for the system of equations.
     It uses sparse matrices.
     """
+
     def __init__(self, nb_equations: int, order: int) -> None:
         """
         Initialise global matrices
@@ -67,12 +68,9 @@ class GenerateMatrix:
                 # get global coordinates of the node
                 xyz.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
 
-            # call shape function
-            shape_fct.generate()
-            # Jacobian
-            shape_fct.jacob(xyz)
-            # matrix B strain-displacement
-            shape_fct.matrix_B()
+            # generate shape functions B and H matrix
+            shape_fct.generate(xyz)
+
             # compute stiffness
             Ke = shape_fct.compute_stiffness(D)
 
@@ -93,6 +91,8 @@ class GenerateMatrix:
 
         Generates and assembles the global mass matrix for the structure.
 
+        Parameters
+        ----------
         :param data:  mesh and geometry data class
         :param material: material dictionary
         """
@@ -117,13 +117,8 @@ class GenerateMatrix:
                 # get global coordinates of the node
                 xyz.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
 
-            # call shape function
-            shape_fct.generate()
-            # Jacobian
-            shape_fct.jacob(xyz)
-
-            # displacement interpolation matrix
-            shape_fct.int_H()
+            # generate shape functions B and H matrix
+            shape_fct.generate(xyz)
 
             # compute mass
             Me = shape_fct.compute_mass(rho)
@@ -145,6 +140,8 @@ class GenerateMatrix:
 
         Generates and assembles the Rayleigh damping matrix for the structure.
 
+        Parameters
+        ----------
         :param damp: settings for damping.
         :type damp: dict.
 
@@ -171,4 +168,88 @@ class GenerateMatrix:
 
         self.C = (self.M.tocsr().dot(coefs[0]) + self.K.tocsr().dot(coefs[1])).tolil()
         
+        return
+
+    def absorbing_boundaries(self, data: classmethod, material: dict, parameters: list) -> None:
+        """
+        Compute absorbing boundary force
+
+        Parameters
+        ----------
+        :param data:  mesh and geometry data class
+        :param material: material dictionary
+        :param parameters: absorbing boundary parameters
+        :return:
+        """
+
+        # compute material matrix for isotropic elasticity
+        for idx, elem in enumerate(data.elem):
+
+            # call shape functions
+            shape_fct = shape_functions.ShapeFunctionVolume(data.element_type, self.order)
+
+            # material index
+            mat_idx = data.materials_index[idx]
+            # find material name
+            name_material = [i[2] for i in data.materials if i[1] == mat_idx][0]
+
+            # solid elastic properties
+            rho = material[name_material]["density"]
+            E = material[name_material]["Young"]
+            v = material[name_material]["poisson"]
+
+            # computation of velocities
+            Ec = E / (3 * (1 - 2 * v))
+            G = E / (2 * (1 + v))
+            vp = np.sqrt(Ec / rho)
+            vs = np.sqrt(G / rho)
+
+            # coordinates for all the nodes in one element
+            xyz = []
+            for node in elem:
+                # get global coordinates of the node
+                xyz.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
+
+            # generate shape functions B and H matrix
+            shape_fct.generate(xyz)
+
+            # compute mass
+            Me = shape_fct.compute_mass(1)
+
+            # assemble Mass matrix
+            # equation number where the mass matrix exists
+            i1 = data.eq_nb_elem[idx][(~np.isnan(data.eq_nb_elem[idx])) & (data.type_BC_elem[idx] == "Absorb")]
+            # index where mass matrix exists
+            i2 = np.where((~np.isnan(data.eq_nb_elem[idx])) & (data.type_BC_elem[idx] == "Absorb"))[0]
+
+            # find common axis in nodes of the element
+            xyz_ = []
+            id_dof = []
+            for node in elem:
+                # get global coordinates of the node
+                idx_node = np.where(data.nodes[:, 0] == node)[0][0]
+                if "Absorb" in data.type_BC[idx_node]:
+                    # index where absorb is
+                    id_dof.append([node, data.type_BC[idx_node]])
+                    xyz_.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
+
+            if len(xyz_) == 0:
+                continue
+
+            xyz_ = np.array(xyz_)
+            # index that it is common: direction of the compression
+            idx_xy = np.where((xyz_ == xyz_[0, :]).all(0))[0][0]
+
+            fct = np.ones(len(i2)) * parameters[1] * rho * vs
+
+            for i, val in enumerate(i1):
+                # find column where it is
+                idx = np.where(data.eq_nb_dof == val)[1][0]
+                # if the column is the same as the common plane: apply vp
+                if idx == idx_xy:
+                    fct[i] = parameters[0] * rho * vp
+
+            # assign to the global mass matrix
+            self.absorbing_bc[i1.reshape(len(i1), 1), i1] += np.dot(Me[i2.reshape(len(i2), 1), i2], fct)
+
         return

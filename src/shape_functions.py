@@ -22,13 +22,17 @@ class ShapeFunctionVolume:
         self.d_jacob = []  # determinant of Jacobian
         self.dN_global = []  # derivative shape function in global coordinates
         self.B_matrix = []  # strain displacement matrix
-        self.H_matrix = []  # displacement interpolation matrix
+        self.N_matrix = []  # displacement interpolation matrix
 
         return
 
-    def generate(self) -> None:
+    def generate(self, coordinates: list) -> None:
         r"""
-        Generate shape functions for solid
+        Generate shape functions, Jacobian, *B* and *N* matrix for solid element
+
+        Parameters
+        ----------
+        :param coordinates: list of coordinates of nodes in one element
         """
 
         # natural coordinates and integration weights: Gauss integration
@@ -51,9 +55,23 @@ class ShapeFunctionVolume:
                     self.dN.append(dN)
                     self.W.append(Wt)
 
+        # compute jacobian
+        self.jacob(coordinates)
+        # compute B matrix
+        self.matrix_B()
+        # compute N matrix
+        self.matrix_N()
+
         return
 
-    def jacob(self, xyz):
+    def jacob(self, xyz: list) -> None:
+        """
+        Computes the Jacobian and the derivative of the Jacobian
+
+        Parameters
+        ----------
+        :param xyz: list of coordinates of nodes in one element
+        """
 
         for deriv in self.dN:
             jcb = np.transpose(deriv).dot(xyz)
@@ -62,88 +80,113 @@ class ShapeFunctionVolume:
 
         return
 
-    def matrix_B(self):
+    def matrix_B(self) -> None:
+        """
+        Computes B matrix (strain-displacement matrix): the derivative of the shape functions
+        """
 
         for dnx in self.dN_global:
             B = np.zeros((6, dnx.shape[0] * dnx.shape[1]))
 
             for i in range(int(dnx.shape[0])):
-                N = i * 3
-                B[0, N + 0] = dnx[i, 0]  # E_xx
-                B[1, N + 1] = dnx[i, 1]  # E_yy
-                B[2, N + 2] = dnx[i, 2]  # E_zz
-                B[3, N + 0] = dnx[i, 1]  # 2 * E_xy
-                B[3, N + 1] = dnx[i, 0]
-                B[4, N + 1] = dnx[i, 2]  # 2 * E_yz
-                B[4, N + 2] = dnx[i, 1]
-                B[5, N + 0] = dnx[i, 2]  # 2 * E_xz
-                B[5, N + 2] = dnx[i, 0]
+                idx = i * 3
+                B[0, idx + 0] = dnx[i, 0]
+                B[1, idx + 1] = dnx[i, 1]
+                B[2, idx + 2] = dnx[i, 2]
+                B[3, idx + 0] = dnx[i, 1]
+                B[3, idx + 1] = dnx[i, 0]
+                B[4, idx + 1] = dnx[i, 2]
+                B[4, idx + 2] = dnx[i, 1]
+                B[5, idx + 0] = dnx[i, 2]
+                B[5, idx + 2] = dnx[i, 0]
 
             self.B_matrix.append(B)
 
         return
 
-    def int_H(self):
+    def matrix_N(self):
+        """
+        Computes N matrix: matrix with the shape functions
+        """
 
         for nx in self.N:
-            H = np.zeros((self.dN_global[0][0].shape[0], nx.shape[0] * self.dN_global[0][0].shape[0]))
+            N = np.zeros((self.dN_global[0][0].shape[0], nx.shape[0] * self.dN_global[0][0].shape[0]))
 
             for i in range(int(nx.shape[0])):
-                N = i * 3
-                H[0, N] = nx[i]
-                H[1, N + 1] = nx[i]
-                H[2, N + 2] = nx[i]
+                idx = i * 3
+                N[0, idx] = nx[i]
+                N[1, idx + 1] = nx[i]
+                N[2, idx + 2] = nx[i]
 
-            self.H_matrix.append(H)
+            self.N_matrix.append(N)
 
         return
 
-    def compute_stiffness(self, D):
+    def compute_stiffness(self, D: np.ndarray) -> np.ndarray:
+        """
+        Compute the stiffness matrix over one element
 
+        Parameters
+        ----------
+        :param D: Material matrix
+        :return: Stiffness matrix
+        """
         Ke = np.zeros((self.B_matrix[0].shape[1], self.B_matrix[0].shape[1]))
         for i, b in enumerate(self.B_matrix):
             Ke += np.dot(np.dot(np.transpose(b), D), b) * self.d_jacob[i] * self.W[i]
 
         return Ke
 
-    def compute_mass(self, rho):
+    def compute_mass(self, rho: float) -> np.ndarray:
+        """
+        Compute the mass matrix over one element
 
-        Me = np.zeros((self.H_matrix[0].shape[1], self.H_matrix[0].shape[1]))
-        for i, H in enumerate(self.H_matrix):
-            Me += np.dot(np.dot(np.transpose(H), rho), H) * self.d_jacob[i] * self.W[i]
+        Parameters
+        ----------
+        :param rho: Material density
+        :return: Mass matrix
+        """
+        Me = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
+        for i, N in enumerate(self.N_matrix):
+            Me += np.dot(np.dot(np.transpose(N), rho), N) * self.d_jacob[i] * self.W[i]
 
         return Me
 
 
 class ShapeFunctionSurface:
-    def __init__(self, elem_type, order):
+    def __init__(self, elem_type: str = "quad4", order: int = 2) -> None:
+        """
+        Shape function and numerical integration functions for surface elements.
+        Supported 4 and 8 node quad elements.
 
-        if elem_type == "boundary":
-            self.type = "boundary"
-
-        # order Gauss integration
-        self.n = order
-        # shape functions
-        self.N = []
-        # derivative of the shape functions
-        self.dN = []
-        # weight of the Gauss integration
-        self.W = []
-        # determinant Jacobian
-        self.d_jacob = []
-        # derivative shape function in global coordinates
-        self.DNX = []
-        # strain displacement matrix
-        self.B = []
-        # displacement interpolation matrix
-        self.H = []
+        Parameters
+        ----------
+        :param elem_type: element type (optional: default "linear")
+        :param order: order of Gaussian integration  (optional: default 2)
+        """
+        # element type
+        self.type = elem_type
+        self.n = order  # number of Gauss points
+        self.N = []  # shape functions
+        self.dN = []  # derivative of the shape functions
+        self.W = []  # weight of the Gauss integration
+        self.d_jacob = []  # determinant of Jacobian
+        self.dN_global = []  # derivative shape function in global coordinates
+        self.B_matrix = []  # strain displacement matrix
+        self.N_matrix = []  # displacement interpolation matrix
 
         return
 
-    def generate(self):
-        """" generate shape functions for plane elements """
+    def generate(self, coordinates):
+        r"""
+        Generate shape functions, Jacobian, *B* and *N* matrix for plane element
 
-        # natural coordinates Gauss integration points
+        Parameters
+        ----------
+        :param coordinates: list of coordinates of nodes in one element
+        """
+
+        # natural coordinates and integration weights: Gauss integration
         coords, weights = Gauss_weights(self.n)
 
         for i1 in range(self.n):
@@ -151,84 +194,121 @@ class ShapeFunctionSurface:
                 X = [coords[i1], coords[i2]]
                 Wt = np.prod([weights[i1], weights[i2]])
 
-                N, dN = shape4(X)
+                # call shape functions depending on the type of element
+                if self.type == 'quad4':
+                    N, dN = shape_quad4(X)
+                elif self.type == 'quad8':
+                    N, dN = shape_quad8(X)
+
                 # add to self
                 self.N.append(N)
                 self.dN.append(dN)
                 self.W.append(Wt)
 
+        # compute jacobian
+        self.jacob(coordinates)
+        # compute B matrix
+        self.matrix_B()
+        # compute N matrix
+        self.matrix_N()
+
         return
 
-    def jacob(self, xyz):
+    def jacob(self, xy):
+        """
+        Computes the Jacobian and the derivative of the Jacobian
+
+        Parameters
+        ----------
+        :param xy: list of coordinates of nodes in one element
+        """
 
         for deriv in self.dN:
-            jcb = np.transpose(deriv).dot(xyz)
+            jcb = np.transpose(deriv).dot(xy)
             self.d_jacob.append(np.linalg.det(jcb))
-            self.DNX.append(np.dot(deriv, np.linalg.inv(np.transpose(jcb))))
+            self.dN_global.append(np.dot(deriv, np.linalg.inv(np.transpose(jcb))))
 
         return
 
     def matrix_B(self):
+        """
+        Computes B matrix (strain-displacement matrix): the derivative of the shape functions
+        """
 
-        for dnx in self.DNX:
-            B = np.zeros((6, dnx.shape[0] * dnx.shape[1]))
+        for dn in self.dN_global:
+            B = np.zeros((3, dn.shape[0] * dn.shape[1]))
 
-            for i in range(int(dnx.shape[0])):
-                N = i * 3
-                B[0, N + 0] = dnx[i, 0]  # E_xx
-                B[1, N + 1] = dnx[i, 1]  # E_yy
-                B[2, N + 2] = dnx[i, 2]  # E_zz
-                B[3, N + 0] = dnx[i, 1]  # 2 * E_xy
-                B[3, N + 1] = dnx[i, 0]
-                B[4, N + 1] = dnx[i, 2]  # 2 * E_yz
-                B[4, N + 2] = dnx[i, 1]
-                B[5, N + 0] = dnx[i, 2]  # 2 * E_xz
-                B[5, N + 2] = dnx[i, 0]
+            for i in range(int(dn.shape[0])):
+                idx = i * 2
+                B[0, idx + 0] = dn[i, 0]
+                B[1, idx + 1] = dn[i, 1]
+                B[2, idx + 0] = dn[i, 1]
+                B[2, idx + 1] = dn[i, 0]
 
-            self.B.append(B)
+            self.B_matrix.append(B)
 
         return
 
-    def int_H(self):
+    def matrix_N(self):
+        """
+        Computes N matrix: matrix with the shape functions
+        """
 
         for nx in self.N:
-            H = np.zeros((self.DNX[0][0].shape[0], nx.shape[0] * self.DNX[0][0].shape[0]))
+            N = np.zeros((self.dN_global[0][0].shape[0], nx.shape[0] * self.dN_global[0][0].shape[0]))
 
             for i in range(int(nx.shape[0])):
-                N = i * 2
-                H[0, N] = nx[i]
-                H[1, N + 1] = nx[i]
+                idx = i * 2
+                N[0, idx] = nx[i]
+                N[1, idx + 1] = nx[i]
 
-            self.H.append(H)
+            self.N_matrix.append(N)
 
         return
 
-    def compute_stiffness(self, D):
+    def compute_stiffness(self, D: np.ndarray) -> np.ndarray:
+        """
+        Compute the stiffness matrix over one element
 
-        Ke = np.zeros((self.B[0].shape[1], self.B[0].shape[1]))
-        for i, b in enumerate(self.B):
+        Parameters
+        ----------
+        :param D: Material matrix
+        :return: Stiffness matrix
+        """
+        Ke = np.zeros((self.B_matrix[0].shape[1], self.B_matrix[0].shape[1]))
+        for i, b in enumerate(self.B_matrix):
             Ke += np.dot(np.dot(np.transpose(b), D), b) * self.d_jacob[i] * self.W[i]
 
         return Ke
 
-    def compute_mass(self, rho):
+    def compute_mass(self, rho: float) -> np.ndarray:
+        """
+        Compute the mass matrix over one element
 
-        Me = np.zeros((self.H[0].shape[1], self.H[0].shape[1]))
-        for i, H in enumerate(self.H):
-            Me += np.dot(np.dot(np.transpose(H), rho), H) * self.d_jacob[i] * self.W[i]
+        Parameters
+        ----------
+        :param rho: Material density
+        :return: Mass matrix
+        """
+        Me = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
+        for i, N in enumerate(self.N_matrix):
+            Me += np.dot(np.dot(np.transpose(N), rho), N) * self.d_jacob[i] * self.W[i]
 
         return Me
 
-    def compute_abs_bound(self, a, rho, vp):
+    def compute_abs_bound(self) -> np.ndarray:
+        """
+        Compute the absorbing boundary unitary force matrix over one element.
+        Following Lysmer and Kuhlemyer.
 
-        f_abs = np.zeros((self.H[0].shape[1], self.H[0].shape[1]))
+        Parameters
+        ----------
+        :return: Force vector
+        """
 
-        # absorbing boundaries are applied at the surface. The integral is made over the surface and not over the volume
-        # therefore the shape functions, jacobian and weights are different
-
-        for i, H in enumerate(self.H):
-            # integration over the surface not over the area!!
-            f_abs += np.dot(np.dot(np.transpose(H), a * rho * vp), H) * self.d_jacob[i] * self.W[i]
+        f_abs = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
+        for i, N in enumerate(self.N_matrix):
+            f_abs += np.dot(np.dot(np.transpose(N), 1.), N) * self.d_jacob[i] * self.W[i]
 
         return f_abs
 
@@ -258,32 +338,110 @@ def Gauss_weights(n: int) -> [np.array, np.array]:
     return np.array(x), np.array(w)
 
 
-def shape4(xy):
-    """shape functions 4 node plane element"""
+def shape_quad4(xy):
+    r"""
+    Shape functions 4 node quadrilateral element.
+    Node numbering follow:
+          v
+          ^
+          |
+    3-----------2
+    |     |     |
+    |     |     |
+    |     +---- | --> u
+    |           |
+    |           |
+    0-----------1
+
+    Parameters
+    ----------
+    :param xy: list with node coordinate
+    :return: Shape function and derivative of shape functions
+    """
 
     N = np.zeros((4, 1))
     dN = np.zeros((4, 2))
 
-    x1 = xy[0]
-    x2 = xy[1]
+    u = xy[0]
+    v = xy[1]
 
     # shape functions
-    N[0] = 1. / 4. * (1 - x1) * (1 - x2)
-    N[1] = 1. / 4. * (1 + x1) * (1 - x2)
-    N[2] = 1. / 4. * (1 + x1) * (1 + x2)
-    N[3] = 1. / 4. * (1 - x1) * (1 + x2)
+    N[0] = 1. / 4. * (1 - u) * (1 - v)
+    N[1] = 1. / 4. * (1 + u) * (1 - v)
+    N[2] = 1. / 4. * (1 + u) * (1 + v)
+    N[3] = 1. / 4. * (1 - u) * (1 + v)
 
-    # derivative in x1
-    dN[0, 0] = -(1 - x2) / 4
-    dN[1, 0] = (1 - x2) / 4
-    dN[2, 0] = (x2 + 1) / 4
-    dN[3, 0] = -(x2 + 1) / 4
+    # derivative in u
+    dN[0, 0] = -(1 - v) / 4
+    dN[1, 0] = (1 - v) / 4
+    dN[2, 0] = (v + 1) / 4
+    dN[3, 0] = -(v + 1) / 4
 
-    # derivative in x2
-    dN[0, 1] = -(1 - x1) / 4
-    dN[1, 1] = -(x1 + 1) / 4
-    dN[2, 1] = (x1 + 1) / 4
-    dN[3, 1] = (1 - x1) / 4
+    # derivative in v
+    dN[0, 1] = -(1 - u) / 4
+    dN[1, 1] = -(u + 1) / 4
+    dN[2, 1] = (u + 1) / 4
+    dN[3, 1] = (1 - u) / 4
+
+    return N, dN
+
+
+def shape_quad8(xy):
+    r"""
+    Shape functions 8 node quadrilateral element.
+    Node numbering follow:
+          v
+          ^
+          |
+    3-----6-----2
+    |     |     |
+    |     |     |
+    7     +---- 5  --> u
+    |           |
+    |           |
+    0-----4-----1
+
+    Parameters
+    ----------
+    :param xy: list with node coordinate
+    :return: Shape function and derivative of shape functions
+    """
+
+    N = np.zeros((8, 1))
+    dN = np.zeros((8, 2))
+
+    u = xy[0]
+    v = xy[1]
+
+    # shape functions
+    N[0] = 1. / 4. * (1 - u) * (1 - v)
+    N[1] = 1. / 4. * (1 + u) * (1 - v)
+    N[2] = 1. / 4. * (1 + u) * (1 + v)
+    N[3] = 1. / 4. * (1 - u) * (1 + v)
+    N[4] = 1. / 2. * (1 - u ** 2) * (1 - v)
+    N[5] = 1. / 2. * (1 + u) * (1 - v ** 2)
+    N[6] = 1. / 2. * (1 - u ** 2) * (1 + v)
+    N[7] = 1. / 2. * (1 - u) * (1 - v ** 2)
+
+    # derivative in u
+    dN[0, 0] = -(1 - v) / 4
+    dN[1, 0] = (1 - v) / 4
+    dN[2, 0] = (v + 1) / 4
+    dN[3, 0] = -(v + 1) / 4
+    dN[4, 0] = -u * (1 - v)
+    dN[5, 0] = (1 - v ** 2) / 2
+    dN[6, 0] = -u * (1 + v)
+    dN[7, 0] = -(1 - v ** 2) / 2
+
+    # derivative in v
+    dN[0, 1] = -(1 - u) / 4
+    dN[1, 1] = -(u + 1) / 4
+    dN[2, 1] = (u + 1) / 4
+    dN[3, 1] = (1 - u) / 4
+    dN[4, 1] = -(1 - u ** 2) / 2
+    dN[5, 1] = -v * (1 + u)
+    dN[6, 1] = (1 - u ** 2) / 2
+    dN[7, 1] = -v * (1 - u)
 
     return N, dN
 

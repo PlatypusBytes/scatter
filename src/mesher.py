@@ -196,6 +196,7 @@ class ReadMesh:
             # find indexes
             indices = np.where(residual == 0.)[0]
 
+            # ToDo: improve the finding of BC: here BC are added so BC can have a value of 3!
             for idx in indices:
                 for j, val in enumerate(dof):
                     self.BC[idx, j] += int(val)

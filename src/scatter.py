@@ -38,12 +38,15 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     model.connectivities()
     if random_props:
         # model.remap_elements()
-        rf = random_fields.RF(random_props, outfile_folder)
+        rf = random_fields.RF(random_props, materials, outfile_folder)
         rf.generate(model.nodes, model.elem)
         rf.dump()
-        materials = rf.new_material
+        materials.update(rf.new_material)
+        # keep materials with other names
+        aux = [i for i in model.materials if i[2] != rf.material_name]
         model.materials = rf.new_model_material
-        model.elem = rf.new_elements
+        if aux:
+            model.materials.append(aux)
 
     # generate matrix internal
     # M, C, K
@@ -51,6 +54,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     matrix.stiffness(model, materials)
     matrix.mass(model, materials)
     matrix.damping_Rayleigh(inp_settings["damping"])
+    matrix.absorbing_boundaries(model, materials, inp_settings["absorbing_BC"])
 
     # generate matrix external
     F = force_external.Force()

@@ -6,7 +6,8 @@ if __name__ == "__main__":
     sett = {"gamma": 0.5,
             "beta": 0.25,
             "int_order": 2,
-            "damping": [1, 0.01, 30, 0.01]}
+            "damping": [1, 0.01, 30, 0.01],
+            "absorbing_BC": [1, 1]}
 
     x = 1
     y = 10
@@ -35,13 +36,13 @@ if __name__ == "__main__":
                 "element_size": 1,
                 "theta": 5,
                 "seed_number": -26021981,
-                "material": mat["solid"],
-                "index_material": 1,
-                "std_value": 1e5,
+                "material": "solid",
+                "key_material": "Young",
+                "std_value": 1e6,
                 "aniso_x": 1,
                 "aniso_y": 1,
                 }
 
     # run scatter
     scatter(r"./mesh/column.msh", "./results", mat, BC, sett, load, time_step=0.5e-3)
-    # scatter(r"./mesh/column.msh", "./results_RF", mat, BC, sett, load, time_step=0.5e-3, random_props=RF_props)
+    scatter(r"./mesh/column.msh", "./results_RF", mat, BC, sett, load, time_step=0.5e-3, random_props=RF_props)

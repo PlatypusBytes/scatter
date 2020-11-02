@@ -1,6 +1,18 @@
-def define_plane(p1, p2, p3):
-    import numpy as np
+import numpy as np
 
+
+def define_plane(p1: list, p2: list, p3: list) -> list:
+    r"""
+    Finds all the nodes that are within the plane containing the points p1, p2 and p3.
+    Assumes that the three points are non-collinear
+
+    Parameters
+    ----------
+    :param p1: coordinate point p1
+    :param p2: coordinate point p2
+    :param p3: coordinate point p3
+    :return: 4 nodes that are in the plane
+    """
     p1 = np.array(p1)
     p2 = np.array(p2)
     p3 = np.array(p3)
@@ -19,8 +31,17 @@ def define_plane(p1, p2, p3):
     return [a, b, c, d]
 
 
-def search_idx(data, string1, string2):
+def search_idx(data: list, string1: str, string2: str) -> [list, int]:
+    """
+    Search data for the text in between string1 and string2
 
+    Parameters
+    ----------
+    :param data: list with text
+    :param string1: initial string
+    :param string2: final string
+    :return: text in between strings, indexes
+    """
     # search string1
     idx = [i for i, val in enumerate(data) if val.startswith(string1)][0]
     nb = int(data[idx + 1])
