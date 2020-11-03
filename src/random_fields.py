@@ -28,6 +28,7 @@ class RF:
         self.element_index = []
         self.new_material = {}
         self.new_model_material = []
+        self.new_material_index = []
         self.new_elements = []
         self.output_folder = output_folder
 
@@ -64,13 +65,8 @@ class RF:
                                        int(np.mean(coord_nod[:, 2]).round(2) / self.cellsize),
                                        int(np.mean(coord_nod[:, 3]).round(2) / self.cellsize)])
 
-        # self.new_elements = elements
         # rewrite material dictionary
         for idx in range(len(elements)):
-
-            # # property from the RF
-            # self.new_elements[idx][3] = idx
-
             vals = dict(self.materials[self.material_name])
             # ToDo: work out the index 0 for Monte Carlo analysis
             vals[self.key_material] = self.fields[0][self.element_index[idx][0],
@@ -78,9 +74,12 @@ class RF:
                                                      self.element_index[idx][2]]
 
             # update new material dictionary
-            self.new_material.update({str(idx + 1): vals})
+            self.new_material.update({f"material_{str(idx + 1)}": vals})
             # update model material
-            self.new_model_material.append([3, idx, str(idx + 1)])
+            self.new_model_material.append([3, idx, f"material_{str(idx + 1)}"])
+            # update material index
+            self.new_material_index.append(int(idx))
+
         return
 
     def dump(self):

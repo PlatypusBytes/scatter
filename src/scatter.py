@@ -41,12 +41,9 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         rf = random_fields.RF(random_props, materials, outfile_folder)
         rf.generate(model.nodes, model.elem)
         rf.dump()
-        materials.update(rf.new_material)
-        # keep materials with other names
-        aux = [i for i in model.materials if i[2] != rf.material_name]
+        materials = rf.new_material
         model.materials = rf.new_model_material
-        if aux:
-            model.materials.append(aux)
+        model.materials_index = rf.new_material_index
 
     # generate matrix internal
     # M, C, K
