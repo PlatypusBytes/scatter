@@ -170,7 +170,7 @@ class GenerateMatrix:
         
         return
 
-    def absorbing_boundaries(self, data: classmethod, material: dict, parameters: list) -> None:
+    def _absorbing_boundaries(self, data: classmethod, material: dict, parameters: list) -> None:
         """
         Compute absorbing boundary force
 
@@ -186,7 +186,12 @@ class GenerateMatrix:
         for idx, elem in enumerate(data.elem):
 
             # call shape functions
-            shape_fct = shape_functions.ShapeFunctionVolume(data.element_type, self.order)
+            if data.element_type == "hexa8":
+                el = "quad4"
+            else:
+                el = "quad8"
+
+            shape_fct = shape_functions.ShapeFunctionSurface(el, self.order)
 
             # material index
             mat_idx = data.materials_index[idx]
@@ -251,5 +256,89 @@ class GenerateMatrix:
 
             # assign to the global mass matrix
             self.absorbing_bc[i1.reshape(len(i1), 1), i1] += np.dot(Me[i2.reshape(len(i2), 1), i2], fct)
+
+        return
+
+    def absorbing_boundaries(self, data: classmethod, material: dict, parameters: list) -> None:
+        """
+        Compute absorbing boundary force
+
+        Parameters
+        ----------
+        :param data:  mesh and geometry data class
+        :param material: material dictionary
+        :param parameters: absorbing boundary parameters
+        :return:
+        """
+
+        # compute material matrix for isotropic elasticity
+        for idx, elem in enumerate(data.elem):
+
+            # call shape functions
+            if data.element_type == "hexa8":
+                el = "quad4"
+            else:
+                el = "quad8"
+
+            shape_fct = shape_functions.ShapeFunctionSurface(el, self.order)
+
+            # material index
+            mat_idx = data.materials_index[idx]
+            # find material name
+            name_material = [i[2] for i in data.materials if i[1] == mat_idx][0]
+
+            # solid elastic properties
+            rho = material[name_material]["density"]
+            E = material[name_material]["Young"]
+            v = material[name_material]["poisson"]
+
+            # computation of velocities
+            Ec = E / (3 * (1 - 2 * v))
+            G = E / (2 * (1 + v))
+            vp = np.sqrt(Ec / rho)
+            vs = np.sqrt(G / rho)
+
+            # find common axis in nodes of the element
+            xyz_ = []
+            id_dof = []
+            for node in elem:
+                # get global coordinates of the node
+                idx_node = np.where(data.nodes[:, 0] == node)[0][0]
+                if "Absorb" in data.type_BC[idx_node]:
+                    # index where absorb is
+                    id_dof.append([node, data.type_BC[idx_node]])
+                    xyz_.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
+
+            if len(xyz_) == 0:
+                continue
+
+            # find normal to xyz_
+            xyz_ = np.array(xyz_)
+            # index that it is common: direction of the compression
+            idx_xy = np.where((xyz_ == xyz_[0, :]).all(0))[0][0]
+            xy = [np.delete(i, idx_xy) for i in xyz_]
+
+            # generate shape functions B and H matrix
+            shape_fct.generate(xy)
+
+            # compute unitary absorbing boundary force
+            abs_bound = shape_fct.compute_abs_bound()
+
+            # assemble absorbing boundary matrix
+            # equation number where the absorbing matrix exists
+            i1 = data.eq_nb_elem[idx][(~np.isnan(data.eq_nb_elem[idx])) & (data.type_BC_elem[idx] == "Absorb")]
+
+            # assing the absorbing boundary coefficients: vp for perpendicular vs otherwise
+            fct = np.ones(len(i1)) * parameters[1] * rho * vs
+            for i, val in enumerate(i1):
+                # find column where it is
+                idx = np.where(data.eq_nb_dof == val)[1][0]
+                # if the column is the same as the common plane: apply vp
+                if idx == idx_xy:
+                    fct[i] = parameters[0] * rho * vp
+
+            # assign to the global absorbing boundary force
+            ii = np.linspace(0, len(i1)-1, len(i1)).astype(int)
+            self.absorbing_bc[i1.reshape(len(i1), 1), i1] += np.dot(abs_bound[ii.reshape(len(ii), 1), ii], fct)
 
         return
