@@ -184,7 +184,7 @@ class ReadMesh:
 
         # for each boundary plane
         for boundary in bc:
-            dof = bc[boundary][0]
+            type = bc[boundary][0]
             nodes = bc[boundary][1]
 
             # find all the nodes that are within this plane
@@ -198,8 +198,9 @@ class ReadMesh:
 
             # ToDo: improve the finding of BC: here BC are added so BC can have a value of 3!
             for idx in indices:
-                for j, val in enumerate(dof):
-                    self.BC[idx, j] += int(val)
+                for j, val in enumerate(type):
+                    # chooses the maximum type of BC
+                    self.BC[idx, j] = max(self.BC[idx, j], int(val))
         return
 
     def mapping(self) -> None:
