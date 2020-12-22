@@ -34,8 +34,10 @@ class ReadMesh:
         self.nb_nodes_elem = []  # number of nodes
         self.materials = []  # materials
         self.BC = []  # Boundary conditions for each node
+        self.BC_dir = []  # Perpendicular direction of the BC for each node
         self.number_eq = []  # number of equations
         self.type_BC = []  # type of BC for each dof in node list
+        self.type_BC_dir = []  # perpendicular direction of BC for each dof in node list
         self.eq_nb_dof = []  # number of equation for each dof in node list
         self.eq_nb_elem = []  # list containing equation number for the dof's per element
         self.type_BC_elem = []  # list containing type of BC for the dof's per element
@@ -181,6 +183,7 @@ class ReadMesh:
 
         # variables generation
         self.BC = np.zeros((len(self.nodes), self.dimension), dtype=int)
+        self.BC_dir = np.zeros((len(self.nodes), self.dimension), dtype=int)
 
         # for each boundary plane
         for boundary in bc:
@@ -189,7 +192,7 @@ class ReadMesh:
 
             # find all the nodes that are within this plane
             # assuming that the three points are non-collinear
-            plane = utils.define_plane(nodes[0], nodes[1], nodes[2])
+            plane, direction = utils.define_plane(nodes[0], nodes[1], nodes[2])
 
             residual = self.nodes[:, 1] * plane[0] + self.nodes[:, 2] * plane[1] + self.nodes[:, 3] * plane[2] - plane[3]
 
@@ -201,6 +204,7 @@ class ReadMesh:
                 for j, val in enumerate(type):
                     # chooses the maximum type of BC
                     self.BC[idx, j] = max(self.BC[idx, j], int(val))
+                    self.BC_dir[idx, j] = max(self.BC_dir[idx, j], int(direction[j]))
         return
 
     def mapping(self) -> None:
@@ -211,6 +215,7 @@ class ReadMesh:
         # initialise variables
         self.eq_nb_dof = np.zeros((len(self.nodes), self.dimension))
         self.type_BC = np.full((len(self.nodes), self.dimension), "Normal")
+        self.type_BC_dir = np.zeros((len(self.nodes), self.dimension))
 
         # equation number:
         equation_nb = 0
@@ -237,6 +242,8 @@ class ReadMesh:
                     sys.exit("Error in the boundary condition definition. \n"
                              f"{self.BC[i][j]} is not a valid boundary condition.")
 
+                # add perpendicular direction
+                self.type_BC_dir[i, j] = self.BC_dir[i][j]
         self.number_eq = equation_nb
         return
 

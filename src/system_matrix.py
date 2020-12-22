@@ -203,35 +203,29 @@ class GenerateMatrix:
             vp = np.sqrt(Ec / rho)
             vs = np.sqrt(G / rho)
 
-            # find common axis in nodes of the element
+            # check if abs boundary exist
             xyz_ = []
-            id_dof = []
             for node in elem:
                 # get global coordinates of the node
                 idx_node = np.where(data.nodes[:, 0] == node)[0][0]
                 if "Absorb" in data.type_BC[idx_node]:
-                    # index where absorb is
-                    id_dof.append([node, data.type_BC[idx_node]])
                     xyz_.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
 
+            # if there are no absorbing boundaries goes to next element
             if len(xyz_) == 0:
                 continue
 
+            # coordinates for all the nodes in one element
             xyz = []
             for node in elem:
                 # get global coordinates of the node
                 xyz.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
 
-            # find normal to xyz_
-            xyz_ = np.array(xyz_)
-            # index that it is common: direction of the compression
-            idx_xy = np.where((xyz_ == xyz_[0, :]).all(0))[0][0]
-
             # generate shape functions B and H matrix
             shape_fct.generate(xyz)
 
             # compute unitary absorbing boundary force
-            abs_bound = shape_fct.compute_mass(1)
+            abs_bound = shape_fct.compute_mass(1.)
 
             # assemble absorbing boundary matrix
             # equation number where the absorbing matrix exists
@@ -241,10 +235,9 @@ class GenerateMatrix:
             # assign the absorbing boundary coefficients: vp for perpendicular vs otherwise
             fct = np.ones(len(i1)) * parameters[1] * rho * vs
             for i, val in enumerate(i1):
-                # find column where it is
-                idx = np.where(data.eq_nb_dof == val)[1][0]
-                # if the column is the same as the common plane: apply vp
-                if idx == idx_xy:
+                j = np.where(data.eq_nb_dof == val)
+                direct = data.type_BC_dir[j[0], j[1]]
+                if direct == int(1):
                     fct[i] = parameters[0] * rho * vp
 
             # assign to the global absorbing boundary force

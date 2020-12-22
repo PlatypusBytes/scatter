@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def define_plane(p1: list, p2: list, p3: list) -> list:
+def define_plane(p1: list, p2: list, p3: list) -> [list, np.ndarray]:
     r"""
     Finds all the nodes that are within the plane containing the points p1, p2 and p3.
     Assumes that the three points are non-collinear
@@ -28,7 +28,7 @@ def define_plane(p1: list, p2: list, p3: list) -> list:
     # This evaluates a * x3 + b * y3 + c * z3 which equals d
     d = np.dot(cp, p3)
 
-    return [a, b, c, d]
+    return [a, b, c, d], np.abs(cp / np.linalg.norm(cp))
 
 
 def search_idx(data: list, string1: str, string2: str) -> [list, int]:
