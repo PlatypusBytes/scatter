@@ -152,6 +152,22 @@ class ShapeFunctionVolume:
 
         return Me
 
+    def compute_abs_bound(self) -> np.ndarray:
+        """
+        Compute the absorbing boundary unitary force matrix over one element.
+        Following Lysmer and Kuhlemyer.
+
+        Parameters
+        ----------
+        :return: Absorbing force
+        """
+
+        f_abs = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
+        for i, N in enumerate(self.N_matrix):
+            f_abs += np.dot(np.dot(np.transpose(N), 1.), N) * self.d_jacob[i] * self.W[i]
+
+        return f_abs
+
 
 class ShapeFunctionSurface:
     def __init__(self, elem_type: str = "quad4", order: int = 2) -> None:

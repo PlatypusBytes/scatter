@@ -199,7 +199,7 @@ class ReadMesh:
             # find indexes
             indices = np.where(residual == 0.)[0]
 
-            # ToDo: improve the finding of BC: here BC are added so BC can have a value of 3!
+            # assign BC type and perpendicular direction
             for idx in indices:
                 for j, val in enumerate(type):
                     # chooses the maximum type of BC
@@ -258,7 +258,7 @@ class ReadMesh:
 
         # loop element
         for i in range(self.elem.shape[0]):
-            idx_nodes = [np.where(self.nodes[:, 0]==j)[0][0] for j in self.elem[i]]
+            idx_nodes = [np.where(self.nodes[:, 0] == j)[0][0] for j in self.elem[i]]
             self.eq_nb_elem[i, :] = self.eq_nb_dof[idx_nodes].flatten()
             self.type_BC_elem[i, :] = self.type_BC[idx_nodes].flatten()
         return

@@ -61,3 +61,50 @@ def search_idx(data: list, string1: str, string2: str) -> [list, int]:
 
     return res, nb
 
+
+def area_polygon(coords):
+    r"""
+    Compute area of 3D planar polygon with one common axis (transforms it into a 2D)
+    It sorts the points clockwise
+
+    Parameters
+    ----------
+    :param coords: list with coordinates
+    :return: area
+    """
+
+    # find common axis in coords
+    xyz = np.array(coords)
+    # index that it is common
+    try:
+        idx_xy = np.where((xyz == xyz[0, :]).all(0))[0][0]
+    except IndexError:
+        # ToDo: improve this assumption. related to the other todo.
+        idx_xy = 1
+
+    xy = [np.delete(i, idx_xy) for i in xyz]
+
+    # determine centroid
+    centroid = np.mean(xy, axis=0)
+
+    # compute angle between all points and centroid using origin
+    angle = []
+    for i in range(len(xy)):
+        angle.append(np.arctan2(xy[i][1] - centroid[1], xy[i][0] - centroid[0]))
+
+    # reorganise coordinates clock-wise
+    coords = np.array(coords)[np.argsort(angle)]
+
+    # These two vectors are in the plane
+    vec1 = coords[1] - coords[0]
+    vec2 = coords[2] - coords[0]
+
+    # the cross product is a vector normal to the plane
+    n = np.cross(vec1, vec2) / np.linalg.norm(np.cross(vec1, vec2))
+
+    # compute area
+    area = 0
+    for i in range(len(coords) - 1):
+        area += np.dot(n, np.cross(coords[i], coords[i + 1]))
+
+    return area / 2
