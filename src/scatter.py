@@ -1,3 +1,4 @@
+import sys
 from src import mesher
 from src import system_matrix
 from src import force_external
@@ -5,7 +6,8 @@ from src import solver
 from src import random_fields
 
 
-def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict, inp_settings: dict, loading: dict, time_step: float=0.1, random_props: bool=False) -> None:
+def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,
+            inp_settings: dict, loading: dict, time_step: float = 0.1, random_props: bool = False) -> None:
     r"""
     3D finite element code.
                                                           y ^
@@ -59,6 +61,10 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         F.pulse_load(model.number_eq, model.eq_nb_dof, loading, loading["node"], time_step)
     elif loading["type"] == "heaviside":
         F.heaviside_load(model.number_eq, model.eq_nb_dof, loading, loading["node"], time_step)
+    elif loading["type"] == "moving":
+        F.moving_load(model.number_eq, model.eq_nb_dof, loading, loading["node"], time_step, model.nodes)
+    else:
+        sys.exit(f'Error: Load type {loading["type"]} not supported')
 
     print("solver started")
     # solver
