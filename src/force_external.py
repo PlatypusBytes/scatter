@@ -104,7 +104,6 @@ class Force:
             # for each node with load
             for j, n in enumerate(node):
                 for i, eq in enumerate(eq_nb_dof[n - 1]):
-                    print(eq)
                     if ~np.isnan(eq):
                         self.force[int(eq), t] = float(factor[i]) * shp[j]
 
