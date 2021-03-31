@@ -99,7 +99,7 @@ class RF:
 
 def rand3d(n, max_lvl, cellsize, theta, xcells, ycells, zcells, seed, mean, sd, lognormal, fieldfromcentre, anisox=1, anisoy=1):
 
-    DLL = ct.CDLL(os.path.join(os.path.dirname(os.path.abspath(__file__)), r'libs/RF3D.dll'))
+    DLL = ct.CDLL(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'libs', 'RF3D.dll'))
 
     initialiseblackbox = DLL.RAND3DMOD_mp_INITIALISEBLACKBOX
     blackbox3d = DLL.RAND3DMOD_mp_BLACKBOX3D
