@@ -44,5 +44,5 @@ if __name__ == "__main__":
                 }
 
     # run scatter
-    scatter(r"./mesh/column.msh", "./results", mat, BC, sett, load, time_step=0.5e-3)
+    # scatter(r"./mesh/column.msh", "./results", mat, BC, sett, load, time_step=0.5e-3)
     scatter(r"./mesh/column.msh", "./results_RF", mat, BC, sett, load, time_step=0.5e-3, random_props=RF_props)

@@ -2,6 +2,8 @@ import os
 import numpy as np
 import ctypes as ct
 
+from gstools import SRF, Exponential, Gaussian,Matern, Linear
+import meshio
 
 class RF:
 
@@ -33,6 +35,61 @@ class RF:
         self.output_folder = output_folder
 
         return
+
+    def generate_gstools_rf(self, nodes, elements, ndim, angles=0.0, model_name='Gaussian'):
+        """
+        Generates a random field with the gstools random field generator
+        """
+
+        # make sure seed is positive
+        seed = abs(self.seed)
+
+        # set scale of fluctuation
+        len_scale = np.array([self.aniso_x,self.aniso_y])*self.theta
+
+        # calculate variance
+        var = self.sd**2
+
+        # initialise model
+        if model_name == 'Gaussian':
+            model = Gaussian(dim=ndim, var=var, len_scale=len_scale, angles=angles)
+        elif model_name == 'Exponential':
+            model = Exponential(dim=ndim, var=var, len_scale=len_scale, angles=angles)
+        elif model_name == 'Matern':
+            model = Matern(dim=ndim, var=var, len_scale=len_scale, angles=angles)
+        elif model_name == 'Linear':
+            model = Linear(dim=ndim, var=var, len_scale=len_scale, angles=angles)
+        else:
+            print('model name: "', model_name, '" is not supported')
+            return
+
+        # initialise random field
+        srf = SRF(model, mean=self.materials[self.material_name][self.key_material], seed=seed)
+
+        # create meshio mesh
+        # todo, make dependent on type of element, currently only hexahedron elements are generated
+        mesh = meshio.Mesh(nodes[:, 1:], {"hexahedron": elements - 1})
+
+        # create random fields
+        for i in range(self.n):
+            srf.mesh(mesh, points="centroids", name="c-field-{}".format(i), seed=seed+i)
+
+        self.fields = [field[0] for field in mesh.cell_data.values()]
+
+        # rewrite material dictionary
+        for idx in range(len(elements)):
+            vals = dict(self.materials[self.material_name])
+            # ToDo: work out the index 0 for Monte Carlo analysis
+            vals[self.key_material] = self.fields[0][idx]
+
+            # update new material dictionary
+            self.new_material.update({f"material_{str(idx + 1)}": vals})
+            # update model material
+            self.new_model_material.append([3, idx, f"material_{str(idx + 1)}"])
+            # update material index
+            self.new_material_index.append(int(idx))
+
+        return srf
 
     def generate(self, nodes, elements):
 
@@ -99,7 +156,9 @@ class RF:
 
 def rand3d(n, max_lvl, cellsize, theta, xcells, ycells, zcells, seed, mean, sd, lognormal, fieldfromcentre, anisox=1, anisoy=1):
 
-    DLL = ct.CDLL(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'libs', 'RF3D.dll'))
+    # DLL = ct.CDLL(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'libs', 'RF3D.dll'))
+
+    DLL = ct.CDLL(r"D:\software_development\scatter\src\libs\RF3D.dll")
 
     initialiseblackbox = DLL.RAND3DMOD_mp_INITIALISEBLACKBOX
     blackbox3d = DLL.RAND3DMOD_mp_BLACKBOX3D

@@ -8,3 +8,5 @@ dependencies:
   - python=3.9.4
   - scipy=1.6.2
   - tqdm=4.59.0
+  - pip:
+    - gstools==1.3.2
