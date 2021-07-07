@@ -171,9 +171,15 @@ class Solver:
 
         # initial conditions
         u = self.u0
-        self.time = np.linspace(0, t_total, np.ceil(t_total / t_step))
+        self.time = np.linspace(0, t_total, int(np.ceil(t_total / t_step)))
+
+        # define progress bar
+        pbar = tqdm(total=len(self.time), unit_scale=True, unit_divisor=1000, unit="steps")
 
         for t in range(len(self.time)):
+            # update progress bar
+            pbar.update(1)
+
             # external force
             force = np.array([float(i) for i in F.getcol(t).todense()])
 
@@ -184,6 +190,8 @@ class Solver:
 
         self.u = np.array(self.u)
 
+        # close the progress bas
+        pbar.close()
         return
 
     def save_data(self) -> None:

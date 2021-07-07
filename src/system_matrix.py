@@ -202,8 +202,8 @@ class GenerateMatrix:
             # computation of velocities
             Ec = E / (3 * (1 - 2 * v))
             G = E / (2 * (1 + v))
-            vp = np.sqrt(Ec / rho)
-            vs = np.sqrt(G / rho)
+            vp = 0# np.sqrt(Ec / rho)
+            vs = 0#np.sqrt(G / rho)
 
             # check if abs boundary exist
             xyz_ = []

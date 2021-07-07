@@ -263,7 +263,7 @@ class ReadMesh:
             self.type_BC_elem[i, :] = self.type_BC[idx_nodes].flatten()
         return
 
-    def remap_results(self, time, dis, vel, acc):
+    def remap_results(self, time, dis, vel, acc, force):
         # dict with results
         data = {}
         data.update({"time": time,
@@ -272,6 +272,7 @@ class ReadMesh:
                      "displacement": {},
                      "velocity": {},
                      "acceleration": {},
+                     "force": {},
                      })
 
         for i in range(len(self.nodes)):
@@ -284,30 +285,39 @@ class ReadMesh:
                 ux = np.ones(len(time)) * np.nan
                 vx = np.ones(len(time)) * np.nan
                 ax = np.ones(len(time)) * np.nan
+                fx = np.ones(len(time)) * 0#np.nan
             else:
                 ux = dis[:, int(dof_x)]
                 vx = vel[:, int(dof_x)]
                 ax = acc[:, int(dof_x)]
+                fx = np.concatenate(force.getrow(int(dof_x)).todense().T).ravel().tolist()[0]
+                # fx = force[int(dof_x), :]
 
             # y direction
             if np.isnan(dof_y):
                 uy = np.ones(len(time)) * np.nan
                 vy = np.ones(len(time)) * np.nan
                 ay = np.ones(len(time)) * np.nan
+                fy = np.ones(len(time)) * 0#np.nan
             else:
                 uy = dis[:, int(dof_y)]
                 vy = vel[:, int(dof_y)]
                 ay = acc[:, int(dof_y)]
+                fy = np.concatenate(force.getrow(int(dof_y)).todense().T).ravel().tolist()[0]
+                # fy = force[int(dof_y), :]
 
             # z direction
             if np.isnan(dof_z):
                 uz = np.ones(len(time)) * np.nan
                 vz = np.ones(len(time)) * np.nan
                 az = np.ones(len(time)) * np.nan
+                fz = np.ones(len(time)) * 0#np.nan
             else:
                 uz = dis[:, int(dof_z)]
                 vz = vel[:, int(dof_z)]
                 az = acc[:, int(dof_z)]
+                fz = np.concatenate(force.getrow(int(dof_z)).todense().T).ravel().tolist()[0]
+                # fz = force[int(dof_z), :]
 
             # update dic
             data["displacement"].update({str(i + 1): {"x": ux,
@@ -325,8 +335,33 @@ class ReadMesh:
                                                       "z": az
                                                       }
                                          })
+            data["force"].update({str(i + 1): {"x": fx,
+                                               "y": fy,
+                                               "z": fz
+                                               }
+                                  })
 
         # dump data
         with open(os.path.join(self.output_folder, "data.pickle"), "wb") as f:
             pickle.dump(data, f)
+        return
+
+    def export_vtk(self) -> None:
+        import sys
+        sys.path.append(r"C:\Users\zuada\software_dev\vtk_tools")
+        from vtk_tools import VTK_writer
+
+        nb_nodes = len(self.nodes)
+        nb_elements = len(self.elem)
+
+        # remap indexes from mesh to VTK
+        # 8 nb_nodes
+        idx_vtk = [3, 2, 6, 7, 0, 1, 5, 4]
+
+
+        vtk = VTK_writer.Write('./output', file_name="disp_")
+        vtk.data_structure(self.nodes[:, 1:], self.elem[:, idx_vtk])
+
+        # VTK_writer("test", self.nodes[:, 1], self.nodes[:,2], self.nodes[:,3])
+        vtk.save()
         return

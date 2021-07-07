@@ -49,6 +49,8 @@ class ShapeFunctionVolume:
                         N, dN = shape_hexa8(X)
                     elif self.type == 'hexa20':
                         N, dN = shape_hexa20(X)
+                    elif self.type == "tri6":
+                        N, dN = shape_hexa20(X)
 
                     # add to self
                     self.N.append(N)

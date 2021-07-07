@@ -72,11 +72,14 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     print("solver started")
     # solver
     res = solver.Solver(model.number_eq)
-    # res.static(inp_settings, matrix.K, F.force, time_step, loading["time"])
+    # res.static(matrix.K, F.force, time_step, loading["time"])
     res.newmark(inp_settings, matrix.M, matrix.C, matrix.K, F.force, matrix.absorbing_bc, time_step, loading["time"])
 
     # remap the data to output structure
-    model.remap_results(res.time, res.u, res.v, res.a)
+    model.remap_results(res.time, res.u, res.v, res.a, F.force)
+
+    # export VTK
+    model.export_vtk()
 
     # print
     print("Analysis done")

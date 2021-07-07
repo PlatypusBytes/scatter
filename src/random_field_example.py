@@ -90,7 +90,7 @@ if __name__ == '__main__':
 
     # everytime you call this you need a new seed number.
     fields = rand3d(n, max_lvl, cellsize, theta, xcells, ycells, zcells, seed, mean, sd, lognormal, fieldfromcentre)
-    print (fields[0].shape)
+    print(fields[0].shape)
     plt.subplot(1, 2, 1)
     plt.imshow(fields[0][:, :, 15])
     plt.subplot(1, 2, 2)
