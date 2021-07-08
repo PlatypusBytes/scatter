@@ -48,8 +48,7 @@ class Write:
 
         self.data = {}
 
-
-
+        # parse the data
         self.parse_data()
         return
 

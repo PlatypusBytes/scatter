@@ -32,7 +32,9 @@ class RF:
         self.new_material_index = []
         self.new_elements = []
         self.output_folder = output_folder
-
+        # check if output folder exists. if not creates
+        if not os.path.isdir(output_folder):
+            os.makedirs(output_folder)
         return
 
     def generate_gstools_rf(self, nodes, elements, ndim, angles=0.0, model_name='Gaussian'):
@@ -44,7 +46,7 @@ class RF:
         seed = abs(self.seed)
 
         # set scale of fluctuation
-        len_scale = np.array([self.aniso_x,self.aniso_y])*self.theta
+        len_scale = np.array([self.aniso_x, self.aniso_y])*self.theta
 
         # calculate variance
         var = self.sd**2
