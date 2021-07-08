@@ -4,6 +4,7 @@ from src import system_matrix
 from src import force_external
 from src import solver
 from src import random_fields
+from src import export_results
 
 
 def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,
@@ -29,7 +30,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     """
 
     # read gmsh mesh & create structure
-    model = mesher.ReadMesh(mesh_file, outfile_folder)
+    model = mesher.ReadMesh(mesh_file)
     # read gmsh file: file_name, dimension, nb_nodes_elem, materials, nodes, elem, element type
     model.read_gmsh()
     # define boundary conditions
@@ -71,15 +72,16 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
 
     print("solver started")
     # solver
-    res = solver.Solver(model.number_eq)
+    numerical = solver.Solver(model.number_eq)
     # res.static(matrix.K, F.force, time_step, loading["time"])
-    res.newmark(inp_settings, matrix.M, matrix.C, matrix.K, F.force, matrix.absorbing_bc, time_step, loading["time"])
+    numerical.newmark(inp_settings, matrix.M, matrix.C, matrix.K, F.force, matrix.absorbing_bc, time_step, loading["time"])
 
-    # remap the data to output structure
-    model.remap_results(res.time, res.u, res.v, res.a, F.force)
-
-    # export VTK
-    model.export_vtk()
+    # export results
+    results = export_results.Write(outfile_folder, model, materials, numerical)
+    # export results to pickle
+    results.pickle()
+    # export results to VTK
+    results.vtk()
 
     # print
     print("Analysis done")

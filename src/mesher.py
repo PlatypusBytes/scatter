@@ -1,21 +1,19 @@
 # import packages
 import os
 import sys
-import pickle
 import numpy as np
 # import scatter packages
 from src import utils
 
 
 class ReadMesh:
-    def __init__(self, file_name: str, output_folder: str) -> None:
+    def __init__(self, file_name: str) -> None:
         """
         Reads the mesh and creates the mesh geometry structure.
 
         Parameters
         ----------
         :param file_name: filename of gmsh file
-        :param output_folder: location to save output results
         """
         # check if file name exists
         if os.path.isfile(file_name):
@@ -44,15 +42,8 @@ class ReadMesh:
         self.element_type = []  # element type
         self.materials_index = []  # list containing material index for each element
         self.dimension = 3  # Dimension of the problem
-
-        # check if output folder exists. if not creates
-        if not os.path.isdir(output_folder):
-            os.makedirs(output_folder)
-
-        self.output_folder = output_folder
-
         return
-        
+
     def read_gmsh(self) -> None:
         r"""
         Read gmsh mesh
@@ -79,7 +70,7 @@ class ReadMesh:
 
         The element type that are accepted are 5 (8 node volume element) and 17 (20 node volume element).
         There is also the need to use quadrilateral elements for absorbing boundary conditions
-        (4 node quad element for 8 node volume element and 8 node quaq element for 20 node volume element).
+        (4 node quad element for 8 node volume element and 8 node quad element for 20 node volume element).
         The node numbering is as follow:
 
         8 node volume:
@@ -194,7 +185,8 @@ class ReadMesh:
             # assuming that the three points are non-collinear
             plane, direction = utils.define_plane(nodes[0], nodes[1], nodes[2])
 
-            residual = self.nodes[:, 1] * plane[0] + self.nodes[:, 2] * plane[1] + self.nodes[:, 3] * plane[2] - plane[3]
+            residual = self.nodes[:, 1] * plane[0] + self.nodes[:, 2] * plane[1] + self.nodes[:, 3] * plane[2] - plane[
+                3]
 
             # find indexes
             indices = np.where(residual == 0.)[0]
@@ -261,107 +253,4 @@ class ReadMesh:
             idx_nodes = [np.where(self.nodes[:, 0] == j)[0][0] for j in self.elem[i]]
             self.eq_nb_elem[i, :] = self.eq_nb_dof[idx_nodes].flatten()
             self.type_BC_elem[i, :] = self.type_BC[idx_nodes].flatten()
-        return
-
-    def remap_results(self, time, dis, vel, acc, force):
-        # dict with results
-        data = {}
-        data.update({"time": time,
-                     "nodes": self.nodes[:, 0],
-                     "position": self.nodes[:, 1:],
-                     "displacement": {},
-                     "velocity": {},
-                     "acceleration": {},
-                     "force": {},
-                     })
-
-        for i in range(len(self.nodes)):
-            dof_x = self.eq_nb_dof[i][0]
-            dof_y = self.eq_nb_dof[i][1]
-            dof_z = self.eq_nb_dof[i][2]
-
-            # x direction
-            if np.isnan(dof_x):
-                ux = np.ones(len(time)) * np.nan
-                vx = np.ones(len(time)) * np.nan
-                ax = np.ones(len(time)) * np.nan
-                fx = np.ones(len(time)) * 0#np.nan
-            else:
-                ux = dis[:, int(dof_x)]
-                vx = vel[:, int(dof_x)]
-                ax = acc[:, int(dof_x)]
-                fx = np.concatenate(force.getrow(int(dof_x)).todense().T).ravel().tolist()[0]
-                # fx = force[int(dof_x), :]
-
-            # y direction
-            if np.isnan(dof_y):
-                uy = np.ones(len(time)) * np.nan
-                vy = np.ones(len(time)) * np.nan
-                ay = np.ones(len(time)) * np.nan
-                fy = np.ones(len(time)) * 0#np.nan
-            else:
-                uy = dis[:, int(dof_y)]
-                vy = vel[:, int(dof_y)]
-                ay = acc[:, int(dof_y)]
-                fy = np.concatenate(force.getrow(int(dof_y)).todense().T).ravel().tolist()[0]
-                # fy = force[int(dof_y), :]
-
-            # z direction
-            if np.isnan(dof_z):
-                uz = np.ones(len(time)) * np.nan
-                vz = np.ones(len(time)) * np.nan
-                az = np.ones(len(time)) * np.nan
-                fz = np.ones(len(time)) * 0#np.nan
-            else:
-                uz = dis[:, int(dof_z)]
-                vz = vel[:, int(dof_z)]
-                az = acc[:, int(dof_z)]
-                fz = np.concatenate(force.getrow(int(dof_z)).todense().T).ravel().tolist()[0]
-                # fz = force[int(dof_z), :]
-
-            # update dic
-            data["displacement"].update({str(i + 1): {"x": ux,
-                                                      "y": uy,
-                                                      "z": uz
-                                                      }
-                                         })
-            data["velocity"].update({str(i + 1): {"x": vx,
-                                                  "y": vy,
-                                                  "z": vz
-                                                  }
-                                     })
-            data["acceleration"].update({str(i + 1): {"x": ax,
-                                                      "y": ay,
-                                                      "z": az
-                                                      }
-                                         })
-            data["force"].update({str(i + 1): {"x": fx,
-                                               "y": fy,
-                                               "z": fz
-                                               }
-                                  })
-
-        # dump data
-        with open(os.path.join(self.output_folder, "data.pickle"), "wb") as f:
-            pickle.dump(data, f)
-        return
-
-    def export_vtk(self) -> None:
-        import sys
-        sys.path.append(r"C:\Users\zuada\software_dev\vtk_tools")
-        from vtk_tools import VTK_writer
-
-        nb_nodes = len(self.nodes)
-        nb_elements = len(self.elem)
-
-        # remap indexes from mesh to VTK
-        # 8 nb_nodes
-        idx_vtk = [3, 2, 6, 7, 0, 1, 5, 4]
-
-
-        vtk = VTK_writer.Write('./output', file_name="disp_")
-        vtk.data_structure(self.nodes[:, 1:], self.elem[:, idx_vtk])
-
-        # VTK_writer("test", self.nodes[:, 1], self.nodes[:,2], self.nodes[:,3])
-        vtk.save()
         return
