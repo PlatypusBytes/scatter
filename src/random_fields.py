@@ -1,12 +1,11 @@
 import os
 import numpy as np
 import ctypes as ct
-
-from gstools import SRF, Exponential, Gaussian,Matern, Linear
+from gstools import SRF, Exponential, Gaussian, Matern, Linear
 import meshio
 
-class RF:
 
+class RF:
     def __init__(self, random_properties, materials, output_folder):
         self.n = random_properties["number_realisations"]  # number of realisations in one set
         self.max_lvl = []  # number of levels of subdivision (2**max_lvl) is size.
@@ -111,7 +110,7 @@ class RF:
         # remap fields into a list with materials according to the elements
         for el in elements:
             # nodes in element
-            nod = el[5:]
+            nod = el
             # coordinates nodes in element
             coord_nod = nodes[nod - 1]  # [nodes[n - 1] for n in nod]
             # compute middle point
