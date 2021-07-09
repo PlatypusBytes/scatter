@@ -115,12 +115,23 @@ class Write:
         # find material properties
         list_props = list(set([tuple(i.keys()) for i in self.materials.values()]))[0]
 
+        # define materials
+        material = np.zeros(nb_elements)
+        material_prop = np.zeros((nb_elements, len(list_props)))
+        for n in range(nb_elements):
+            # material index
+            material[n] = self.mat_idx[n]
+            # find material name
+            material_name = [i[2] for i in self.mat if i[1] == material[n]][0]
+            #  material property
+            for j, m in enumerate(list_props):
+                material_prop[n, j] = self.materials[material_name][m]
+
         # for each time writes a VTK file
         for t in range(len(self.time)):
+            # define displacement and velocity
             displacement = np.zeros((nb_nodes, 3))
             velocity = np.zeros((nb_nodes, 3))
-            material = np.zeros(nb_elements)
-            material_prop = np.zeros((nb_elements, len(list_props)))
             for i in range(nb_nodes):
                 displacement[i, :] = np.array([self.data["displacement"][str(int(self.nodes[i]))]["x"][t],
                                                self.data["displacement"][str(int(self.nodes[i]))]["y"][t],
@@ -129,16 +140,7 @@ class Write:
                                            self.data["velocity"][str(int(self.nodes[i]))]["y"][t],
                                            self.data["velocity"][str(int(self.nodes[i]))]["z"][t]])
 
-            for n in range(nb_elements):
-                # material index
-                material[n] = self.mat_idx[n]
-                # find material name
-                material_name = [i[2] for i in self.mat if i[1] == material[n]][0]
-                #  material property
-                for j, m in enumerate(list_props):
-                    material_prop[n, j] = self.materials[material_name][m]
-
-            # write VTK
+            # write VTK at time t
             vtk = VTK_writer.Write(os.path.join(self.output_folder, "VTK"), file_name=f"{name}_{t}")
             vtk.add_mesh(self.coordinates, self.elements)
             vtk.add_vector("displacement", displacement)
