@@ -37,7 +37,7 @@ class RF:
             os.makedirs(output_folder)
         return
 
-    def generate_gstools_rf(self, nodes, elements, ndim, angles=0.0, model_name='Gaussian'):
+    def generate_gstools_rf(self, nodes, elements, ndim, angles=0.0, model_name='Exponential'):
         """
         Generates a random field with the gstools random field generator
         """

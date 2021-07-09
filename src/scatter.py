@@ -44,7 +44,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         # model.remap_elements()
         rf = random_fields.RF(random_props, materials, outfile_folder)
 
-        rf.generate_gstools_rf(model.nodes, model.elem, model.dimension, angles=0.0, model_name='Gaussian')
+        rf.generate_gstools_rf(model.nodes, model.elem, model.dimension, angles=0.0, model_name='Exponential')
         # rf.generate(model.nodes, model.elem)
         rf.dump()
         materials = rf.new_material
