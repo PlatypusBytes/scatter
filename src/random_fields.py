@@ -48,8 +48,14 @@ class RF:
         # set scale of fluctuation
         len_scale = np.array([self.aniso_x, self.aniso_y, 1])*self.theta
 
-        # calculate variance
-        var = self.sd**2
+        # calculate variance and mean
+        mean = self.materials[self.material_name][self.key_material]
+
+        if self.lognormal:
+            var = np.log((self.sd/mean)**2 + 1)
+            mean = np.log(mean**2/(np.sqrt(mean**2 + self.sd**2)))
+        else:
+            var = self.sd**2
 
         # initialise model
         if model_name == 'Gaussian':
@@ -65,7 +71,7 @@ class RF:
             return
 
         # initialise random field
-        srf = SRF(model, mean=self.materials[self.material_name][self.key_material], seed=seed)
+        srf = SRF(model, mean=mean, seed=seed)
 
         # create meshio mesh
         # todo, make dependent on type of element, currently only hexahedron elements are generated
@@ -75,7 +81,11 @@ class RF:
         for i in range(self.n):
             srf.mesh(mesh, points="centroids", name="c-field-{}".format(i), seed=seed+i)
 
-        self.fields = [field[0] for field in mesh.cell_data.values()]
+        # get random fields
+        if self.lognormal:
+            self.fields = [np.exp(field[0]) for field in mesh.cell_data.values()]
+        else:
+            self.fields = [field[0] for field in mesh.cell_data.values()]
 
         # rewrite material dictionary
         for idx in range(len(elements)):
