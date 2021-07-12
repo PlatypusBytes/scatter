@@ -43,7 +43,6 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     if random_props:
         # model.remap_elements()
         rf = random_fields.RF(random_props, materials, outfile_folder)
-
         rf.generate_gstools_rf(model.nodes, model.elem, model.dimension, angles=0.0, model_name='Exponential')
         # rf.generate(model.nodes, model.elem)
         rf.dump()
@@ -79,9 +78,11 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)
     # export results to pickle
-    results.pickle()
+    if inp_settings["pickle"]:
+        results.pickle()
     # export results to VTK
-    results.vtk()
+    if inp_settings["VTK"]:
+        results.vtk()
 
     # print
     print("Analysis done")
