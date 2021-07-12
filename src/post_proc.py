@@ -8,8 +8,6 @@ from matplotlib.colors import LightSource
 import imageio
 
 
-# tol = 0.05
-
 def read_pickle(file):
     # read pickle file
     with open(file, "rb") as f:
@@ -23,9 +21,6 @@ def plot_surface(X, Z, coords, data_plane, time, t, folder):
     # make plot
     fig = plt.figure(1, figsize=(6, 5))
     ax = fig.gca(projection='3d')
-
-    # for i, c in enumerate(coords):
-    #     idx = np.where((np.abs(X - c[0]) < tol) & (np.abs(Z == c[2]) < tol))
 
     for i, c in enumerate(coords):
         idx = np.where((X == c[0]) & (Z == c[2]))
@@ -100,16 +95,10 @@ def make_movie(data_location, y_ref, elem_size, dimension, t_max, data_val,
             writer.append_data(image)
     writer.close()
 
-    # shutil.rmtree(temp_folder)
+    shutil.rmtree(temp_folder)
 
     return
 
 
 if __name__ == "__main__":
-    # make_movie(r"D:\brick\results_mean\data.pickle", 10, 1, 20, 0.5, output_file=r"D:\brick\mean.gif", temp_folder=r"D:\tmp")
-    # make_movie(r"D:\brick\results_RF_1\run_0\data.pickle", 10, 1, 20, 0.5, output_file=r"D:\brick\rf.gif", temp_folder=r"D:\tmp")
-    # make_movie(r"D:\brick\results_mn_mean\data.pickle", 10, 1, 20, 1, "velocity", output_file=r"D:\brick\mean_mv.gif", temp_folder=r"D:\tmp")
-    # make_movie(r"D:\brick\results_mn_mean_stat\data.pickle", 10, 1, 20, 1, "velocity", output_file=r"D:\brick\mean_mv_stat.gif", temp_folder=r"D:\tmp")
-
-    shutil.rmtree("../results_brick/tmp")
-    make_movie(r"../results_brick/data.pickle", 5, 1, 10, 0.25, "velocity", output_file=r"../results_brick/moving.gif", temp_folder=r"../results_brick/tmp")
+    make_movie(r"../results/data.pickle", 10, 1, 20, 0.5, output_file=r"../mean.gif", temp_folder=r"./tmp")

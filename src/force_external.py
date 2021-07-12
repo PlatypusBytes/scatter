@@ -9,6 +9,16 @@ class Force:
         return
 
     def pulse_load(self, nb_equations, eq_nb_dof, load_set, node, time_step, steps=5):
+        """
+        Pulse load on nodes
+
+        :param nb_equations: total number of equations
+        :param eq_nb_dof: number of equation for each dof in node list
+        :param load_set: loading settings
+        :param node: list of nodes where load is applied
+        :param time_step: time step
+        :param steps: (optional: default = 5) number of steps to apply the load following a triangular form
+        """
 
         time = load_set["time"]
         time = np.linspace(0, time, int(np.ceil(time / time_step)))
@@ -33,7 +43,16 @@ class Force:
         return
 
     def heaviside_load(self, nb_equations, eq_nb_dof, load_set, node, time_step, steps=5):
+        """
+        Heaviside load on nodes
 
+        :param nb_equations: total number of equations
+        :param eq_nb_dof: number of equation for each dof in node list
+        :param load_set: loading settings
+        :param node: list of nodes where load is applied
+        :param time_step: time step
+        :param steps: (optional: default = 5) number of steps to initialise load
+        """
         # time
         time = load_set["time"]
         time = np.linspace(0, time, int(np.ceil(time / time_step)))
@@ -58,23 +77,29 @@ class Force:
         return
 
     def moving_load(self, nb_equations, eq_nb_dof, load_set, node, time_step, nodes_coord, steps=50):
+        """
+        Moving load along z-axis
 
+        :param nb_equations: total number of equations
+        :param eq_nb_dof: number of equation for each dof in node list
+        :param load_set: loading settings
+        :param node: node where the load starts
+        :param time_step: time step
+        :param nodes_coord: list of coordinates
+        :param steps: (optional: default = 50) number of steps to initialise load
+        """
         # time
         time = load_set["time"]
         time = np.linspace(0, time, int(np.ceil(time / time_step)))
         # generation of variable
         self.force = lil_matrix(np.zeros((nb_equations, len(time))))
-        # self.force = np.zeros((nb_equations, len(time)))
-
+        # load factor
         factor = load_set["force"]
 
         # index node
         idx = np.where(nodes_coord[:, 0] == node)[0][0]
         # find nodes along  with same x and y (load moves along z-axis)
         idx_list = np.where((nodes_coord[:, 1] == nodes_coord[idx, 1]) & (nodes_coord[:, 2] == nodes_coord[idx, 2]))[0]
-
-        for i in idx_list:
-            print(nodes_coord[i, :])
 
         # find distances
         dist = []
@@ -83,8 +108,6 @@ class Force:
 
         idx_list = idx_list[np.argsort(np.array(dist))]
         dist = np.sort(np.array(dist))
-
-        aaa = []
 
         # for each time in the analysis
         for t in range(len(time)):
@@ -116,28 +139,6 @@ class Force:
             for j, n in enumerate(node):
                 for i, eq in enumerate(eq_nb_dof[n - 1]):
                     if ~np.isnan(eq):
-                        aaa.append(eq)
                         self.force[int(eq), t] = float(factor[i]) * shp[j] * fct
 
-
-
-
-        # import matplotlib.pylab as plt
-        # aaa = list(set(aaa))
-        # for i in aaa:
-        #     plt.plot(np.array(self.force.todense())[int(i), :])
-        # # plt.plot(np.array(self.force.todense())[413, :])
-        # # plt.plot(np.array(self.force.todense())[414, :])
-        # # plt.plot(np.array(self.force.todense())[415, :])
-        # # plt.plot(np.array(self.force.todense())[418, :])
-        # plt.show()
-
-
-        # for i in range(len(self.force)):
-        #     if any(np.isnan(self.force[i])):
-        #         print(i)
-        # import matplotlib.pylab as plt
-        # for i in range(len(self.force)):
-        #     plt.plot(self.force[i, :])
-        # plt.show()
         return

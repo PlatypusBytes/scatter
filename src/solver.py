@@ -170,7 +170,6 @@ class Solver:
         """
 
         # initial conditions
-        u = self.u0
         self.time = np.linspace(0, t_total, int(np.ceil(t_total / t_step)))
 
         # define progress bar
