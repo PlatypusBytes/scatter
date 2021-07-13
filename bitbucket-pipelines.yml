@@ -38,3 +38,8 @@ pipelines:
             script:
                 - conda activate scatter
                 - pytest -v ./integration_test
+
+definitions:
+   caches:
+     conda: ~/.conda/envs/solvers
+     codatarballs: /opt/conda/pkgs
