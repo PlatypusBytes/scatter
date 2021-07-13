@@ -17,11 +17,12 @@ def read_pickle(file):
 class Test1DWavePropagation(unittest.TestCase):
     def setUp(self):
 
-        file = r"./results_mean/data.pickle"
+        self.root = "integration_tests"
+        file = os.path.join(self.root, r"./results_mean/data.pickle")
         self.mean_data = read_pickle(file)
-        file = r"./results_mean_high/data.pickle"
+        file = os.path.join(self.root, r"./results_mean_high/data.pickle")
         self.mean_data_high = read_pickle(file)
-        file = r"./results_rf/data.pickle"
+        file = os.path.join(self.root, r"./results_rf/data.pickle")
         self.random_data = read_pickle(file)
 
         self.fold_results = []
@@ -60,8 +61,8 @@ class Test1DWavePropagation(unittest.TestCase):
                 "type": "pulse"}  # pulse or heaviside
 
         # run scatter
-        self.fold_results = "./_results_mean"
-        scatter(r"./mesh/column.msh", self.fold_results, mat, BC, sett, load, time_step=0.5e-3)
+        self.fold_results = os.path.join(self.root, "./_results_mean")
+        scatter(os.path.join(self.root, r"./mesh/column.msh"), self.fold_results, mat, BC, sett, load, time_step=0.5e-3)
 
         # compare results
         data = read_pickle(os.path.join(self.fold_results, "data.pickle"))
@@ -114,8 +115,8 @@ class Test1DWavePropagation(unittest.TestCase):
                     }
 
         # run scatter
-        self.fold_results = "./_results_rf"
-        scatter(r"./mesh/column.msh", self.fold_results, mat, BC, sett, load, time_step=0.5e-3,  random_props=RF_props)
+        self.fold_results = os.path.join(self.root, "./_results_rf")
+        scatter(os.path.join(self.root, r"./mesh/column.msh"),  self.fold_results, mat, BC, sett, load, time_step=0.5e-3,  random_props=RF_props)
 
         # compare results
         data = read_pickle(os.path.join(self.fold_results, "data.pickle"))
@@ -174,8 +175,8 @@ class Test1DWavePropagation(unittest.TestCase):
                 "type": "pulse"}  # pulse or heaviside
 
         # run scatter
-        self.fold_results = "./_results_mean_high"
-        scatter(r"./mesh/column_high_order.msh", self.fold_results, mat, BC, sett, load, time_step=0.5e-3)
+        self.fold_results = os.path.join(self.root, "./_results_mean_high")
+        scatter(os.path.join(self.root, r"./mesh/column_high_order.msh"), self.fold_results, mat, BC, sett, load, time_step=0.5e-3)
 
         # compare results
         data = read_pickle(os.path.join(self.fold_results, "data.pickle"))
