@@ -5,9 +5,6 @@
 
 image: continuumio/miniconda3:latest
 
-clone:
-  lfs: true
-
 pipelines:
   default:
     - step:
@@ -44,5 +41,5 @@ pipelines:
 
 definitions:
    caches:
-     conda: ~/.conda/envs/solvers
+     conda: ~/.conda/envs/scatter
      codatarballs: /opt/conda/pkgs
