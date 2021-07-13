@@ -78,7 +78,7 @@ class GenerateMatrix:
             # assemble Stiffness matrix
             # equation number where the stiff matrix exists
             i1 = data.eq_nb_elem[idx][~np.isnan(data.eq_nb_elem[idx])]
-            # index where mass matrix exists
+            # index where stiffness matrix exists
             i2 = np.where(~np.isnan(data.eq_nb_elem[idx]))[0]
 
             # assign to the global stiffness matrix
@@ -200,7 +200,7 @@ class GenerateMatrix:
             v = material[name_material]["poisson"]
 
             # computation of velocities
-            Ec = E / (3 * (1 - 2 * v))
+            Ec = E * (1 - v) / ((1 + v) * (1 - 2 * v))
             G = E / (2 * (1 + v))
             vp = np.sqrt(Ec / rho)
             vs = np.sqrt(G / rho)
@@ -242,10 +242,7 @@ class GenerateMatrix:
                 if direct == int(1):
                     fct[i] = parameters[0] * rho * vp
 
-            # compute area of surface
-            area = utils.area_polygon(xyz_)
-
             # assign to the global absorbing boundary force
-            self.absorbing_bc[i1.reshape(len(i1), 1), i1] += abs_bound[i2.reshape(len(i2), 1), i2] * fct / area
+            self.absorbing_bc[i1.reshape(len(i1), 1), i1] += abs_bound[i2.reshape(len(i2), 1), i2] * fct
 
         return
