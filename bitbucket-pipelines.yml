@@ -5,6 +5,9 @@
 
 image: continuumio/miniconda3:latest
 
+clone:
+  lfs: true
+
 pipelines:
   default:
     - step:
