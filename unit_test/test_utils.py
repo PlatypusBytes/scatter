@@ -1,10 +1,6 @@
 # unit test for utils
-
-import sys
-# add the src folder to the path to search for files
-sys.path.append('../src/')
+from src import utils
 import unittest
-import utils
 import numpy as np
 
 

@@ -1,10 +1,7 @@
 # unit test for gen_matrix
-
-import sys
 # add the src folder to the path to search for files
-sys.path.append('../src/')
 import unittest
-import gen_matrix
+from src import system_matrix
 import numpy as np
 from scipy.sparse import lil_matrix
 
@@ -21,7 +18,7 @@ class TestDamp(unittest.TestCase):
         settings = {"damping": [f1, d1, f2, d2]
                     }
 
-        matrix = gen_matrix.GenerateMatrix(1, 2)
+        matrix = system_matrix.GenerateMatrix(1, 2)
         matrix.K = lil_matrix(np.zeros((2, 2)))
         matrix.M = lil_matrix(np.zeros((2, 2)))
         matrix.K[0, 0] = 0.75
@@ -47,7 +44,7 @@ class TestDamp(unittest.TestCase):
         settings = {"damping": [f1, d1, f2, d2]
                     }
 
-        matrix = gen_matrix.GenerateMatrix(1, 2)
+        matrix = system_matrix.GenerateMatrix(1, 2)
         matrix.K = lil_matrix(np.zeros((1, 1)))
         matrix.M = lil_matrix(np.zeros((1, 1)))
         matrix.K[0, 0] = 0.5

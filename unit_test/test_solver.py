@@ -1,11 +1,7 @@
 # unit test for gen_matrix
 # tests based on Bathe
-
-import sys
-# add the src folder to the path to search for files
-sys.path.append('../src/')
 import unittest
-import solver
+from src import solver
 import numpy as np
 from scipy.sparse import lil_matrix
 
@@ -22,11 +18,13 @@ class TestDamp(unittest.TestCase):
         K = [[6, -2], [-2, 4]]
         C = [[0, 0], [0, 0]]
         F = np.zeros((2, 12))
+        F_abs = np.zeros((2, 2))
         F[1, :] = 10
         self.M = lil_matrix(M)
         self.K = lil_matrix(K)
         self.C = lil_matrix(C)
         self.F = lil_matrix(F)
+        self.F_abs = lil_matrix(F_abs)
 
         self.u0 = np.zeros(2)
         self.v0 = np.zeros(2)
@@ -61,7 +59,7 @@ class TestDamp(unittest.TestCase):
     def test_solver_newmark(self):
 
         res = solver.Solver(self.number_eq)
-        res.newmark(self.settings, self.M, self.C, self.K, self.F, self.t_step, self.t_total)
+        res.newmark(self.settings, self.M, self.C, self.K, self.F, self.F_abs, self.t_step, self.t_total)
         np.testing.assert_array_almost_equal(np.round(res.u, 2), np.round(np.array([[0.00673, 0.364],
                                                                            [0.0505, 1.35],
                                                                            [0.189, 2.68],
