@@ -13,7 +13,7 @@ pipelines:
           - conda
           - pip
         script: # Modify the commands below to build your repository.
-          - conda env update -n scatter --file env_scatter.yml
+          - conda env update -n scatter --file scatter_env.yml
     - parallel:
         - step: # Run tests
             name: Run unit tests and codecoverage.
