@@ -5,6 +5,48 @@ import numpy as np
 # import scatter packages
 from src import utils
 
+class HexEight:
+    """
+    The node numbering is as follow:
+
+        8 node volume:
+               v
+        3----------2
+        |\     ^   |\
+        | \    |   | \
+        |  \   |   |  \
+        |   7------+---6
+        |   |  +-- |-- | -> u
+        0---+---\--1   |
+         \  |    \  \  |
+          \ |     \  \ |
+           \|      w  \|
+            4----------5
+    """
+    def __init__(self):
+        self.__surfaces = None
+
+    def get_surfaces(self):
+        """
+        Get node index arrays for each surface of the element
+        """
+        self.__surfaces = np.array([[0,1,2,3],[0,1,4,5],[4,5,6,7],[2,3,6,7],[0,3,4,7],[1,2,5,6]])
+
+    @property
+    def surfaces(self):
+        return self.__surfaces
+
+    @property
+    def max_element_connections(self):
+        return 8
+
+    @property
+    def n_boundary_nodes(self):
+        return 4
+
+    @property
+    def is_quadratic(self):
+        return False
 
 class ReadMesh:
     def __init__(self, file_name: str) -> None:
@@ -29,6 +71,7 @@ class ReadMesh:
         # define variables
         self.nodes = []  # node list
         self.elem = []  # element list
+        self.boundary_elem = [] # boundary element list
         self.nb_nodes_elem = []  # number of nodes
         self.materials = []  # materials
         self.BC = []  # Boundary conditions for each node
@@ -254,3 +297,68 @@ class ReadMesh:
             self.eq_nb_elem[i, :] = self.eq_nb_dof[idx_nodes].flatten()
             self.type_BC_elem[i, :] = self.type_BC[idx_nodes].flatten()
         return
+
+    def get_mesh_edges(self):
+        """
+        Get boundary elements of the mesh, currently only boundaries of hex8 elements can be found
+
+                    #todo add other element types
+        """
+
+        # initialise element type
+        if self.element_type == 'hexa8':
+            element_type = HexEight()
+            element_type.get_surfaces()
+        else:
+            return
+
+        # Find all nodes of the mesh which lay on the edge, also find elements which contain the corresponding nodes
+        boundary_elements = []
+        is_node_boundary_node = np.empty(self.nodes.shape[0], dtype=bool) * False
+        for idx, node in enumerate(self.nodes):
+
+
+            # find the elements which are connected to the current node
+            attached_elements = np.where(self.elem == int(node[0]))[0]
+
+            # node is boundary node if it is connected to less than the maximum of element connections
+            #todo methodology does not work for quadratic elements
+            if not element_type.is_quadratic:
+                is_boundary_node = len(attached_elements) < element_type.max_element_connections
+            else:
+                return
+            is_node_boundary_node[idx] = is_boundary_node
+
+            # if node is on boundary, add connected elements to list
+            if is_boundary_node:
+                boundary_elements.append(attached_elements)
+
+        # get the boundary surfaces of all the boundary elements
+        boundary_surfaces = []
+        # loop element connectivities of boundary nodes
+        for elements in boundary_elements:
+            # loop over boundary elements
+            for i in elements:
+
+                # get boundary nodes corresponding to boundary element
+                is_node_boundary = np.empty(len(self.elem[i]),dtype=bool)*False
+                for idx, j in enumerate(self.elem[i]):
+                    if j in self.nodes[is_node_boundary_node, 0].astype(int):
+                        is_node_boundary[idx] = True
+
+                # if more than one boundary surface is present at boundary element, find all surfaces
+                if sum(is_node_boundary)>element_type.n_boundary_nodes:
+
+                    # find all boundary surfaces by comparing boundary nodes to the local node numbering
+                    for surface in element_type.surfaces:
+                        if all(is_node_boundary[surface]):
+                            boundary_surface = self.elem[i][surface]
+                            boundary_surfaces.append(boundary_surface)
+
+                # else add boundary surface to boundary surface list
+                else:
+                    boundary_surface = self.elem[i][is_node_boundary]
+                    boundary_surfaces.append(boundary_surface)
+
+        # get unique boundary elements and add to boundary elem array
+        self.boundary_elem = np.unique(np.array(boundary_surfaces), axis=0)
