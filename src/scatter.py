@@ -39,6 +39,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     model.mapping()
     # connectivities
     model.connectivities()
+    model.get_mesh_edges()
 
     if random_props:
         # model.remap_elements()
