@@ -1,0 +1,9 @@
+Random field properties
+Number of subdivisions: []
+Cell size: 1
+Theta: 5
+Seed number: -26021981
+Mean value: 30000000.0
+Std value: 1000000.0
+Log normal: True
+Field from centre: False

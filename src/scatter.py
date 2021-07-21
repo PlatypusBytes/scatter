@@ -78,11 +78,9 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)
     # export results to pickle
-    if inp_settings["pickle"]:
-        results.pickle()
+    results.pickle(write=inp_settings["pickle"])
     # export results to VTK
-    if inp_settings["VTK"]:
-        results.vtk()
+    results.vtk(write=inp_settings["VTK"])
 
     # print
     print("Analysis done")

@@ -322,9 +322,9 @@ class ShapeFunctionSurface:
         :return: Force vector
         """
 
-        f_abs = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
+        f_abs = np.zeros((self.N_matrix[0].shape[1]))
         for i, N in enumerate(self.N_matrix):
-            f_abs += np.dot(np.dot(np.transpose(N), 1.), N) * self.d_jacob[i] * self.W[i]
+            f_abs += np.dot(np.transpose(N), 1) * self.d_jacob[i] * self.W[i]
 
         return f_abs
 
