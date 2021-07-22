@@ -362,3 +362,36 @@ class ReadMesh:
 
         # get unique boundary elements and add to boundary elem array
         self.boundary_elem = np.unique(np.array(boundary_surfaces), axis=0)
+
+    def get_top_surface(self):
+        """
+        Gets the top surface elements from the boundary elements, note that the y-coordinate is considered to represent
+        the vertical coordinate.
+
+        Method only works if side and bottom boundaries are horizontal and vertical
+        """
+        epsilon = 1e-10
+
+        # get all nodal coordinates
+        nodal_coords = self.nodes[:,1:]
+
+        # get all coordinates of all the boundary elements
+        elem_coordinates = nodal_coords[self.boundary_elem - 1, :]
+
+        # calculate centroids of all boundary elements
+        centroids = np.array([utils.calculate_centroid(elem) for elem in elem_coordinates])
+
+        # get x,y,z limits of all centroids
+        min_x, max_x = min(centroids[:, 0]), max(centroids[:, 0])
+        min_y = min(centroids[:, 1])
+        min_z, max_z = min(centroids[:, 2]), max(centroids[:, 2])
+
+        # boundary element is a top surface element if centroid coordinates lay within the xyz limits
+        is_surface_elem = (centroids[:, 0] > min_x + epsilon) * (centroids[:, 0] < max_x - epsilon) * \
+                          (centroids[:, 1] > min_y + epsilon) * (centroids[:, 2] > min_z + epsilon) * \
+                          (centroids[:, 2] < max_z - epsilon)
+
+        # get top surface elems
+        top_surface_elems = self.boundary_elem[is_surface_elem]
+
+        return top_surface_elems

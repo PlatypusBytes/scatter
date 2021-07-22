@@ -1,5 +1,19 @@
+from typing import Tuple
+
 import numpy as np
 
+
+def calculate_centroid(coordinates: np.ndarray)-> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Calculate centroid of numpy array
+    :param coordinates: numpy array of coordinates in 3D
+    :return: centroid
+    """
+    length = coordinates.shape[0]
+    sum_x = np.sum(coordinates[:, 0])
+    sum_y = np.sum(coordinates[:, 1])
+    sum_z = np.sum(coordinates[:, 2])
+    return sum_x / length, sum_y / length, sum_z / length
 
 def define_plane(p1: list, p2: list, p3: list) -> [list, np.ndarray]:
     r"""
