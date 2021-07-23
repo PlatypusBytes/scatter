@@ -241,19 +241,19 @@ class Force:
 
             # calculate distance of point load to the nodes of the active element
             distances_to_nodes = xz_coords_active_el - position[:,t]
-            x_dist = distances_to_nodes[:,0]
-            z_dist = distances_to_nodes[:,1]
+            x_dist = abs(distances_to_nodes[:,0])
+            z_dist = abs(distances_to_nodes[:,1])
 
             # determine interpolation weights in x and z direction separately
             if any(x_dist < 1e-10):
                 x_weights = (x_dist < 1e-10) * 1
             else:
-                x_weights = 1 / abs(x_dist)
+                x_weights = 1 / x_dist
 
             if any(z_dist < 1e-10):
                 z_weights = (z_dist < 1e-10) * 1
             else:
-                z_weights = 1 / abs(z_dist)
+                z_weights = 1 / z_dist
 
             # calculate combined interpolation weights
             weights = x_weights * z_weights
