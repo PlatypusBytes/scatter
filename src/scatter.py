@@ -39,6 +39,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     model.mapping()
     # connectivities
     model.connectivities()
+    # mesh edges
     model.get_mesh_edges()
 
     if random_props:
@@ -67,6 +68,10 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         F.heaviside_load(model.number_eq, model.eq_nb_dof, loading, loading["node"], time_step)
     elif loading["type"] == "moving":
         F.moving_load(model.number_eq, model.eq_nb_dof, loading, loading["node"], time_step, model.nodes)
+    elif loading["type"] == "moving_at_plane":
+        top_surface_elements = model.get_top_surface()
+        F.moving_load_at_plane(model.number_eq, model.eq_nb_dof, loading, loading["start_coord"], time_step, top_surface_elements,
+                                model.nodes)
     else:
         sys.exit(f'Error: Load type {loading["type"]} not supported')
 
