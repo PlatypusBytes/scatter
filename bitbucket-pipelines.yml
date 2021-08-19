@@ -37,7 +37,7 @@ pipelines:
                 - pip
             script:
                 - conda activate scatter
-                - pytest -v ./integration_test
+                - pytest -v ./integration_tests
 
 definitions:
    caches:
