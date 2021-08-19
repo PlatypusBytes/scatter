@@ -36,6 +36,7 @@ pipelines:
                 - conda
                 - pip
             script:
+                - conda env update -n scatter --file scatter_env.yml
                 - conda activate scatter
                 - pytest -v ./integration_tests
 
