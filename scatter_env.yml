@@ -10,6 +10,7 @@ dependencies:
   - scipy=1.6.2
   - tqdm=4.62.0
   - imageio=2.9.0
+  - shapely=1.7.0
   - pytest=6.2.4
   - pytest-cov=2.12.1
   - pip:
