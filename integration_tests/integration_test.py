@@ -6,6 +6,8 @@ import pickle
 from src.scatter import scatter
 
 
+dec_places = 5
+
 def read_pickle(file):
     # read pickle file
     with open(file, "rb") as f:
@@ -132,14 +134,13 @@ class Test1DWavePropagation(unittest.TestCase):
                 self.assert_dict_almost_equal(expected[key], actual[key])
             else:
                 if isinstance(expected[key], np.ndarray):
-                    np.testing.assert_almost_equal(expected[key], actual[key])
+                    np.testing.assert_almost_equal(expected[key], actual[key], decimal=dec_places)
                 elif isinstance(expected[key], (int, float)):
-                    self.assertAlmostEqual(expected[key], actual[key])
+                    self.assertAlmostEqual(expected[key], actual[key], places=dec_places)
                 elif all(isinstance(n, str) for n in expected[key]):
                     # if elements are string
                     self.assertAlmostEqual(expected[key], actual[key])
-                else:
-                    self.assertTrue(all(np.isclose(expected[key], actual[key], rtol=1e-6)))
+                
         return
 
     def test_3(self):
