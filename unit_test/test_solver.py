@@ -1,5 +1,5 @@
 # unit test for gen_matrix
-# tests based on Bathe
+# unit_test based on Bathe
 import unittest
 from src import solver
 import numpy as np

@@ -22,7 +22,7 @@ pipelines:
                 - pip
             script:
                 - conda activate scatter
-                - pytest -v --cov=src ./tests --cov-report html:test-reports/coverage tests -m "not workinprogress"
+                - pytest -v --cov=src ./unit_test --cov-report html:test-reports/coverage unit_test -m "not workinprogress"
                 - apt-get update && apt-get --yes install zip
                 - zip -r test-reports/coverage.zip test-reports/coverage
                 - pipe: atlassian/bitbucket-upload-file:0.3.1
