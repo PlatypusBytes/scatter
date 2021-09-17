@@ -16,4 +16,4 @@ dependencies:
   - pip:
     - gstools==1.3.3
     - "--editable=git+https://zuada@bitbucket.org/zuada/vtk_tools.git#egg=VTK-tools"
-    - "git+https://A_Noordam@bitbucket.org/DeltaresGEO/rose.git#egg=rose"
+    - "--editable=git+https://A_Noordam@bitbucket.org/DeltaresGEO/rose.git#egg=rose"
