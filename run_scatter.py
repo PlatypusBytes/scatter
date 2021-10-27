@@ -29,10 +29,11 @@ if __name__ == "__main__":
            "bottom": {"density": 1200.0,
                       "Young": 300e6,
                       "poisson": 0.25}}
+
     load = {"force": [0, -1000, 0],
             "node": [3, 4, 7, 8],
             "time": 1,
-            "type": "heaviside",   # pulse or heaviside or moving
+            "type": "heaviside",  # pulse or heaviside or moving
             "speed": 80}  # only for moving
 
     # Random field properties
