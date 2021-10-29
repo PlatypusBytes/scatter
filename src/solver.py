@@ -1,7 +1,8 @@
 import pickle
 import os
 import numpy as np
-from scipy.sparse.linalg import inv, spsolve
+from scipy.sparse.linalg import inv #, spsolve
+from pypardiso import spsolve
 from tqdm import tqdm
 
 
