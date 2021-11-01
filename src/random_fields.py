@@ -25,13 +25,14 @@ class RF:
         self.lognormal = True
         self.fieldfromcentre = False
         self.fields = []
-        self.middle_point = []
         self.element_index = []
         self.new_material = {}
         self.new_model_material = []
         self.new_material_index = []
         self.new_elements = []
         self.output_folder = output_folder
+        self.tol = 1e-6  # tolerance for checking equality
+
         # check if output folder exists. if not creates
         if not os.path.isdir(output_folder):
             os.makedirs(output_folder)
@@ -109,44 +110,58 @@ class RF:
         self.ycells = int((np.max(nodes[:, 2]) - np.min(nodes[:, 2])) / self.cellsize)
         self.zcells = int((np.max(nodes[:, 3]) - np.min(nodes[:, 3])) / self.cellsize)
 
+        # compute middle point of RF mesh
+        mean_coord_RF = []
+        idx_coords = []
+        for y in range(self.ycells):
+            for z in range(self.zcells):
+                for x in range(self.xcells):
+                    x_mean = (range(self.xcells + 1)[x] + range(self.xcells + 1)[x + 1]) / 2 * self.cellsize
+                    y_mean = (range(self.ycells + 1)[y] + range(self.ycells + 1)[y + 1]) / 2 * self.cellsize
+                    z_mean = (range(self.zcells + 1)[z] + range(self.zcells + 1)[z + 1]) / 2 * self.cellsize
+                    mean_coord_RF.append([x_mean, y_mean, z_mean])
+                    idx_coords.append([x, z, y])
+
         # maximum number of cells
         max_nb_cells = np.max([self.xcells, self.ycells, self.zcells]) + 16
 
         self.max_lvl = int(np.ceil(np.log(max_nb_cells) / np.log(2)))
 
         # generate random field
-        self.fields = rand3d(self.n, self.max_lvl, self.cellsize, self.theta, self.xcells, self.ycells, self.zcells,
+        self.fields = rand3d(self.n, self.max_lvl, self.cellsize, self.theta, self.xcells, self.zcells, self.ycells,
                              self.seed, self.materials[self.material_name][self.key_material], self.sd,
                              self.lognormal, self.fieldfromcentre, anisox=self.aniso_x, anisoy=self.aniso_y)
 
         # remap fields into a list with materials according to the elements
-        for el in elements:
+        for j, el in enumerate(elements):
             # nodes in element
             nod = el
             # coordinates nodes in element
-            coord_nod = nodes[nod - 1]  # [nodes[n - 1] for n in nod]
-            # compute middle point
-            self.middle_point.append([np.mean(coord_nod[:, 1]).round(2),
-                                      np.mean(coord_nod[:, 2]).round(2),
-                                      np.mean(coord_nod[:, 3]).round(2)])
-            self.element_index.append([int(np.mean(coord_nod[:, 1]).round(2) / self.cellsize),
-                                       int(np.mean(coord_nod[:, 2]).round(2) / self.cellsize),
-                                       int(np.mean(coord_nod[:, 3]).round(2) / self.cellsize)])
+            # coord_nod = nodes[nod - 1]  # [nodes[n - 1] for n in nod]
+            idx_nodes = [np.where(n == nodes[:, 0].astype(int))[0][0] for n in nod]
+            coord_nod = nodes[idx_nodes]
 
-        # rewrite material dictionary
-        for idx in range(len(elements)):
+            # compute middle point
+            middle_point = np.array([np.mean(coord_nod[:, 1]),
+                                     np.mean(coord_nod[:, 2]),
+                                     np.mean(coord_nod[:, 3])])
+
+            # find index of middle point element in RF mesh
+            idx = [i for i, val in enumerate(np.abs(middle_point - np.array(mean_coord_RF)) <= self.tol) if all(val)][0]
+
+            # rewrite material dictionary
             vals = dict(self.materials[self.material_name])
             # ToDo: work out the index 0 for Monte Carlo analysis
-            vals[self.key_material] = self.fields[0][self.element_index[idx][0],
-                                                     self.element_index[idx][1],
-                                                     self.element_index[idx][2]]
+            vals[self.key_material] = self.fields[0][idx_coords[idx][0],
+                                                     idx_coords[idx][1],
+                                                     idx_coords[idx][2]]
 
             # update new material dictionary
-            self.new_material.update({f"material_{str(idx + 1)}": vals})
+            self.new_material.update({f"material_{str(j + 1)}": vals})
             # update model material
-            self.new_model_material.append([3, idx, f"material_{str(idx + 1)}"])
+            self.new_model_material.append([3, j, f"material_{str(j + 1)}"])
             # update material index
-            self.new_material_index.append(int(idx))
+            self.new_material_index.append(int(j))
 
         return
 

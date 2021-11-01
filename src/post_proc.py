@@ -15,12 +15,12 @@ def read_pickle(file):
     return data
 
 
-def plot_surface(X, Z, coords, data_plane, time, t, folder):
+def plot_surface(X, Z, coords, data_plane, time, t, label, folder):
     # create Y variable
     Y = np.zeros(X.shape)
     # make plot
     fig = plt.figure(1, figsize=(6, 5))
-    ax = fig.gca(projection='3d')
+    ax = fig.add_subplot(projection='3d')
 
     for i, c in enumerate(coords):
         idx = np.where((X == c[0]) & (Z == c[2]))
@@ -36,14 +36,16 @@ def plot_surface(X, Z, coords, data_plane, time, t, folder):
     ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
     ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
     ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+
     # Customize the z axis.
-    ax.set_zlim((-0.00015, 0.00))
+    ax.set_zlim((np.min(data_plane), np.max(data_plane)))
+
     # ax.set_zlim((-0.6, 0.1))
     ax.text2D(0.80, 0.95, "time = " + str(time) + " s", transform=ax.transAxes)
     ax.set_xlabel("Distance X [m]")
     ax.set_ylabel("Distance Z [m]")
     # ax.set_zlabel(r"Vertical displacement $\times 10 ^{-6}$ [m]")
-    ax.set_zlabel(r"Vertical velocity [m/s]")
+    ax.set_zlabel(f"{label}")
     ax.view_init(35, -135)
     # ax.view_init(90, 90)
     # ax.set_zticks([])
@@ -62,7 +64,7 @@ def make_movie(data_location, y_ref, elem_size, dimension, t_max, data_val,
 
     # define mesh model
     x = np.linspace(0, dimension, int(dimension / elem_size) + 1)
-    z = np.linspace(0, -dimension, int(dimension / elem_size) + 1)
+    z = np.linspace(0, dimension, int(dimension / elem_size) + 1)
 
     # get coordinates and nodes on the y-plane
     nodes = []
@@ -85,7 +87,7 @@ def make_movie(data_location, y_ref, elem_size, dimension, t_max, data_val,
 
     # create multiple plots
     for t in range(0, int(np.where(data["time"] >= t_max)[0][0])):
-        plot_surface(X, Z, coords, data_plane, round(data["time"][t], 3), t, temp_folder)
+        plot_surface(X, Z, coords, data_plane, round(data["time"][t], 3), t, data_val, temp_folder)
 
     # make de video
     filenames = os.listdir(temp_folder)
@@ -101,4 +103,5 @@ def make_movie(data_location, y_ref, elem_size, dimension, t_max, data_val,
 
 
 if __name__ == "__main__":
-    make_movie(r"../results/data.pickle", 10, 1, 20, 0.5, output_file=r"../mean.gif", temp_folder=r"./tmp")
+    make_movie(r".\data.pickle", 10, 1, 20, 0.2, "velocity",
+               output_file=r"./output.gif", temp_folder=r"./tmp")
