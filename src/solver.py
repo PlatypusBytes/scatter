@@ -1,7 +1,8 @@
 import pickle
 import os
 import numpy as np
-from scipy.sparse.linalg import inv, spsolve
+# from scipy.sparse.linalg import inv, spsolve
+from pypardiso import factorized, spsolve
 from tqdm import tqdm
 
 
@@ -55,7 +56,7 @@ def init(m_global: np.ndarray, c_global: np.ndarray, k_global: np.ndarray, force
     k_part = k_global.dot(u)
     c_part = c_global.dot(v)
 
-    a = inv(m_global.tocsc()).dot(force_ini - c_part - k_part)
+    a = spsolve(m_global.tocsc(),force_ini - c_part - k_part)
 
     return a
 
