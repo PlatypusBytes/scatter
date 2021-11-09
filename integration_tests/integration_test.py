@@ -54,6 +54,7 @@ class Test1DWavePropagation(unittest.TestCase):
                 "damping": [1, 0.001, 30, 0.001],
                 "absorbing_BC": [1, 1],
                 "pickle": True,
+                "pickle_nodes": "all",
                 "VTK": False}
 
         x = 0.1
@@ -96,6 +97,7 @@ class Test1DWavePropagation(unittest.TestCase):
                 "damping": [1, 0.001, 30, 0.001],
                 "absorbing_BC": [1, 1],
                 "pickle": True,
+                "pickle_nodes": "all",
                 "VTK": False}
 
         x = 0.1
@@ -151,6 +153,7 @@ class Test1DWavePropagation(unittest.TestCase):
                 "damping": [1, 0.001, 30, 0.001],
                 "absorbing_BC": [1, 1],
                 "pickle": True,
+                "pickle_nodes": "all",
                 "VTK": False}
 
         x = 0.1
@@ -208,6 +211,7 @@ class TestBenchmarkSet(unittest.TestCase):
                 # "damping": [1, 0.01, 30, 0.01],
                 "absorbing_BC": [1, 1],
                 "pickle": True,
+                "pickle_nodes": "all",
                 "VTK": False}
 
         x = 10
@@ -262,6 +266,7 @@ class TestBenchmarkSet(unittest.TestCase):
             assert_data = pickle.load(f)
 
         assert_dict_almost_equal(res_data, assert_data)
+
 
 if __name__ == "__main__":
     unittest.main()
