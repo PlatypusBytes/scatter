@@ -71,7 +71,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     elif loading["type"] == "moving_at_plane":
         top_surface_elements = model.get_top_surface()
         F.moving_load_at_plane(model.number_eq, model.eq_nb_dof, loading, loading["start_coord"], time_step, top_surface_elements,
-                                model.nodes)
+                               model.nodes)
     else:
         sys.exit(f'Error: Load type {loading["type"]} not supported')
 
@@ -84,7 +84,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)
     # export results to pickle
-    results.pickle(write=inp_settings["pickle"])
+    results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
     # export results to VTK
     results.vtk(write=inp_settings["VTK"])
 

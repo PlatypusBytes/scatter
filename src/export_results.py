@@ -59,7 +59,7 @@ class Write:
 
         # dict with results
         self.data.update({"time": self.time,
-                          "nodes": self.nodes,
+                          "nodes": list(map(int, self.nodes)),
                           "position": self.coordinates,
                           "displacement": defaultdict(dict),
                           "velocity": defaultdict(dict),
@@ -84,19 +84,42 @@ class Write:
                 self.data["acceleration"][str(int(self.nodes[i]))][label_xyz[idx]] = a
         return
 
-    def pickle(self, name="data", write=True) -> None:
+    def pickle(self, name="data", write=True, nodes="all") -> None:
         """
         Writes pickle file in binary
 
         :param name: (optional, default data) name of the pickle file
         :param write: (optional, default True) checks if file needs to be written
+        :param nodes: (optional, default 'all') nodes to be written in pickle file
         """
         if not write:
             return
 
-        # dump data
-        with open(os.path.join(self.output_folder, f"{name}.pickle"), "wb") as f:
-            pickle.dump(self.data, f)
+        # if list of nodes exists -> dump results only for nodes
+        if nodes != "all":
+            idx = [self.data["nodes"].index(i) for i in nodes]
+
+            data = {"time": self.data["time"],
+                    "nodes": nodes,
+                    "position": [self.data["position"][i] for i in idx],
+                    "displacement": defaultdict(dict),
+                    "velocity": defaultdict(dict),
+                    "acceleration": defaultdict(dict),
+                    }
+
+            for j in nodes:
+                data["displacement"].update({str(j): self.data["displacement"][str(j)]})
+                data["velocity"].update({str(j): self.data["velocity"][str(j)]})
+                data["acceleration"].update({str(j): self.data["acceleration"][str(j)]})
+
+            # dump data
+            with open(os.path.join(self.output_folder, f"{name}.pickle"), "wb") as f:
+                pickle.dump(data, f)
+
+        else:
+            # dump data
+            with open(os.path.join(self.output_folder, f"{name}.pickle"), "wb") as f:
+                pickle.dump(self.data, f)
         return
 
     def vtk(self, name="data", write=True) -> None:
