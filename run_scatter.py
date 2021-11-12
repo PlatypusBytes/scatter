@@ -9,6 +9,7 @@ if __name__ == "__main__":
             "damping": [1, 0.01, 30, 0.01],
             "absorbing_BC": [1, 1],
             "pickle": True,
+            "pickle_nodes": "all",
             "VTK": False,
             }
 
