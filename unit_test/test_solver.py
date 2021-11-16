@@ -6,7 +6,7 @@ import numpy as np
 from scipy.sparse import lil_matrix
 
 
-class TestDamp(unittest.TestCase):
+class TestSolver(unittest.TestCase):
     def setUp(self):
         # newmark settings
         self.settings = {'beta': 0.25,
@@ -14,8 +14,8 @@ class TestDamp(unittest.TestCase):
                          }
 
         # example from bathe
-        M = [[2, 0], [0, 1]]
-        K = [[6, -2], [-2, 4]]
+        M = [[2., 0], [0, 1.]]
+        K = [[6., -2.], [-2., 4.]]
         C = [[0, 0], [0, 0]]
         F = np.zeros((2, 12))
         F_abs = np.zeros((2, 2))
@@ -30,7 +30,7 @@ class TestDamp(unittest.TestCase):
         self.v0 = np.zeros(2)
 
         self.t_step = 0.28
-        self.t_total = 12 * self.t_step
+        self.time = np.linspace(0, 11 * self.t_step, 12)
 
         self.number_eq = 2
         return
@@ -59,7 +59,7 @@ class TestDamp(unittest.TestCase):
     def test_solver_newmark(self):
 
         res = solver.Solver(self.number_eq)
-        res.newmark(self.settings, self.M, self.C, self.K, self.F, self.F_abs, self.t_step, self.t_total)
+        res.newmark(self.settings, self.M, self.C, self.K, self.F, self.F_abs, self.t_step, self.time)
         np.testing.assert_array_almost_equal(np.round(res.u, 2), np.round(np.array([[0.00673, 0.364],
                                                                            [0.0505, 1.35],
                                                                            [0.189, 2.68],

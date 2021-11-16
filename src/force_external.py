@@ -12,20 +12,19 @@ class Force:
         self.force = []
         return
 
-    def pulse_load(self, nb_equations, eq_nb_dof, load_set, node, time_step, steps=5):
+    def pulse_load(self, nb_equations, eq_nb_dof, nodes, load_set, node, time, steps=5):
         """
         Pulse load on nodes
 
         :param nb_equations: total number of equations
         :param eq_nb_dof: number of equation for each dof in node list
+        :param nodes: list of nodes
         :param load_set: loading settings
         :param node: list of nodes where load is applied
-        :param time_step: time step
+        :param time: list of time
         :param steps: (optional: default = 5) number of steps to apply the load following a triangular form
         """
 
-        time = load_set["time"]
-        time = np.linspace(0, time, int(np.ceil(time / time_step)))
         # generation of variable
         self.force = lil_matrix((nb_equations, len(time)))
 
@@ -37,7 +36,10 @@ class Force:
 
         # for each node with load
         for n in node:
-            for i, eq in enumerate(eq_nb_dof[n - 1]):
+            # index of node
+            idx = list(nodes[:, 0].astype(int)).index(n)
+            # for dof which have equation number
+            for i, eq in enumerate(eq_nb_dof[idx]):
                 if ~np.isnan(eq):
                     # pulse in steps
                     for k in range(steps):
@@ -46,20 +48,19 @@ class Force:
 
         return
 
-    def heaviside_load(self, nb_equations, eq_nb_dof, load_set, node, time_step, steps=5):
+    def heaviside_load(self, nb_equations, eq_nb_dof, nodes, load_set, node, time, steps=5):
         """
         Heaviside load on nodes
 
         :param nb_equations: total number of equations
         :param eq_nb_dof: number of equation for each dof in node list
+        :param nodes: list of nodes
         :param load_set: loading settings
         :param node: list of nodes where load is applied
-        :param time_step: time step
+        :param time: list of time
         :param steps: (optional: default = 5) number of steps to initialise load
         """
-        # time
-        time = load_set["time"]
-        time = np.linspace(0, time, int(np.ceil(time / time_step)))
+
         # generation of variable
         self.force = lil_matrix(np.zeros((nb_equations, len(time))))
 
@@ -71,7 +72,10 @@ class Force:
 
         # for each node with load
         for n in node:
-            for i, eq in enumerate(eq_nb_dof[n - 1]):
+            # index of node
+            idx = list(nodes[:, 0].astype(int)).index(n)
+            # for dof which have equation number
+            for i, eq in enumerate(eq_nb_dof[idx]):
                 if ~np.isnan(eq):
                     # smooth over steps
                     for k in range(steps):
@@ -80,21 +84,20 @@ class Force:
 
         return
 
-    def moving_load(self, nb_equations, eq_nb_dof, load_set, node, time_step, nodes_coord, steps=50):
+    def moving_load(self, nb_equations, eq_nb_dof, nodes_list, load_set, node, time, nodes_coord, steps=0):
         """
         Moving load along z-axis
 
         :param nb_equations: total number of equations
         :param eq_nb_dof: number of equation for each dof in node list
+        :param nodes_list: list of nodes
         :param load_set: loading settings
         :param node: node where the load starts
-        :param time_step: time step
+        :param time: list of time
         :param nodes_coord: list of coordinates
         :param steps: (optional: default = 50) number of steps to initialise load
         """
-        # time
-        time = load_set["time"]
-        time = np.linspace(0, time, int(np.ceil(time / time_step)))
+
         # generation of variable
         self.force = lil_matrix(np.zeros((nb_equations, len(time))))
         # load factor
@@ -125,29 +128,32 @@ class Force:
                 fct = 1
 
             # if the load as reached the end of the model returns
-            if speed * (time[t] - time[steps - 1]) >= np.max(dist):
+            if speed * (time[t] - time[steps]) >= np.max(dist):
                 return
 
             # find location of the load
-            id = np.where(dist <= speed * (time[t] - time[steps - 1]))[0][-1]
-            node = [int(nodes_coord[idx_list[id], 0]), int(nodes_coord[idx_list[id + 1], 0])]
+            id_n = np.where(dist <= speed * (time[t] - time[steps]))[0][-1]
+            nodes = [int(nodes_coord[idx_list[id_n], 0]), int(nodes_coord[idx_list[id_n + 1], 0])]
 
             # compute local shape functions
-            x = speed * (time[t] - time[steps - 1]) + nodes_coord[idx_list[id], 3]
-            l = dist[id + 1] - dist[id]
+            x = speed * (time[t] - time[steps]) - nodes_coord[idx_list[id_n], 3]
+            l = dist[id_n + 1] - dist[id_n]
 
             shp = np.array([1 - x / l,
                             x * l])
 
             # for each node with load
-            for j, n in enumerate(node):
-                for i, eq in enumerate(eq_nb_dof[n - 1]):
+            for j, n in enumerate(nodes):
+                # index of node
+                idx = list(nodes_list[:, 0].astype(int)).index(n)
+                # for dof which have equation number
+                for i, eq in enumerate(eq_nb_dof[idx]):
                     if ~np.isnan(eq):
                         self.force[int(eq), t] = float(factor[i]) * shp[j] * fct
 
         return
 
-    def moving_load_at_plane(self, nb_equations, eq_nb_dof, load_set, coordinate, time_step, xz_plane_elements,
+    def moving_load_at_plane(self, nb_equations, eq_nb_dof, load_set, coordinate, time, xz_plane_elements,
                              nodes_coord, steps=50):
         """
         Moving load at the xz plane.
@@ -158,15 +164,11 @@ class Force:
         :param eq_nb_dof: number of equation for each dof in node list
         :param load_set: loading settings
         :param coordinate: xz coordinate where the load starts
-        :param time_step: time step
+        :param time: list of time
         :param xz_plane_elements: elements at xz_plane_elements
         :param nodes_coord: all nodal coordinates
         :param steps: (optional: default = 50) number of steps to initialise load
         """
-
-        # time
-        time = load_set["time"]
-        time = np.linspace(0, time, int(np.ceil(time / time_step)))
 
         # initialise force matrix
         self.force = lil_matrix(np.zeros((nb_equations, len(time))))

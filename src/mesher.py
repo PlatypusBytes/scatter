@@ -228,8 +228,7 @@ class ReadMesh:
             # assuming that the three points are non-collinear
             plane, direction = utils.define_plane(nodes[0], nodes[1], nodes[2])
 
-            residual = self.nodes[:, 1] * plane[0] + self.nodes[:, 2] * plane[1] + self.nodes[:, 3] * plane[2] - plane[
-                3]
+            residual = self.nodes[:, 1] * plane[0] + self.nodes[:, 2] * plane[1] + self.nodes[:, 3] * plane[2] - plane[3]
 
             # find indexes
             indices = np.where(residual == 0.)[0]

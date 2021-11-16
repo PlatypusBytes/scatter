@@ -1,4 +1,5 @@
 import sys
+import numpy as np
 from src import mesher
 from src import system_matrix
 from src import force_external
@@ -60,17 +61,20 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     matrix.damping_Rayleigh(inp_settings["damping"])
     matrix.absorbing_boundaries(model, materials, inp_settings["absorbing_BC"])
 
+    # definition of time
+    time = np.linspace(0, loading["time"], int(np.ceil(loading["time"] / time_step) + 1))
+
     # generate matrix external
     F = force_external.Force()
     if loading["type"] == "pulse":
-        F.pulse_load(model.number_eq, model.eq_nb_dof, loading, loading["node"], time_step)
+        F.pulse_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, loading["node"], time)
     elif loading["type"] == "heaviside":
-        F.heaviside_load(model.number_eq, model.eq_nb_dof, loading, loading["node"], time_step)
+        F.heaviside_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, loading["node"], time)
     elif loading["type"] == "moving":
-        F.moving_load(model.number_eq, model.eq_nb_dof, loading, loading["node"], time_step, model.nodes)
+        F.moving_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, loading["node"], time, model.nodes)
     elif loading["type"] == "moving_at_plane":
         top_surface_elements = model.get_top_surface()
-        F.moving_load_at_plane(model.number_eq, model.eq_nb_dof, loading, loading["start_coord"], time_step, top_surface_elements,
+        F.moving_load_at_plane(model.number_eq, model.eq_nb_dof, loading, loading["start_coord"], time, top_surface_elements,
                                model.nodes)
     else:
         sys.exit(f'Error: Load type {loading["type"]} not supported')
@@ -78,8 +82,8 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     print("solver started")
     # solver
     numerical = solver.Solver(model.number_eq)
-    # res.static(matrix.K, F.force, time_step, loading["time"])
-    numerical.newmark(inp_settings, matrix.M, matrix.C, matrix.K, F.force, matrix.absorbing_bc, time_step, loading["time"])
+    # numerical.static(matrix.K, F.force, time_step, time)
+    numerical.newmark(inp_settings, matrix.M, matrix.C, matrix.K, F.force, matrix.absorbing_bc, time_step, time)
 
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)

@@ -257,7 +257,7 @@ class TestBenchmarkSet(unittest.TestCase):
         scatter(input_file, output_dir, mat, BC, sett, load, time_step=0.5e-2, random_props=RF_props)
 
         # open results and delete file
-        with open(Path(output_dir,"data.pickle"), "rb") as f:
+        with open(Path(output_dir, "data.pickle"), "rb") as f:
             res_data = pickle.load(f)
         Path(output_dir, "data.pickle").unlink()
 
