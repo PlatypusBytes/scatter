@@ -26,15 +26,15 @@ class Write:
 
         # link between gmsh and VTK no index
         if model.element_type == "hexa8":
-            self.idx_vtk = [3, 2, 6, 7, 0, 1, 5, 4]
+            self.idx_vtk = [0, 1, 2, 3, 4, 5, 6, 7]
         elif model.element_type == "hexa20":
-            self.idx_vtk = [3, 2, 6, 7, 0, 1, 5, 4, 10, 19, 11, 18, 9, 14, 13, 15, 8, 16, 17, 12]
+            self.idx_vtk = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 ,13, 14, 15, 16, 17, 18, 19]
 
         # output folder
         self.output_folder = output_folder
 
         # variables
-        self.nodes = model.nodes[:, 0]
+        self.nodes = model.nodes[:, 0].astype(int)
         self.eq_nb_dof = model.eq_nb_dof
         self.coordinates = model.nodes[:, 1:]
         self.elements = model.elem[:, self.idx_vtk] - 1
@@ -45,6 +45,7 @@ class Write:
         self.mat = model.materials
         self.mat_idx = model.materials_index
         self.materials = materials
+        self.bc = model.BC
 
         self.data = {}
 
@@ -107,10 +108,10 @@ class Write:
                     "acceleration": defaultdict(dict),
                     }
 
-            for j in nodes:
-                data["displacement"].update({str(j): self.data["displacement"][str(j)]})
-                data["velocity"].update({str(j): self.data["velocity"][str(j)]})
-                data["acceleration"].update({str(j): self.data["acceleration"][str(j)]})
+            for n in nodes:
+                data["displacement"].update({str(n): self.data["displacement"][str(n)]})
+                data["velocity"].update({str(n): self.data["velocity"][str(n)]})
+                data["acceleration"].update({str(n): self.data["acceleration"][str(n)]})
 
             # dump data
             with open(os.path.join(self.output_folder, f"{name}.pickle"), "wb") as f:
@@ -168,6 +169,7 @@ class Write:
             vtk.add_mesh(self.coordinates, self.elements)
             vtk.add_vector("displacement", displacement)
             vtk.add_vector("velocity", velocity, header=False)
+            vtk.add_vector("boundary_conditions", self.bc, header=False)
             vtk.add_scalar("material_index", material)
             for j, m in enumerate(list_props):
                 vtk.add_scalar(f"material_prop_{m}", material_prop[:, j], header=False)
