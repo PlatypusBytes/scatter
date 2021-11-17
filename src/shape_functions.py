@@ -240,7 +240,7 @@ class ShapeFunctionSurface:
         """
 
         for deriv in self.dN:
-            jcb = np.transpose(deriv).dot(xy)
+            jcb = np.transpose(deriv).dot(xy[:,:2])
             self.d_jacob.append(np.linalg.det(jcb))
             self.dN_global.append(np.dot(deriv, np.linalg.inv(np.transpose(jcb))))
 

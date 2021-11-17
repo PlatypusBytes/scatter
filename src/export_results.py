@@ -26,15 +26,17 @@ class Write:
 
         # link between gmsh and VTK no index
         if model.element_type == "hexa8":
-            self.idx_vtk = [3, 2, 6, 7, 0, 1, 5, 4]
+            self.idx_vtk = [0, 1, 2, 3, 4, 5, 6, 7]
         elif model.element_type == "hexa20":
-            self.idx_vtk = [3, 2, 6, 7, 0, 1, 5, 4, 10, 19, 11, 18, 9, 14, 13, 15, 8, 16, 17, 12]
+            self.idx_vtk = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 ,13, 14, 15, 16, 17, 18, 19]
+        elif model.element_type == "quad4":
+            self.idx_vtk = [0, 1, 2, 3]
 
         # output folder
         self.output_folder = output_folder
 
         # variables
-        self.nodes = model.nodes[:, 0]
+        self.nodes = model.nodes[:, 0].astype(int)
         self.eq_nb_dof = model.eq_nb_dof
         self.coordinates = model.nodes[:, 1:]
         self.elements = model.elem[:, self.idx_vtk] - 1
@@ -45,6 +47,7 @@ class Write:
         self.mat = model.materials
         self.mat_idx = model.materials_index
         self.materials = materials
+        self.bc = model.BC
 
         self.data = {}
 
@@ -59,7 +62,7 @@ class Write:
 
         # dict with results
         self.data.update({"time": self.time,
-                          "nodes": self.nodes,
+                          "nodes": list(map(int, self.nodes)),
                           "position": self.coordinates,
                           "displacement": defaultdict(dict),
                           "velocity": defaultdict(dict),
@@ -68,6 +71,9 @@ class Write:
 
         iterator_xyz = [0, 1, 2]
         label_xyz = ["x", "y", "z"]
+
+        iterator_xyz = [0, 1]
+        label_xyz = ["x", "y"]
         for i in range(len(self.nodes)):
             for idx in iterator_xyz:
                 dof = self.eq_nb_dof[i][idx]
@@ -84,19 +90,42 @@ class Write:
                 self.data["acceleration"][str(int(self.nodes[i]))][label_xyz[idx]] = a
         return
 
-    def pickle(self, name="data", write=True) -> None:
+    def pickle(self, name="data", write=True, nodes="all") -> None:
         """
         Writes pickle file in binary
 
         :param name: (optional, default data) name of the pickle file
         :param write: (optional, default True) checks if file needs to be written
+        :param nodes: (optional, default 'all') nodes to be written in pickle file
         """
         if not write:
             return
 
-        # dump data
-        with open(os.path.join(self.output_folder, f"{name}.pickle"), "wb") as f:
-            pickle.dump(self.data, f)
+        # if list of nodes exists -> dump results only for nodes
+        if nodes != "all":
+            idx = [self.data["nodes"].index(i) for i in nodes]
+
+            data = {"time": self.data["time"],
+                    "nodes": nodes,
+                    "position": [self.data["position"][i] for i in idx],
+                    "displacement": defaultdict(dict),
+                    "velocity": defaultdict(dict),
+                    "acceleration": defaultdict(dict),
+                    }
+
+            for n in nodes:
+                data["displacement"].update({str(n): self.data["displacement"][str(n)]})
+                data["velocity"].update({str(n): self.data["velocity"][str(n)]})
+                data["acceleration"].update({str(n): self.data["acceleration"][str(n)]})
+
+            # dump data
+            with open(os.path.join(self.output_folder, f"{name}.pickle"), "wb") as f:
+                pickle.dump(data, f)
+
+        else:
+            # dump data
+            with open(os.path.join(self.output_folder, f"{name}.pickle"), "wb") as f:
+                pickle.dump(self.data, f)
         return
 
     def vtk(self, name="data", write=True) -> None:
@@ -127,24 +156,40 @@ class Write:
             for j, m in enumerate(list_props):
                 material_prop[n, j] = self.materials[material_name][m]
 
+        # get ndim
+        ndim = self.bc.shape[1]
+        # make sure dimension are correct for writing to VTK
+        bc = np.zeros((self.bc.shape[0],3))
+        if ndim == 2:
+            bc[:,:2] = self.bc
+        elif ndim == 3:
+            bc = self.bc
+
         # for each time writes a VTK file
         for t in range(len(self.time)):
             # define displacement and velocity
             displacement = np.zeros((nb_nodes, 3))
             velocity = np.zeros((nb_nodes, 3))
             for i in range(nb_nodes):
-                displacement[i, :] = np.array([self.data["displacement"][str(int(self.nodes[i]))]["x"][t],
-                                               self.data["displacement"][str(int(self.nodes[i]))]["y"][t],
-                                               self.data["displacement"][str(int(self.nodes[i]))]["z"][t]])
-                velocity[i, :] = np.array([self.data["velocity"][str(int(self.nodes[i]))]["x"][t],
-                                           self.data["velocity"][str(int(self.nodes[i]))]["y"][t],
-                                           self.data["velocity"][str(int(self.nodes[i]))]["z"][t]])
+                if ndim == 3:
+                    displacement[i, :] = np.array([self.data["displacement"][str(int(self.nodes[i]))]["x"][t],
+                                                   self.data["displacement"][str(int(self.nodes[i]))]["y"][t],
+                                                   self.data["displacement"][str(int(self.nodes[i]))]["z"][t]])
+                    velocity[i, :] = np.array([self.data["velocity"][str(int(self.nodes[i]))]["x"][t],
+                                               self.data["velocity"][str(int(self.nodes[i]))]["y"][t],
+                                               self.data["velocity"][str(int(self.nodes[i]))]["z"][t]])
+                elif ndim == 2:
+                    displacement[i, :2] = np.array([self.data["displacement"][str(int(self.nodes[i]))]["x"][t],
+                                                   self.data["displacement"][str(int(self.nodes[i]))]["y"][t]])
+                    velocity[i, :2] = np.array([self.data["velocity"][str(int(self.nodes[i]))]["x"][t],
+                                               self.data["velocity"][str(int(self.nodes[i]))]["y"][t]])
 
             # write VTK at time t
             vtk = VTK_writer.Write(os.path.join(self.output_folder, "VTK"), file_name=f"{name}_{t}")
             vtk.add_mesh(self.coordinates, self.elements)
             vtk.add_vector("displacement", displacement)
             vtk.add_vector("velocity", velocity, header=False)
+            vtk.add_vector("boundary_conditions", bc, header=False)
             vtk.add_scalar("material_index", material)
             for j, m in enumerate(list_props):
                 vtk.add_scalar(f"material_prop_{m}", material_prop[:, j], header=False)

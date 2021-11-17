@@ -187,14 +187,19 @@ class ReadMesh:
 
         # check if element type is 5 or 17
         element_type = set(elem[:, 1])
-        if not all(x in [5, 17] for x in element_type):
+        if not all(x in [3,5, 17] for x in element_type):
             sys.exit("ERROR: Element type not supported")
 
         # add element type to self
+        if all(x == 3 for x in element_type):
+            self.element_type = 'quad4'
+            self.dimension = 2
         if all(x == 5 for x in element_type):
             self.element_type = 'hexa8'
+            self.dimension = 3
         elif all(x == 17 for x in element_type):
             self.element_type = 'hexa20'
+            self.dimension = 3
 
         # add variables to self
         self.nodes = nodes
@@ -225,11 +230,20 @@ class ReadMesh:
             nodes = bc[boundary][1]
 
             # find all the nodes that are within this plane
-            # assuming that the three points are non-collinear
-            plane, direction = utils.define_plane(nodes[0], nodes[1], nodes[2])
+            if self.dimension == 3:
+                # assuming that the three points are non-collinear
+                plane, direction = utils.define_plane(nodes[0], nodes[1], nodes[2])
 
-            residual = self.nodes[:, 1] * plane[0] + self.nodes[:, 2] * plane[1] + self.nodes[:, 3] * plane[2] - plane[
-                3]
+                residual = self.nodes[:, 1] * plane[0] + self.nodes[:, 2] * plane[1] + self.nodes[:, 3] * plane[2] - plane[3]
+
+            # find all the nodes that are on a line
+            elif self.dimension == 2:
+                vector = np.array(nodes[1]) - np.array(nodes[0])
+                direction = np.array([-vector[1], vector[0]])
+                residual = (utils.calculate_distance(nodes[0], self.nodes[:, 1:]) + utils.calculate_distance(nodes[1], self.nodes[:, 1:]) - utils.calculate_distance(nodes[0], nodes[1]))
+
+            else:
+                sys.exit(f"ERROR: dimension: {self.dimension}, is  not supported")
 
             # find indexes
             indices = np.where(residual == 0.)[0]

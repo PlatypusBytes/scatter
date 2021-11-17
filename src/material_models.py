@@ -1,7 +1,9 @@
+import sys
+
 import numpy as np
 
 
-def stiffness_elasticity(E: float, poisson: float) -> np.ndarray:
+def stiffness_elasticity(E: float, poisson: float, dimension: int) -> np.ndarray:
     r"""
     Stiffness matrix for isotropic elastic material
 
@@ -14,16 +16,29 @@ def stiffness_elasticity(E: float, poisson: float) -> np.ndarray:
     :return: Stiffness matrix
     """
 
-    D = np.zeros((6, 6))
+    if dimension ==3:
+        D = np.zeros((6, 6))
 
-    D[:3, :3] = [[1. - poisson, poisson, poisson],
-                 [poisson, 1. - poisson, poisson],
-                 [poisson, poisson, 1. - poisson]]
+        D[:3, :3] = [[1. - poisson, poisson, poisson],
+                     [poisson, 1. - poisson, poisson],
+                     [poisson, poisson, 1. - poisson]]
 
-    D[3:, 3:] = [[(1. - 2. * poisson) / 2, 0, 0],
-                 [0, (1. - 2. * poisson) / 2, 0],
-                 [0, 0, (1. - 2. * poisson) / 2]]
+        D[3:, 3:] = [[(1. - 2. * poisson) / 2, 0, 0],
+                     [0, (1. - 2. * poisson) / 2, 0],
+                     [0, 0, (1. - 2. * poisson) / 2]]
 
-    D *= E / ((1. + poisson) * (1. - 2. * poisson))
+        D *= E / ((1. + poisson) * (1. - 2. * poisson))
+
+    elif dimension == 2:
+        D = np.zeros((3, 3))
+
+        D[:2, :2] = [[1. - poisson, poisson],
+                     [poisson, 1. - poisson]]
+
+        D[2, 2] = (1. - 2. * poisson) / 2
+
+        D *= E / ((1. + poisson) * (1. - 2. * poisson))
+    else:
+        sys.exit(f"ERROR dimension: {dimension} is not supported")
 
     return D

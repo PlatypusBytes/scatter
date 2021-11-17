@@ -49,7 +49,10 @@ class GenerateMatrix:
         for idx, elem in enumerate(data.elem):
 
             # call shape functions
-            shape_fct = shape_functions.ShapeFunctionVolume(data.element_type, self.order)
+            if data.dimension == 3:
+                shape_fct = shape_functions.ShapeFunctionVolume(data.element_type, self.order)
+            if data.dimension == 2:
+                shape_fct = shape_functions.ShapeFunctionSurface(data.element_type, self.order)
 
             # material index
             mat_idx = data.materials_index[idx]
@@ -61,7 +64,7 @@ class GenerateMatrix:
             v = material[name_material]["poisson"]
 
             # element stiffness matrix
-            D = material_models.stiffness_elasticity(E, v)
+            D = material_models.stiffness_elasticity(E, v, data.dimension)
 
             # coordinates for all the nodes in one element
             xyz = []
@@ -70,7 +73,7 @@ class GenerateMatrix:
                 xyz.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
 
             # generate shape functions B and H matrix
-            shape_fct.generate(xyz)
+            shape_fct.generate(np.array(xyz))
 
             # compute stiffness
             Ke = shape_fct.compute_stiffness(D)
@@ -102,7 +105,10 @@ class GenerateMatrix:
         for idx, elem in enumerate(data.elem):
 
             # call shape functions
-            shape_fct = shape_functions.ShapeFunctionVolume(data.element_type, self.order)
+            if data.dimension == 3:
+                shape_fct = shape_functions.ShapeFunctionVolume(data.element_type, self.order)
+            if data.dimension == 2:
+                shape_fct = shape_functions.ShapeFunctionSurface(data.element_type, self.order)
 
             # material index
             mat_idx = data.materials_index[idx]
@@ -119,7 +125,7 @@ class GenerateMatrix:
                 xyz.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
 
             # generate shape functions B and H matrix
-            shape_fct.generate(xyz)
+            shape_fct.generate(np.array(xyz))
 
             # compute mass
             Me = shape_fct.compute_mass(rho)

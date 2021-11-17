@@ -3,6 +3,20 @@ from typing import Tuple
 import numpy as np
 
 
+def calculate_distance(p1: list, p2: list) -> float:
+    r"""
+    Calculates the distance between two points or array of points
+    """
+    p1 = np.array(p1)
+    p2 = np.array(p2)
+    if p1.size <= 3:
+        p1 = p1[None, :]
+    if p2.size <= 3:
+        p2 = p2[None, :]
+    dist = np.linalg.norm(p1-p2, axis=1)
+    return dist
+
+
 def calculate_centroid(coordinates: np.ndarray)-> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Calculate centroid of numpy array
@@ -14,6 +28,7 @@ def calculate_centroid(coordinates: np.ndarray)-> Tuple[np.ndarray, np.ndarray, 
     sum_y = np.sum(coordinates[:, 1])
     sum_z = np.sum(coordinates[:, 2])
     return sum_x / length, sum_y / length, sum_z / length
+
 
 def define_plane(p1: list, p2: list, p3: list) -> [list, np.ndarray]:
     r"""
