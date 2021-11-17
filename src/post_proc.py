@@ -39,9 +39,8 @@ def plot_surface(X, Z, coords, data_plane, time, t, label, folder):
 
     # Customize the z axis.
     ax.set_zlim((np.min(data_plane), np.max(data_plane)))
-
     # ax.set_zlim((-0.6, 0.1))
-    ax.text2D(0.80, 0.95, "time = " + str(time) + " s", transform=ax.transAxes)
+    ax.text2D(0.80, 0.95, "time = " + str(round(time[t], len(str(len(time))))) + " s", transform=ax.transAxes)
     ax.set_xlabel("Distance X [m]")
     ax.set_ylabel("Distance Z [m]")
     # ax.set_zlabel(r"Vertical displacement $\times 10 ^{-6}$ [m]")
@@ -49,18 +48,22 @@ def plot_surface(X, Z, coords, data_plane, time, t, label, folder):
     ax.view_init(35, -135)
     # ax.view_init(90, 90)
     # ax.set_zticks([])
-    plt.savefig(os.path.join(folder, str(t).zfill(3) + ".png"))
-    # plt.savefig(os.path.join(folder, str(t).zfill(3) + ".pdf"))
+    plt.savefig(os.path.join(folder, str(t).zfill(len(str(len(time)))) + ".png"))
+    # plt.savefig(os.path.join(folder, str(t).zfill(len(str(len(time)))) + ".pdf"))
     plt.close()
     return
 
 
-def make_movie(data_location, y_ref, elem_size, dimension, t_max, data_val,
+def make_movie(data_location, y_ref, elem_size, dimension, data_val, t_max=False,
                output_file="movie.gif", temp_folder="./tmp"):
     # only works for square bricks with dimension and elem_size
 
     # read pickle file from FEM
     data = read_pickle(data_location)
+
+    # if t_max not defined
+    if not t_max:
+        t_max = np.max(data["time"])
 
     # define mesh model
     x = np.linspace(0, dimension, int(dimension / elem_size) + 1)
@@ -70,7 +73,6 @@ def make_movie(data_location, y_ref, elem_size, dimension, t_max, data_val,
     nodes = []
     coords = []
     for i, val in enumerate(data["position"]):
-        # if np.abs(val[1] - y_ref) < tol:
         if val[1] == y_ref:
             nodes.append(str(i + 1))
             coords.append([round(j, 2) for j in val])
@@ -87,11 +89,11 @@ def make_movie(data_location, y_ref, elem_size, dimension, t_max, data_val,
 
     # create multiple plots
     for t in range(0, int(np.where(data["time"] >= t_max)[0][0])):
-        plot_surface(X, Z, coords, data_plane, round(data["time"][t], 3), t, data_val, temp_folder)
+        plot_surface(X, Z, coords, data_plane, data["time"], t, data_val, temp_folder)
 
     # make de video
     filenames = os.listdir(temp_folder)
-    with imageio.get_writer(output_file, mode='I', fps=15) as writer:
+    with imageio.get_writer(output_file, mode='I', fps=30) as writer:
         for filename in filenames:
             image = imageio.imread(os.path.join(temp_folder, filename))
             writer.append_data(image)
