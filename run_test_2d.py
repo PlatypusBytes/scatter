@@ -11,6 +11,7 @@ if __name__ == "__main__":
             "damping": [1, 0.05, 20, 0.05],
             "absorbing_BC": [1, 1],
             "pickle": True,
+            "pickle_nodes": "all",
             "VTK": True}
 
     # boundary conditions

@@ -88,7 +88,11 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)
     # export results to pickle
-    # results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
+    if 'pickle_nodes' in inp_settings.keys():
+        pickle_nodes = inp_settings["pickle_nodes"]
+    else:
+        pickle_nodes = "all"
+    results.pickle(write=inp_settings["pickle"], nodes=pickle_nodes)
     # export results to VTK
     results.vtk(write=inp_settings["VTK"])
 

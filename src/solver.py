@@ -2,7 +2,7 @@ import pickle
 import os
 import numpy as np
 from scipy.sparse.linalg import inv #, spsolve
-from pypardiso import factorized, spsolve
+from pypardiso import spsolve
 from tqdm import tqdm
 
 
@@ -56,7 +56,7 @@ def init(m_global: np.ndarray, c_global: np.ndarray, k_global: np.ndarray, force
     k_part = k_global.dot(u)
     c_part = c_global.dot(v)
 
-    a = spsolve(m_global.tocsc(),force_ini - c_part - k_part)
+    a = spsolve(m_global.tocsc(), force_ini - c_part - k_part)
 
     return a
 
@@ -82,7 +82,7 @@ class Solver:
         return
 
     def newmark(self, settings: dict, M: np.ndarray, C: np.ndarray, K: np.ndarray, F: np.ndarray,
-                absorbing: np.ndarray, t_step: float, t_total: float) -> None:
+                absorbing: np.ndarray, t_step: float, time: np.ndarray) -> None:
         r"""
         Newmark linear solver.
         Formulated in full form (not incremental).
@@ -97,7 +97,7 @@ class Solver:
         :param F: External force
         :param absorbing: Absorbing boundary 'unitary' force
         :param t_step: time step
-        :param t_total: total time of analysis
+        :param time: time array
         """
         # constants for the Newmark
         a1, a2, a3, a4, a5, a6 = const(settings["beta"], settings["gamma"], t_step)
@@ -113,7 +113,7 @@ class Solver:
 
         K_till = K + C.dot(a4) + M.dot(a1)
 
-        self.time = np.linspace(0, t_total, int(np.ceil(t_total / t_step)))
+        self.time = time
 
         # define progress bar
         pbar = tqdm(total=len(self.time), unit_scale=True, unit_divisor=1000, unit="steps")
@@ -156,7 +156,7 @@ class Solver:
         pbar.close()
         return
 
-    def static(self, K: np.ndarray, F: np.ndarray, t_step: float, t_total: float) -> None:
+    def static(self, K: np.ndarray, F: np.ndarray, t_step: float, time: np.ndarray) -> None:
         r"""
         Static linear solver.
         Formulated in full form (not incremental).
@@ -167,11 +167,11 @@ class Solver:
         :param K: Stiffness matrix
         :param F: External force
         :param t_step: time step
-        :param t_total: total time of analysis
+        :param time: time array
         """
 
-        # initial conditions
-        self.time = np.linspace(0, t_total, int(np.ceil(t_total / t_step)))
+        # time
+        self.time = time
 
         # define progress bar
         pbar = tqdm(total=len(self.time), unit_scale=True, unit_divisor=1000, unit="steps")
@@ -189,6 +189,8 @@ class Solver:
             self.u.append(uu)
 
         self.u = np.array(self.u)
+        self.v = np.zeros(self.u.shape)
+        self.a = np.zeros(self.u.shape)
 
         # close the progress bas
         pbar.close()
