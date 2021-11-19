@@ -48,6 +48,7 @@ class Write:
         self.mat_idx = model.materials_index
         self.materials = materials
         self.bc = model.BC
+        self.n_dim = model.dimension
 
         self.data = {}
 
@@ -69,11 +70,13 @@ class Write:
                           "acceleration": defaultdict(dict),
                           })
 
-        iterator_xyz = [0, 1, 2]
-        label_xyz = ["x", "y", "z"]
+        if self.n_dim == 3:
+            iterator_xyz = [0, 1, 2]
+            label_xyz = ["x", "y", "z"]
+        elif self.n_dim == 2:
+            iterator_xyz = [0, 1]
+            label_xyz = ["x", "y"]
 
-        iterator_xyz = [0, 1]
-        label_xyz = ["x", "y"]
         for i in range(len(self.nodes)):
             for idx in iterator_xyz:
                 dof = self.eq_nb_dof[i][idx]
@@ -156,13 +159,11 @@ class Write:
             for j, m in enumerate(list_props):
                 material_prop[n, j] = self.materials[material_name][m]
 
-        # get ndim
-        ndim = self.bc.shape[1]
         # make sure dimension are correct for writing to VTK
-        bc = np.zeros((self.bc.shape[0],3))
-        if ndim == 2:
-            bc[:,:2] = self.bc
-        elif ndim == 3:
+        bc = np.zeros((self.bc.shape[0], 3))
+        if self.n_dim == 2:
+            bc[:, :2] = self.bc
+        elif self.n_dim == 3:
             bc = self.bc
 
         # for each time writes a VTK file
@@ -171,14 +172,14 @@ class Write:
             displacement = np.zeros((nb_nodes, 3))
             velocity = np.zeros((nb_nodes, 3))
             for i in range(nb_nodes):
-                if ndim == 3:
+                if self.n_dim == 3:
                     displacement[i, :] = np.array([self.data["displacement"][str(int(self.nodes[i]))]["x"][t],
                                                    self.data["displacement"][str(int(self.nodes[i]))]["y"][t],
                                                    self.data["displacement"][str(int(self.nodes[i]))]["z"][t]])
                     velocity[i, :] = np.array([self.data["velocity"][str(int(self.nodes[i]))]["x"][t],
                                                self.data["velocity"][str(int(self.nodes[i]))]["y"][t],
                                                self.data["velocity"][str(int(self.nodes[i]))]["z"][t]])
-                elif ndim == 2:
+                elif self.n_dim == 2:
                     displacement[i, :2] = np.array([self.data["displacement"][str(int(self.nodes[i]))]["x"][t],
                                                    self.data["displacement"][str(int(self.nodes[i]))]["y"][t]])
                     velocity[i, :2] = np.array([self.data["velocity"][str(int(self.nodes[i]))]["x"][t],
