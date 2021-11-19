@@ -3,12 +3,19 @@ import numpy as np
 import unittest
 import shutil
 import pickle
-import filecmp
 from pathlib import Path
 from src.scatter import scatter
 
 
 dec_places = 5
+
+
+def is_str_float(n: str) -> bool:
+    try:
+        float(n)
+        return True
+    except ValueError:
+        return False
 
 
 def read_pickle(file):
@@ -233,9 +240,17 @@ class Test1DWavePropagation_3D(unittest.TestCase):
         # compare VTK
         vtk_files = os.listdir(os.path.join(self.fold_results, "VTK"))
         for vtk in vtk_files:
-            self.assertTrue(filecmp.cmp(os.path.join(self.fold_results, "VTK", vtk),
-                                        os.path.join(self.mean_data_vtk, vtk),
-                                        shallow=True))
+            with open(os.path.join(self.fold_results, "VTK", vtk)) as fi:
+                computed = fi.read().splitlines()
+            with open(os.path.join(self.mean_data_vtk, vtk)) as fi:
+                correct = fi.read().splitlines()
+
+            for i in range(len(correct)):
+                if all([is_str_float(n) for n in correct[i].split()]):
+                    for n in zip(correct[i].split(), computed[i].split()):
+                        self.assertAlmostEqual(float(n[0]), float(n[1]), dec_places)
+                else:
+                    self.assertTrue(correct[i], computed[i])
         return
 
     def tearDown(self):
@@ -388,9 +403,17 @@ class Test1DWavePropagation_2D(unittest.TestCase):
         # compare VTK
         vtk_files = os.listdir(os.path.join(self.fold_results, "VTK"))
         for vtk in vtk_files:
-            self.assertTrue(filecmp.cmp(os.path.join(self.fold_results, "VTK", vtk),
-                                        os.path.join(self.mean_data_vtk, vtk),
-                                        shallow=True))
+            with open(os.path.join(self.fold_results, "VTK", vtk)) as fi:
+                computed = fi.read().splitlines()
+            with open(os.path.join(self.mean_data_vtk, vtk)) as fi:
+                correct = fi.read().splitlines()
+
+            for i in range(len(correct)):
+                if all([is_str_float(n) for n in correct[i].split()]):
+                    for n in zip(correct[i].split(), computed[i].split()):
+                        self.assertAlmostEqual(float(n[0]), float(n[1]), dec_places)
+                else:
+                    self.assertTrue(correct[i], computed[i])
         return
 
     def tearDown(self):
