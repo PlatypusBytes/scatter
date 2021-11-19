@@ -155,7 +155,7 @@ class Solver:
         pbar.close()
         return
 
-    def static(self, K: np.ndarray, F: np.ndarray, t_step: float, time: np.ndarray) -> None:
+    def static(self, K: np.ndarray, F: np.ndarray, time: np.ndarray) -> None:
         r"""
         Static linear solver.
         Formulated in full form (not incremental).
@@ -165,7 +165,6 @@ class Solver:
         ----------
         :param K: Stiffness matrix
         :param F: External force
-        :param t_step: time step
         :param time: time array
         """
 
