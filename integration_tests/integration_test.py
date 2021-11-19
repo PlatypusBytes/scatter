@@ -288,7 +288,7 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                 "type": "heaviside"}
 
         # run scatter
-        self.fold_results = os.path.join(self.root, "./_results_mean_2d")
+        self.fold_results = os.path.join(self.root, "/_results_mean_2d")
         scatter(os.path.join(self.root, r"./mesh/column_2D.msh"), self.fold_results, mat, BC, sett, load, time_step=5e-3)
 
         # compare results
@@ -341,7 +341,7 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                     }
 
         # run scatter
-        self.fold_results = os.path.join(self.root, "./_results_rd_2d")
+        self.fold_results = os.path.join(self.root, "./_results_rf_2d")
         scatter(os.path.join(self.root, r"./mesh/column_2D.msh"), self.fold_results, mat, BC, sett, load, time_step=5e-3, random_props=RF_props)
 
         # compare results
