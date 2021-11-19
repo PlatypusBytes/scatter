@@ -1,8 +1,10 @@
 import numpy as np
 import sys
+# import scatter packages
+from src.element_types import HexEight, HexTwenty, QuadFour, QuadEight
 
 
-class ShapeFunctionVolume:
+class VolumeElement:
     def __init__(self, elem_type: str = "hexa8", order: int = 2) -> None:
         """
         Shape function and numerical integration functions for volume elements.
@@ -46,9 +48,15 @@ class ShapeFunctionVolume:
 
                     # call shape functions depending on the type of element
                     if self.type == 'hexa8':
-                        N, dN = shape_hexa8(X)
+                        hex = HexEight()
+                        hex.shape_functions(X)
                     elif self.type == 'hexa20':
-                        N, dN = shape_hexa20(X)
+                        hex = HexTwenty()
+                        hex.shape_functions(X)
+
+                    # shape functions
+                    N = hex.N
+                    dN = hex.dN
 
                     # add to self
                     self.N.append(N)
@@ -169,7 +177,7 @@ class ShapeFunctionVolume:
         return f_abs
 
 
-class ShapeFunctionSurface:
+class SurfaceElement:
     def __init__(self, elem_type: str = "quad4", order: int = 2) -> None:
         """
         Shape function and numerical integration functions for surface elements.
@@ -212,9 +220,15 @@ class ShapeFunctionSurface:
 
                 # call shape functions depending on the type of element
                 if self.type == 'quad4':
-                    N, dN = shape_quad4(X)
+                    quad = QuadFour()
+                    quad.shape_functions(X)
                 elif self.type == 'quad8':
-                    N, dN = shape_quad8(X)
+                    quad = QuadEight()
+                    quad.shape_functions(X)
+
+                # shape functions
+                N = quad.N
+                dN = quad.dN
 
                 # add to self
                 self.N.append(N)
@@ -352,305 +366,3 @@ def Gauss_weights(n: int) -> [np.array, np.array]:
         sys.exit("ERROR: integration order not supported")
 
     return np.array(x), np.array(w)
-
-
-def shape_quad4(xy):
-    r"""
-    Shape functions 4 node quadrilateral element.
-    Node numbering follow:
-          v
-          ^
-          |
-    3-----------2
-    |     |     |
-    |     |     |
-    |     +---- | --> u
-    |           |
-    |           |
-    0-----------1
-
-    Parameters
-    ----------
-    :param xy: list with node coordinate
-    :return: Shape function and derivative of shape functions
-    """
-
-    N = np.zeros((4, 1))
-    dN = np.zeros((4, 2))
-
-    u = xy[0]
-    v = xy[1]
-
-    # shape functions
-    N[0] = 1. / 4. * (1 - u) * (1 - v)
-    N[1] = 1. / 4. * (1 + u) * (1 - v)
-    N[2] = 1. / 4. * (1 + u) * (1 + v)
-    N[3] = 1. / 4. * (1 - u) * (1 + v)
-
-    # derivative in u
-    dN[0, 0] = -(1 - v) / 4
-    dN[1, 0] = (1 - v) / 4
-    dN[2, 0] = (v + 1) / 4
-    dN[3, 0] = -(v + 1) / 4
-
-    # derivative in v
-    dN[0, 1] = -(1 - u) / 4
-    dN[1, 1] = -(u + 1) / 4
-    dN[2, 1] = (u + 1) / 4
-    dN[3, 1] = (1 - u) / 4
-
-    return N, dN
-
-
-def shape_quad8(xy):
-    r"""
-    Shape functions 8 node quadrilateral element.
-    Node numbering follow:
-          v
-          ^
-          |
-    3-----6-----2
-    |     |     |
-    |     |     |
-    7     +---- 5  --> u
-    |           |
-    |           |
-    0-----4-----1
-
-    Parameters
-    ----------
-    :param xy: list with node coordinate
-    :return: Shape function and derivative of shape functions
-    """
-
-    N = np.zeros((8, 1))
-    dN = np.zeros((8, 2))
-
-    u = xy[0]
-    v = xy[1]
-
-    # shape functions
-    N[0] = 1. / 4. * (1 - u) * (1 - v)
-    N[1] = 1. / 4. * (1 + u) * (1 - v)
-    N[2] = 1. / 4. * (1 + u) * (1 + v)
-    N[3] = 1. / 4. * (1 - u) * (1 + v)
-    N[4] = 1. / 2. * (1 - u ** 2) * (1 - v)
-    N[5] = 1. / 2. * (1 + u) * (1 - v ** 2)
-    N[6] = 1. / 2. * (1 - u ** 2) * (1 + v)
-    N[7] = 1. / 2. * (1 - u) * (1 - v ** 2)
-
-    # derivative in u
-    dN[0, 0] = -(1 - v) / 4
-    dN[1, 0] = (1 - v) / 4
-    dN[2, 0] = (v + 1) / 4
-    dN[3, 0] = -(v + 1) / 4
-    dN[4, 0] = -u * (1 - v)
-    dN[5, 0] = (1 - v ** 2) / 2
-    dN[6, 0] = -u * (1 + v)
-    dN[7, 0] = -(1 - v ** 2) / 2
-
-    # derivative in v
-    dN[0, 1] = -(1 - u) / 4
-    dN[1, 1] = -(u + 1) / 4
-    dN[2, 1] = (u + 1) / 4
-    dN[3, 1] = (1 - u) / 4
-    dN[4, 1] = -(1 - u ** 2) / 2
-    dN[5, 1] = -v * (1 + u)
-    dN[6, 1] = (1 - u ** 2) / 2
-    dN[7, 1] = -v * (1 - u)
-
-    return N, dN
-
-
-def shape_hexa8(xyz: list) -> [np.ndarray, np.ndarray]:
-    r"""
-    Shape functions Volume 8 node element.
-    Node numbering follow:
-           v
-    3----------2
-    |\     ^   |\
-    | \    |   | \
-    |  \   |   |  \
-    |   7------+---6
-    |   |  +-- |-- | -> u
-    0---+---\--1   |
-     \  |    \  \  |
-      \ |     \  \ |
-       \|      w  \|
-        4----------5
-
-    Parameters
-    ----------
-    :param xyz: list with node coordinate
-    :return: Shape function and derivative of shape functions
-    """
-
-    N = np.zeros((8, 1))
-    dN = np.zeros((8, 3))
-
-    u = xyz[0]
-    v = xyz[1]
-    w = xyz[2]
-
-    # shape functions
-    N[0] = 1. / 8. * (1 - u) * (1 - v) * (1 - w)
-    N[1] = 1. / 8. * (1 + u) * (1 - v) * (1 - w)
-    N[2] = 1. / 8. * (1 + u) * (1 + v) * (1 - w)
-    N[3] = 1. / 8. * (1 - u) * (1 + v) * (1 - w)
-    N[4] = 1. / 8. * (1 - u) * (1 - v) * (1 + w)
-    N[5] = 1. / 8. * (1 + u) * (1 - v) * (1 + w)
-    N[6] = 1. / 8. * (1 + u) * (1 + v) * (1 + w)
-    N[7] = 1. / 8. * (1 - u) * (1 + v) * (1 + w)
-
-    # derivative in u
-    dN[0, 0] = -((1 - v) * (1 - w)) / 8
-    dN[1, 0] = ((1 - v) * (1 - w)) / 8
-    dN[2, 0] = ((v + 1) * (1 - w)) / 8
-    dN[3, 0] = -((v + 1) * (1 - w)) / 8
-    dN[4, 0] = -((1 - v) * (w + 1)) / 8
-    dN[5, 0] = ((1 - v) * (w + 1)) / 8
-    dN[6, 0] = ((v + 1) * (w + 1)) / 8
-    dN[7, 0] = -((v + 1) * (w + 1)) / 8
-
-    # derivative in v
-    dN[0, 1] = -((1 - u) * (1 - w)) / 8
-    dN[1, 1] = -((u + 1) * (1 - w)) / 8
-    dN[2, 1] = ((u + 1) * (1 - w)) / 8
-    dN[3, 1] = ((1 - u) * (1 - w)) / 8
-    dN[4, 1] = -((1 - u) * (w + 1)) / 8
-    dN[5, 1] = -((u + 1) * (w + 1)) / 8
-    dN[6, 1] = ((u + 1) * (w + 1)) / 8
-    dN[7, 1] = ((1 - u) * (w + 1)) / 8
-
-    # derivative in w
-    dN[0, 2] = -((1 - u) * (1 - v)) / 8
-    dN[1, 2] = -((u + 1) * (1 - v)) / 8
-    dN[2, 2] = -((u + 1) * (v + 1)) / 8
-    dN[3, 2] = -((1 - u) * (v + 1)) / 8
-    dN[4, 2] = ((1 - u) * (1 - v)) / 8
-    dN[5, 2] = ((u + 1) * (1 - v)) / 8
-    dN[6, 2] = ((u + 1) * (v + 1)) / 8
-    dN[7, 2] = ((1 - u) * (v + 1)) / 8
-
-    return N, dN
-
-
-def shape_hexa20(xyz):
-    r"""
-    Shape functions Volume 20 node element.
-    Node numbering follow:
-           v
-    3----13----2
-    |\     ^   |\
-    | 15   |   | 14
-    9  \   |   11 \
-    |   7----19+---6
-    |   |  +-- |-- | -> u
-    0---+-8-\--1   |
-     \  17   \  \  18
-     10 |     \  12|
-       \|      w  \|
-        4----16----5
-
-    Parameters
-    ----------
-    :param xyz: list with node coordinate
-    :return: Shape function and derivative of shape functions
-    """
-
-    N = np.zeros((20, 1))
-    dN = np.zeros((20, 3))
-
-    u = xyz[0]
-    v = xyz[1]
-    w = xyz[2]
-
-    # shape functions
-    N[0] = 1. / 8. * (1 - u) * (1 - v) * (1 - w) * (-u - v - w - 2)
-    N[1] = 1. / 8. * (1 + u) * (1 - v) * (1 - w) * (u - v - w - 2)
-    N[2] = 1. / 8. * (1 + u) * (1 + v) * (1 - w) * (u + v - w - 2)
-    N[3] = 1. / 8. * (1 - u) * (1 + v) * (1 - w) * (-u + v - w - 2)
-    N[4] = 1. / 8. * (1 - u) * (1 - v) * (1 + w) * (-u - v + w - 2)
-    N[5] = 1. / 8. * (1 + u) * (1 - v) * (1 + w) * (u - v + w - 2)
-    N[6] = 1. / 8. * (1 + u) * (1 + v) * (1 + w) * (u + v + w - 2)
-    N[7] = 1. / 8. * (1 - u) * (1 + v) * (1 + w) * (-u + v + w - 2)
-    N[8] = 1. / 4. * (1 - u ** 2) * (1 - v) * (1 - w)
-    N[9] = 1. / 4. * (1 - u) * (1 - v ** 2) * (1 - w)
-    N[10] = 1. / 4. * (1 - u) * (1 - v) * (1 - w ** 2)
-    N[11] = 1. / 4. * (1 + u) * (1 - v ** 2) * (1 - w)
-    N[12] = 1. / 4. * (1 + u) * (1 - v) * (1 - w ** 2)
-    N[13] = 1. / 4. * (1 - u ** 2) * (1 + v) * (1 - w)
-    N[14] = 1. / 4. * (1 + u) * (1 + v) * (1 - w ** 2)
-    N[15] = 1. / 4. * (1 - u) * (1 + v) * (1 - w ** 2)
-    N[16] = 1. / 4. * (1 - u ** 2) * (1 - v) * (1 + w)
-    N[17] = 1. / 4. * (1 - u) * (1 - v ** 2) * (1 + w)
-    N[18] = 1. / 4. * (1 + u) * (1 - v ** 2) * (1 + w)
-    N[19] = 1. / 4. * (1 - u ** 2) * (1 + v) * (1 + w)
-
-    # derivative in u
-    dN[0, 0] = -((1 - v) * (1 - w) * (-w - v - u - 2)) / 8 - ((1 - u) * (1 - v) * (1 - w)) / 8
-    dN[1, 0] = ((1 - v) * (1 - w) * (-w - v + u - 2)) / 8 + ((u + 1) * (1 - v) * (1 - w)) / 8
-    dN[2, 0] = ((v + 1) * (1 - w) * (-w + v + u - 2)) / 8 + ((u + 1) * (v + 1) * (1 - w)) / 8
-    dN[3, 0] = -((v + 1) * (1 - w) * (-w + v - u - 2)) / 8 - ((1 - u) * (v + 1) * (1 - w)) / 8
-    dN[4, 0] = -((1 - v) * (w + 1) * (w - v - u - 2)) / 8 - ((1 - u) * (1 - v) * (w + 1)) / 8
-    dN[5, 0] = ((1 - v) * (w + 1) * (w - v + u - 2)) / 8 + ((u + 1) * (1 - v) * (w + 1)) / 8
-    dN[6, 0] = ((v + 1) * (w + 1) * (w + v + u - 2)) / 8 + ((u + 1) * (v + 1) * (w + 1)) / 8
-    dN[7, 0] = -((v + 1) * (w + 1) * (w + v - u - 2)) / 8 - ((1 - u) * (v + 1) * (w + 1)) / 8
-    dN[8, 0] = -(u * (1 - v) * (1 - w)) / 2
-    dN[9, 0] = -((1 - v ** 2) * (1 - w)) / 4
-    dN[10, 0] = -((1 - v) * (1 - w ** 2)) / 4
-    dN[11, 0] = ((1 - v ** 2) * (1 - w)) / 4
-    dN[12, 0] = ((1 - v) * (1 - w ** 2)) / 4
-    dN[13, 0] = -(u * (v + 1) * (1 - w)) / 2
-    dN[14, 0] = ((v + 1) * (1 - w ** 2)) / 4
-    dN[15, 0] = -((v + 1) * (1 - w ** 2)) / 4
-    dN[16, 0] = -(u * (1 - v) * (w + 1)) / 2
-    dN[17, 0] = -((1 - v ** 2) * (w + 1)) / 4
-    dN[18, 0] = ((1 - v ** 2) * (w + 1)) / 4
-    dN[19, 0] = -(u * (v + 1) * (w + 1)) / 2
-
-    # derivative in v
-    dN[0, 1] = -((1 - u) * (1 - w) * (-w - v - u - 2)) / 8 - ((1 - u) * (1 - v) * (1 - w)) / 8
-    dN[1, 1] = -((u + 1) * (1 - w) * (-w - v + u - 2)) / 8 - ((u + 1) * (1 - v) * (1 - w)) / 8
-    dN[2, 1] = ((u + 1) * (1 - w) * (-w + v + u - 2)) / 8 + ((u + 1) * (v + 1) * (1 - w)) / 8
-    dN[3, 1] = ((1 - u) * (1 - w) * (-w + v - u - 2)) / 8 + ((1 - u) * (v + 1) * (1 - w)) / 8
-    dN[4, 1] = -((1 - u) * (w + 1) * (w - v - u - 2)) / 8 - ((1 - u) * (1 - v) * (w + 1)) / 8
-    dN[5, 1] = -((u + 1) * (w + 1) * (w - v + u - 2)) / 8 - ((u + 1) * (1 - v) * (w + 1)) / 8
-    dN[6, 1] = ((u + 1) * (w + 1) * (w + v + u - 2)) / 8 + ((u + 1) * (v + 1) * (w + 1)) / 8
-    dN[7, 1] = ((1 - u) * (w + 1) * (w + v - u - 2)) / 8 + ((1 - u) * (v + 1) * (w + 1)) / 8
-    dN[8, 1] = -((1 - u ** 2) * (1 - w)) / 4
-    dN[9, 1] = -((1 - u) * v * (1 - w)) / 2
-    dN[10, 1] = -((1 - u) * (1 - w ** 2)) / 4
-    dN[11, 1] = -((u + 1) * v * (1 - w)) / 2
-    dN[12, 1] = -((u + 1) * (1 - w ** 2)) / 4
-    dN[13, 1] = ((1 - u ** 2) * (1 - w)) / 4
-    dN[14, 1] = ((u + 1) * (1 - w ** 2)) / 4
-    dN[15, 1] = ((1 - u) * (1 - w ** 2)) / 4
-    dN[16, 1] = -((1 - u ** 2) * (w + 1)) / 4
-    dN[17, 1] = -((1 - u) * v * (w + 1)) / 2
-    dN[18, 1] = -((u + 1) * v * (w + 1)) / 2
-    dN[19, 1] = ((1 - u ** 2) * (w + 1)) / 4
-
-    # derivative in w
-    dN[0, 2] = -((1 - u) * (1 - v) * (-w - v - u - 2)) / 8 - ((1 - u) * (1 - v) * (1 - w)) / 8
-    dN[1, 2] = -((u + 1) * (1 - v) * (-w - v + u - 2)) / 8 - ((u + 1) * (1 - v) * (1 - w)) / 8
-    dN[2, 2] = -((u + 1) * (v + 1) * (-w + v + u - 2)) / 8 - ((u + 1) * (v + 1) * (1 - w)) / 8
-    dN[3, 2] = -((1 - u) * (v + 1) * (-w + v - u - 2)) / 8 - ((1 - u) * (v + 1) * (1 - w)) / 8
-    dN[4, 2] = ((1 - u) * (1 - v) * (w - v - u - 2)) / 8 + ((1 - u) * (1 - v) * (w + 1)) / 8
-    dN[5, 2] = ((u + 1) * (1 - v) * (w - v + u - 2)) / 8 + ((u + 1) * (1 - v) * (w + 1)) / 8
-    dN[6, 2] = ((u + 1) * (v + 1) * (w + v + u - 2)) / 8 + ((u + 1) * (v + 1) * (w + 1)) / 8
-    dN[7, 2] = ((1 - u) * (v + 1) * (w + v - u - 2)) / 8 + ((1 - u) * (v + 1) * (w + 1)) / 8
-    dN[8, 2] = -((1 - u ** 2) * (1 - v)) / 4
-    dN[9, 2] = -((1 - u) * (1 - v ** 2)) / 4
-    dN[10, 2] = -((1 - u) * (1 - v) * w) / 2
-    dN[11, 2] = -((u + 1) * (1 - v ** 2)) / 4
-    dN[12, 2] = -((u + 1) * (1 - v) * w) / 2
-    dN[13, 2] = -((1 - u ** 2) * (v + 1)) / 4
-    dN[14, 2] = -((u + 1) * (v + 1) * w) / 2
-    dN[15, 2] = -((1 - u) * (v + 1) * w) / 2
-    dN[16, 2] = ((1 - u ** 2) * (1 - v)) / 4
-    dN[17, 2] = ((1 - u) * (1 - v ** 2)) / 4
-    dN[18, 2] = ((u + 1) * (1 - v ** 2)) / 4
-    dN[19, 2] = ((1 - u ** 2) * (v + 1)) / 4
-
-    return N, dN

@@ -2,9 +2,8 @@ import numpy as np
 from scipy.sparse import lil_matrix
 
 # import scatter packages
-from src import shape_functions
+from src import discretisation
 from src import material_models
-from src import utils
 
 
 class GenerateMatrix:
@@ -50,9 +49,9 @@ class GenerateMatrix:
 
             # call shape functions
             if data.dimension == 3:
-                shape_fct = shape_functions.ShapeFunctionVolume(data.element_type, self.order)
+                shape_fct = discretisation.VolumeElement(data.element_type, self.order)
             if data.dimension == 2:
-                shape_fct = shape_functions.ShapeFunctionSurface(data.element_type, self.order)
+                shape_fct = discretisation.SurfaceElement(data.element_type, self.order)
 
             # material index
             mat_idx = data.materials_index[idx]
@@ -106,9 +105,9 @@ class GenerateMatrix:
 
             # call shape functions
             if data.dimension == 3:
-                shape_fct = shape_functions.ShapeFunctionVolume(data.element_type, self.order)
+                shape_fct = discretisation.VolumeElement(data.element_type, self.order)
             if data.dimension == 2:
-                shape_fct = shape_functions.ShapeFunctionSurface(data.element_type, self.order)
+                shape_fct = discretisation.SurfaceElement(data.element_type, self.order)
 
             # material index
             mat_idx = data.materials_index[idx]
@@ -192,8 +191,12 @@ class GenerateMatrix:
 
         # compute material matrix for isotropic elasticity
         for idx, elem in enumerate(data.elem):
-
-            shape_fct = shape_functions.ShapeFunctionVolume(data.element_type, self.order)
+            # call shape functions
+            if data.dimension == 3:
+                shape_fct = discretisation.VolumeElement(data.element_type, self.order)
+            if data.dimension == 2:
+                # ToDo: implement
+                shape_fct = discretisation.SurfaceElement(data.element_type, self.order)
 
             # material index
             mat_idx = data.materials_index[idx]
@@ -222,6 +225,9 @@ class GenerateMatrix:
             # if there are no absorbing boundaries goes to next element
             if len(xyz_) == 0:
                 continue
+            else:
+                if data.dimension == 2:
+                    exit("ERROR: BC not supported in 2D")
 
             # coordinates for all the nodes in one element
             xyz = []

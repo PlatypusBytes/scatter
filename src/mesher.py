@@ -4,49 +4,8 @@ import sys
 import numpy as np
 # import scatter packages
 from src import utils
+from src.element_types import HexEight
 
-class HexEight:
-    """
-    The node numbering is as follow:
-
-        8 node volume:
-               v
-        3----------2
-        |\     ^   |\
-        | \    |   | \
-        |  \   |   |  \
-        |   7------+---6
-        |   |  +-- |-- | -> u
-        0---+---\--1   |
-         \  |    \  \  |
-          \ |     \  \ |
-           \|      w  \|
-            4----------5
-    """
-    def __init__(self):
-        self.__surfaces = None
-
-    def get_surfaces(self):
-        """
-        Get node index arrays for each surface of the element
-        """
-        self.__surfaces = np.array([[0,1,2,3],[0,1,4,5],[4,5,6,7],[2,3,6,7],[0,3,4,7],[1,2,5,6]])
-
-    @property
-    def surfaces(self):
-        return self.__surfaces
-
-    @property
-    def max_element_connections(self):
-        return 8
-
-    @property
-    def n_boundary_nodes(self):
-        return 4
-
-    @property
-    def is_quadratic(self):
-        return False
 
 class ReadMesh:
     def __init__(self, file_name: str) -> None:
