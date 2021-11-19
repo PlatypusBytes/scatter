@@ -1,7 +1,6 @@
 import pickle
 import os
 import numpy as np
-from scipy.sparse.linalg import inv #, spsolve
 from pypardiso import spsolve
 from tqdm import tqdm
 
@@ -196,17 +195,27 @@ class Solver:
         pbar.close()
         return
 
-    def save_data(self) -> None:
+    def save_data(self, output_folder: str, name: str = "data.pickle") -> None:
         """
         Saves the data as a pickle
+
+        Parameters
+        ----------
+        :param output_folder: path of the output results
+        :param name: (optional) file name. default 'data.pickle'
         """
+
         # construct dic structure
         data = {"displacement": self.u,
                 "velocity": self.v,
                 "acceleration": self.a,
                 "time": self.time}
 
+        # if output folder does not exist -> creates
+        if not os.path.isdir(output_folder):
+            os.makedirs(output_folder)
+
         # dump data
-        with open(os.path.join(self.output_folder, "data.pickle"), "wb") as f:
+        with open(os.path.join(output_folder, name), "wb") as f:
             pickle.dump(data, f)
         return
