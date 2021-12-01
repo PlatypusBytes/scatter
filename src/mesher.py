@@ -229,9 +229,9 @@ class ReadMesh:
         equation_nb = 0
 
         # loop in all all the nodes
-        for i in range(len(self.nodes)):
+        for i in range(len(self.BC)):
             # loop in all the dof of a node
-            for j in range(len(self.nodes[i][1:])):
+            for j in range(len(self.BC[i])):
                 # if BC = 0: there is no BC
                 if self.BC[i][j] == 0:
                     self.eq_nb_dof[i, j] = equation_nb
