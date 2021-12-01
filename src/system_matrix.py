@@ -79,9 +79,12 @@ class GenerateMatrix:
 
             # assemble Stiffness matrix
             # equation number where the stiff matrix exists
-            i1 = data.eq_nb_elem[idx][~np.isnan(data.eq_nb_elem[idx])]
+            i1 = data.eq_nb_elem[idx][~np.isnan(data.eq_nb_elem[idx])].astype(int)
+            id1 = np.argsort(i1)
+            i1 = np.sort(i1)
             # index where stiffness matrix exists
             i2 = np.where(~np.isnan(data.eq_nb_elem[idx]))[0]
+            i2 = i2[id1]
 
             # assign to the global stiffness matrix
             self.K[i1.reshape(len(i1), 1), i1] += Ke[i2.reshape(len(i2), 1), i2]
@@ -131,9 +134,12 @@ class GenerateMatrix:
 
             # assemble Mass matrix
             # equation number where the mass matrix exists
-            i1 = data.eq_nb_elem[idx][~np.isnan(data.eq_nb_elem[idx])]
-            # index where mass matrix exists
+            i1 = data.eq_nb_elem[idx][~np.isnan(data.eq_nb_elem[idx])].astype(int)
+            id1 = np.argsort(i1)
+            i1 = np.sort(i1)
+            # index where stiffness matrix exists
             i2 = np.where(~np.isnan(data.eq_nb_elem[idx]))[0]
+            i2 = i2[id1]
 
             # assign to the global mass matrix
             self.M[i1.reshape(len(i1), 1), i1] += Me[i2.reshape(len(i2), 1), i2]
@@ -244,7 +250,10 @@ class GenerateMatrix:
             # assemble absorbing boundary matrix
             # equation number where the absorbing matrix exists
             i1 = data.eq_nb_elem[idx][(~np.isnan(data.eq_nb_elem[idx])) & (data.type_BC_elem[idx] == "Absorb")]
+            id1 = np.argsort(id1)
+            i1 = np.sort(i1)
             i2 = np.where((~np.isnan(data.eq_nb_elem[idx])) & (data.type_BC_elem[idx] == "Absorb"))[0]
+            i2 = i2[id1]
 
             # assign the absorbing boundary coefficients: vp for perpendicular vs otherwise
             fct = np.ones(len(i1)) * parameters[1] * rho * vs
