@@ -250,7 +250,7 @@ class GenerateMatrix:
             # assemble absorbing boundary matrix
             # equation number where the absorbing matrix exists
             i1 = data.eq_nb_elem[idx][(~np.isnan(data.eq_nb_elem[idx])) & (data.type_BC_elem[idx] == "Absorb")]
-            id1 = np.argsort(id1)
+            id1 = np.argsort(i1)
             i1 = np.sort(i1)
             i2 = np.where((~np.isnan(data.eq_nb_elem[idx])) & (data.type_BC_elem[idx] == "Absorb"))[0]
             i2 = i2[id1]
