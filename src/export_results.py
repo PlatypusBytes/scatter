@@ -81,7 +81,7 @@ class Write:
             for idx in iterator_xyz:
                 dof = self.eq_nb_dof[i][idx]
                 if np.isnan(dof):
-                    u = v = a = np.ones(len(self.time)) * 0
+                    u = v = a = np.zeros(len(self.time))
                 else:
                     u = self.dis[:, int(dof)]
                     v = self.vel[:, int(dof)]

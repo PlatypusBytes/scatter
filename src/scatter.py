@@ -69,11 +69,11 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # generate matrix external
     F = force_external.Force()
     if loading["type"] == "pulse":
-        F.pulse_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, loading["node"], time)
+        F.pulse_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time)
     elif loading["type"] == "heaviside":
-        F.heaviside_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, loading["node"], time)
+        F.heaviside_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time)
     elif loading["type"] == "moving":
-        F.moving_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, loading["node"], time, model.nodes)
+        F.moving_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time, model.nodes)
     elif loading["type"] == "moving_at_plane":
         top_surface_elements = model.get_top_surface()
         F.moving_load_at_plane(model.number_eq, model.eq_nb_dof, loading, loading["start_coord"], time, top_surface_elements,

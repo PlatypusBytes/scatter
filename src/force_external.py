@@ -12,7 +12,7 @@ class Force:
         self.force = []
         return
 
-    def pulse_load(self, nb_equations, eq_nb_dof, nodes, load_set, node, time, steps=5):
+    def pulse_load(self, nb_equations, eq_nb_dof, nodes, load_set, time, steps=5):
         """
         Pulse load on nodes
 
@@ -20,7 +20,6 @@ class Force:
         :param eq_nb_dof: number of equation for each dof in node list
         :param nodes: list of nodes
         :param load_set: loading settings
-        :param node: list of nodes where load is applied
         :param time: list of time
         :param steps: (optional: default = 5) number of steps to apply the load following a triangular form
         """
@@ -29,6 +28,7 @@ class Force:
         self.force = lil_matrix((nb_equations, len(time)))
 
         factor = load_set["force"]
+        node = load_set["node"]
 
         # check that length of computation is bigger than the number of steps
         if len(time) <= steps:
@@ -48,7 +48,7 @@ class Force:
 
         return
 
-    def heaviside_load(self, nb_equations, eq_nb_dof, nodes, load_set, node, time, steps=5):
+    def heaviside_load(self, nb_equations, eq_nb_dof, nodes, load_set, time, steps=5):
         """
         Heaviside load on nodes
 
@@ -56,7 +56,6 @@ class Force:
         :param eq_nb_dof: number of equation for each dof in node list
         :param nodes: list of nodes
         :param load_set: loading settings
-        :param node: list of nodes where load is applied
         :param time: list of time
         :param steps: (optional: default = 5) number of steps to initialise load
         """
@@ -65,6 +64,7 @@ class Force:
         self.force = lil_matrix(np.zeros((nb_equations, len(time))))
 
         factor = load_set["force"]
+        node = load_set["node"]
 
         # check that length of computation is bigger than the number of steps
         if len(time) <= steps:
@@ -84,7 +84,7 @@ class Force:
 
         return
 
-    def moving_load(self, nb_equations, eq_nb_dof, nodes_list, load_set, node, time, nodes_coord, steps=0):
+    def moving_load(self, nb_equations, eq_nb_dof, nodes_list, load_set, time, nodes_coord, steps=50):
         """
         Moving load along z-axis
 
@@ -92,7 +92,6 @@ class Force:
         :param eq_nb_dof: number of equation for each dof in node list
         :param nodes_list: list of nodes
         :param load_set: loading settings
-        :param node: node where the load starts
         :param time: list of time
         :param nodes_coord: list of coordinates
         :param steps: (optional: default = 50) number of steps to initialise load
@@ -102,6 +101,7 @@ class Force:
         self.force = lil_matrix(np.zeros((nb_equations, len(time))))
         # load factor
         factor = load_set["force"]
+        node = load_set["node"]
 
         # index node
         idx = np.where(nodes_coord[:, 0] == node)[0][0]

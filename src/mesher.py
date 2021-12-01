@@ -146,7 +146,7 @@ class ReadMesh:
 
         # check if element type is 5 or 17
         element_type = set(elem[:, 1])
-        if not all(x in [3,5, 17] for x in element_type):
+        if not all(x in [3, 5, 17] for x in element_type):
             sys.exit("ERROR: Element type not supported")
 
         # add element type to self
@@ -229,9 +229,9 @@ class ReadMesh:
         equation_nb = 0
 
         # loop in all all the nodes
-        for i in range(len(self.BC)):
+        for i in range(len(self.nodes)):
             # loop in all the dof of a node
-            for j in range(len(self.BC[i])):
+            for j in range(len(self.nodes[i][1:])):
                 # if BC = 0: there is no BC
                 if self.BC[i][j] == 0:
                     self.eq_nb_dof[i, j] = equation_nb
