@@ -89,6 +89,39 @@ class GenerateMatrix:
 
         return
 
+    def add_rose_stiffness(self,data, rose_model):
+        import matplotlib.pyplot as plt
+
+
+        rose_K = rose_model.global_stiffness_matrix
+        combined_k = lil_matrix((self.K.shape[0] + rose_K.shape[0] - len(data.eq_nb_dof_rose_nodes), self.K.shape[1] + rose_K.shape[1] - len(data.eq_nb_dof_rose_nodes)))
+
+        mask = np.ones(rose_K.shape[0], bool)
+
+        # mask rows and columns
+        mask[np.array(data.rose_eq_nb)] = False
+        masked_rose = rose_K.toarray()[:, mask]
+        masked_rose = masked_rose[mask,:]
+
+        # add scatter
+        combined_k[:self.K.shape[0], :self.K.shape[1]] = self.K
+
+        # add non-diagonal of rose connectivities
+        combined_k[self.K.shape[0]:,data.eq_nb_dof_rose_nodes] = rose_K.toarray()[mask, :][:,data.rose_eq_nb]
+        combined_k[data.eq_nb_dof_rose_nodes, self.K.shape[1]:] = rose_K.toarray()[:,mask][data.rose_eq_nb,:]
+
+        # add rose
+        combined_k[self.K.shape[0]:, self.K.shape[1]:] = masked_rose
+
+        # add diagonal of rose connectivies
+        combined_k[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] += rose_K[data.rose_eq_nb, data.rose_eq_nb]
+        # combined_k[self.K.shape[0] + np.array(data.rose_eq_nb), self.K.shape[1] + np.array(data.rose_eq_nb)] += self.K[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes]
+
+        self.K = combined_k
+        rose_model.global_stiffness_matrix = combined_k
+        rose_model.track.global_stiffness_matrix = combined_k[:data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes),
+                                                   :data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes)]
+
     def mass(self, data: classmethod, material: dict) -> None:
         r"""
         Global mass matrix generation.
@@ -141,6 +174,51 @@ class GenerateMatrix:
 
         return
 
+    def add_rose_mass(self,data, rose_model):
+
+
+        rose_M = rose_model.global_mass_matrix
+        combined_M = lil_matrix((self.M.shape[0] + rose_M.shape[0] - len(data.eq_nb_dof_rose_nodes), self.M.shape[1] + rose_M.shape[1] - len(data.eq_nb_dof_rose_nodes)))
+
+        mask = np.ones(rose_M.shape[0], bool)
+
+        # mask rows and columns
+        mask[np.array(data.rose_eq_nb)] = False
+        masked_rose = rose_M.toarray()[:, mask]
+        masked_rose = masked_rose[mask,:]
+
+        combined_M[:self.M.shape[0], :self.M.shape[1]] = self.M
+
+        # add non-diagonal of rose connectivities
+        combined_M[self.M.shape[0]:,data.eq_nb_dof_rose_nodes] = rose_M.toarray()[mask, :][:,data.rose_eq_nb]
+        combined_M[data.eq_nb_dof_rose_nodes, self.M.shape[1]:] = rose_M.toarray()[:,mask][data.rose_eq_nb,:]
+
+        combined_M[self.M.shape[0]:, self.M.shape[1]:] = masked_rose
+
+        combined_M[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] += rose_M[data.rose_eq_nb, data.rose_eq_nb]
+        # combined_k[self.K.shape[0] + np.array(data.rose_eq_nb), self.K.shape[1] + np.array(data.rose_eq_nb)] += self.K[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes]
+
+        self.M = combined_M
+        rose_model.global_mass_matrix = combined_M
+        rose_model.track.global_mass_matrix = combined_M[:data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes),
+                                                   :data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes)]
+
+
+        #
+        #
+        # rose_M = rose_model.global_mass_matrix
+        # combined_M = lil_matrix((self.M.shape[0] + rose_M.shape[0], self.M.shape[1] + rose_M.shape[1]))
+        # combined_M[:self.M.shape[0], :self.M.shape[0]] = self.M
+        # combined_M[self.M.shape[0]:, self.M.shape[0]:] = rose_M
+        #
+        # combined_M[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] += rose_M[data.rose_eq_nb, data.rose_eq_nb]
+        # combined_M[self.M.shape[0] + np.array(data.rose_eq_nb), self.M.shape[0] + np.array(data.rose_eq_nb)] += self.M[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes]
+        #
+        # self.M = combined_M
+        # rose_model.global_mass_matrix = combined_M
+        # rose_model.track.global_mass_matrix = combined_M[:data.number_eq + rose_model.track.total_n_dof,
+        #                                            :data.number_eq + rose_model.track.total_n_dof]
+
     def damping_Rayleigh(self, damp):
         r"""
         Global Rayleigh damping matrix
@@ -176,6 +254,25 @@ class GenerateMatrix:
         self.C = (self.M.tocsr().dot(coefs[0]) + self.K.tocsr().dot(coefs[1])).tolil()
         
         return
+
+    def add_rose_damping(self,data, rose_model):
+
+        rose_model.global_damping_matrix = self.C
+        rose_model.track.global_mass_matrix = self.C[:data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes),
+                                                   :data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes)]
+        # rose_model.calculate_rayleigh_damping()
+        #
+        # rose_C = rose_model.global_damping_matrix
+        # combined_C = lil_matrix((self.C.shape[0] + rose_C.shape[0], self.C.shape[1] + rose_C.shape[1]))
+        # combined_C[:self.C.shape[0], :self.C.shape[0]] = self.C
+        # combined_C[self.C.shape[0]:, self.C.shape[0]:] = rose_C
+        #
+        # combined_C[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] += rose_C[data.rose_eq_nb, data.rose_eq_nb]
+        # combined_C[self.C.shape[0] + np.array(data.rose_eq_nb), self.C.shape[0] + np.array(data.rose_eq_nb)] += \
+        #     self.C[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes]
+        #
+        # self.C = combined_C
+        # rose_model.global_damping_matrix = combined_C
 
     def absorbing_boundaries(self, data: classmethod, material: dict, parameters: list) -> None:
         """

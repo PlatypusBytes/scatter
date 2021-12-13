@@ -3,9 +3,11 @@ import numpy as np
 from src import mesher
 from src import system_matrix
 from src import force_external
+from solvers import newmark_solver
 from src import solver
 from src import random_fields
 from src import export_results
+from src.rose_utils import RoseUtils
 
 
 def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,
@@ -40,6 +42,9 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     model.mapping()
     # connectivities
     model.connectivities()
+    # add rose connectivities
+    if loading["type"] == "rose":
+        model.rose_connectivities(loading["model"])
     # mesh edges
     model.get_mesh_edges()
 
@@ -57,8 +62,11 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # M, C, K
     matrix = system_matrix.GenerateMatrix(model.number_eq, inp_settings['int_order'])
     matrix.stiffness(model, materials)
+    matrix.add_rose_stiffness(model,loading["model"])
     matrix.mass(model, materials)
+    matrix.add_rose_mass(model, loading["model"])
     matrix.damping_Rayleigh(inp_settings["damping"])
+    matrix.add_rose_damping(model, loading["model"])
     matrix.absorbing_boundaries(model, materials, inp_settings["absorbing_BC"])
 
     # definition of time
@@ -76,14 +84,48 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         top_surface_elements = model.get_top_surface()
         F.moving_load_at_plane(model.number_eq, model.eq_nb_dof, loading, loading["start_coord"], time, top_surface_elements,
                                model.nodes)
+    elif loading["type"] == "rose":
+        F.add_rose_load(model, loading["model"])
+        RoseUtils.recalculate_ndof(model, loading["model"])
+        # loading["model"].calculate_initial_state()
+
+        # calculate initial displacement of the track system
+        loading["model"].calculate_initial_displacement_track()
+
+        # calculate initial displacement of the train
+        disp_at_wheels = loading["model"].get_disp_track_at_wheels(0, loading["model"].track.solver.u[0,:])
+        loading["model"].calculate_initial_displacement_train(disp_at_wheels)
+
+        # calculate initial Hertzian contact deformation
+        loading["model"].calculate_static_contact_deformation()
+
+        numerical = newmark_solver.NewmarkSolver()
+        numerical.load_func = loading["model"].update_force_vector
+        numerical.initialise(model.number_eq,time)
+
+
+        # add track displacement and velocity to global system
+        numerical.u[:,:loading["model"].track.total_n_dof] = loading["model"].track.solver.u[:,:]
+        numerical.v[:,:loading["model"].track.total_n_dof] = loading["model"].track.solver.v[:, :]
+
+        # add train displacement and velocity to global system
+        numerical.u[:, loading["model"].track.total_n_dof:loading["model"].total_n_dof] = loading["model"].train.solver.u[:, :]
+        numerical.v[:, loading["model"].track.total_n_dof:loading["model"].total_n_dof] = loading["model"].train.solver.v[:, :]
+
+
+        print("Rose model is connected")
     else:
         sys.exit(f'Error: Load type {loading["type"]} not supported')
 
     print("solver started")
     # solver
-    numerical = solver.Solver(model.number_eq)
+    # numerical = loading["model"].solver
+    # numerical.calculate(matrix.M, matrix.C, matrix.K, F.force, 0, F.force.shape[1]-1)
+    numerical.update( 0)
+    numerical.calculate(matrix.M, matrix.C, matrix.K, F.force, 0, F.force.shape[1]-1)
+    # numerical = solver.Solver(model.number_eq)
     # numerical.static(matrix.K, F.force, time_step, time)
-    numerical.newmark(inp_settings, matrix.M, matrix.C, matrix.K, F.force, matrix.absorbing_bc, time_step, time)
+    # numerical.newmark(inp_settings, matrix.M, matrix.C, matrix.K, F.force, matrix.absorbing_bc, time_step, time)
 
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)

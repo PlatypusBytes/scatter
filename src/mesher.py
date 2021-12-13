@@ -4,6 +4,7 @@ import sys
 import numpy as np
 # import scatter packages
 from src import utils
+from src.rose_utils import RoseUtils
 
 class HexEight:
     """
@@ -81,6 +82,8 @@ class ReadMesh:
         self.type_BC_dir = []  # perpendicular direction of BC for each dof in node list
         self.eq_nb_dof = []  # number of equation for each dof in node list
         self.eq_nb_elem = []  # list containing equation number for the dof's per element
+        self.eq_nb_dof_rose_nodes = []  # array containing all equation numbers which are connected to the rose model
+        self.rose_eq_nb = []  # array containing all equation numbers of rose which are connected to the scatter model
         self.type_BC_elem = []  # list containing type of BC for the dof's per element
         self.element_type = []  # element type
         self.materials_index = []  # list containing material index for each element
@@ -181,9 +184,23 @@ class ReadMesh:
         names, nb_names = utils.search_idx(data, r"$PhysicalNames", r"$EndPhysicalNames")
 
         # read Elements
-        elem, nb_elem = utils.search_idx(data, r"$Elements", r"$EndElements")
+        elem, _ = utils.search_idx(data, r"$Elements", r"$EndElements")
         elem = [list(map(int, i)) for i in elem]
-        elem = np.array(elem)
+
+        # retrieve rose elements
+        rose_elements = []
+        for name in names:
+            if name[2] == "rose":
+                rose_idx = name[1]
+                rose_elements = [el for el in elem if el[3] == rose_idx]
+                break
+
+        # get all geometry elements which are not part of ROSE
+        geometry_elem = [el for el in elem if el not in rose_elements]
+
+        elem = np.array(geometry_elem)
+        rose_elem = np.array(rose_elements)
+        # nb_elem = elem.shape[0]
 
         # check if element type is 5 or 17
         element_type = set(elem[:, 1])
@@ -204,6 +221,7 @@ class ReadMesh:
         # add variables to self
         self.nodes = nodes
         self.elem = elem[:, 5:]
+        self.rose_elem = rose_elem[:,5:]
         self.materials_index = elem[:, 3]
         self.materials = names
         self.nb_nodes_elem = len(self.elem[0])
@@ -409,3 +427,39 @@ class ReadMesh:
         top_surface_elems = self.boundary_elem[is_surface_elem]
 
         return top_surface_elems
+
+    def rose_connectivities(self, rose_model):
+        """
+        Connects scatter to a rose model. Rose is connected to the vertical degree of freedom in the scatter elements.
+        """
+
+        vertical_index = 1
+        eq_nb_dof_rose = []
+        node_coords = []
+        for elem in self.rose_elem:
+            idx_nodes = [np.where(self.nodes[:, 0] == j)[0][0] for j in elem]
+            # eq_nb_dof_rose_nodes = self.eq_nb_dof[elem][:,vertical_index]
+            eq_nb_dof_rose.append(self.eq_nb_dof[idx_nodes][:, vertical_index])
+            node_coords.append(self.nodes[idx_nodes][:,1:])
+
+        node_coords = np.array(node_coords)
+
+        node_coords = node_coords.reshape((node_coords.shape[0]*node_coords.shape[1], node_coords.shape[2]))
+        # np.array(node_coords).reshape((40, 3))
+        # np.unique(np.array(node_coords).reshape((40, 3)),axis=1)
+        indices = np.unique(node_coords, axis=0, return_index=True)[1]
+        node_coords = np.array([node_coords[index] for index in sorted(indices)])
+
+        # sort on x-coordinate, then z-coordinate
+        sorted_coords_indices = np.lexsort((node_coords[:, 0], node_coords[:, 2]))
+
+        # indexes = np.unique(a, return_index=True)[1]
+        np.unique(node_coords, return_index=True)
+        # add all unqique equation number to one array
+        #todo sort based on coordinate
+        self.eq_nb_dof_rose_nodes = np.unique(eq_nb_dof_rose).astype(int)[sorted_coords_indices]
+        self.rose_eq_nb = RoseUtils.get_bottom_boundary(rose_model)
+
+        #check if rose and scatter connectivities have the same size
+        if len(self.eq_nb_dof_rose_nodes) != len(self.rose_eq_nb):
+            sys.exit(f"ERROR: rose connectivities, {len(self.rose_eq_nb)}, does not have the same size as scatter connectivities, {len(self.eq_nb_dof_rose_nodes)}")

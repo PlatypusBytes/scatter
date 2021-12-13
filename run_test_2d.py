@@ -2,6 +2,9 @@ import sys
 # sys.path.append(r"C:\Users\zuada\software_dev\scatter")
 from src.scatter import scatter
 
+import create_rose
+from src.rose_utils import RoseUtils
+
 
 if __name__ == "__main__":
     # computational settings
@@ -15,26 +18,32 @@ if __name__ == "__main__":
             "VTK": True}
 
     # boundary conditions
-    x = 1
-    y = 10
+    x = 120
+    y = 1.8
     #z = -20
-    BC = {"bottom": ["01", [[0, 0,0], [x, 0, 0]]],
-          "left": ["10", [[0, 0,0], [0, y, 0]]],
+    BC = {"bottom": ["01", [[0, 0, 0], [x, 0, 0]]],
+          "left": ["10", [[0, 0, 0], [0, y, 0]]],
           "right": ["10", [[x, 0,0], [x, y, 0]]],
 
           }
 
     # material dictionary: rho, E, v
     mat = {"solid": {"density": 0.002000,
-                     "Young": 30e6,
+                     "Young": 30e10,
                      "poisson": 0.2},
            "bottom": {"density": 0.002500,
-                      "Young": 300e6,
+                      "Young": 300e10,
                       "poisson": 0.25}}
-    load = {"force": [0, -1e6, 0],
-            "node": [3,4],
-            "time": 1.0,
-            "type": "heaviside"}
+    # load = {"force": [0, -1e6, 0],
+    #         "node": [3,4],
+    #         "time": 1.0,
+    #         "type": "heaviside"}
+    rose_data = create_rose.create_input_dict()
+    coupled_model = RoseUtils.assign_data_to_coupled_model(rose_data)
+
+    load = {"model": coupled_model,
+            "type": "rose",
+            "time": 1.6}
 
     # Random field properties
     RF_props = {"number_realisations": 1,
@@ -48,9 +57,17 @@ if __name__ == "__main__":
                 "aniso_y": 5,
                 }
 
+
+    # pre process rose
+    coupled_model.validate_input()
+    coupled_model.initialise()
+    coupled_model.combine_global_matrices()
+    # RoseUtils.get_bottom_boundary(coupled_model)
+
     # run scatter
     # scatter(r"./mesh/brick.msh", "./results_mn_mean", mat, BC, sett, load, time_step=5e-3, random_props=RF_props)
-    scatter(r"./mesh/column2.msh", "./results_tmp", mat, BC, sett, load, time_step=5e-3)
+    # scatter(r"./mesh/column2.msh", "./results_tmp", mat, BC, sett, load, time_step=5e-3)
+    scatter(r"./mesh/box2d.msh", "./results_tmp", mat, BC, sett, load, time_step=1e-4)
     # scatter(r"./mesh/brick.msh", "./results_mn_mean", mat, BC, sett, load, time_step=5e-3)
 
     # for i in range(1):
