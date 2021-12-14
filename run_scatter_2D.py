@@ -35,10 +35,7 @@ if __name__ == "__main__":
            "bottom": {"density": 0.002500,
                       "Young": 300e8,
                       "poisson": 0.25}}
-    # load = {"force": [0, -1e6, 0],
-    #         "node": [3,4],
-    #         "time": 1.0,
-    #         "type": "heaviside"}
+
     rose_data = create_rose.create_input_dict()
     coupled_model = RoseUtils.assign_data_to_coupled_model(rose_data)
 
@@ -59,16 +56,10 @@ if __name__ == "__main__":
                 }
 
 
-    # pre process rose
-    coupled_model.validate_input()
-    coupled_model.initialise()
-    coupled_model.combine_global_matrices()
-    # RoseUtils.get_bottom_boundary(coupled_model)
-
     # run scatter
     # scatter(r"./mesh/brick.msh", "./results_mn_mean", mat, BC, sett, load, time_step=5e-3, random_props=RF_props)
     # scatter(r"./mesh/column2.msh", "./results_tmp", mat, BC, sett, load, time_step=5e-3)
-    scatter(r"./mesh/box2d.msh", "./results_tmp", mat, BC, sett, load, time_step=1e-4)
+    scatter(r"./mesh/box2d.msh", "./results_tmp2", mat, BC, sett, load, time_step=1e-4)
     # scatter(r"./mesh/brick.msh", "./results_mn_mean", mat, BC, sett, load, time_step=5e-3)
 
     # for i in range(1):

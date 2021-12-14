@@ -30,6 +30,7 @@ class ReadMesh:
         # define variables
         self.nodes = []  # node list
         self.elem = []  # element list
+        self.rose_elem = []  # rose connection element list
         self.boundary_elem = [] # boundary element list
         self.nb_nodes_elem = []  # number of nodes
         self.materials = []  # materials
@@ -150,18 +151,15 @@ class ReadMesh:
         for name in names:
             if name[2] == "rose":
                 rose_idx = name[1]
-                rose_elements = [el for el in elem if el[3] == rose_idx]
+                rose_elements = np.array([el for el in elem if el[3] == rose_idx])
+                self.rose_elem = rose_elements[:, 5:]
                 break
 
         # get all geometry elements which are not part of ROSE
-        geometry_elem = [el for el in elem if el not in rose_elements]
+        geometry_elem = np.array([el for el in elem if el not in rose_elements])
 
-        elem = np.array(geometry_elem)
-        rose_elem = np.array(rose_elements)
-        # nb_elem = elem.shape[0]
-
-        # check if element type is 5 or 17
-        element_type = set(elem[:, 1])
+        # check if element type is 3, 5 or 17
+        element_type = set(geometry_elem[:, 1])
         if not all(x in [3, 5, 17] for x in element_type):
             sys.exit("ERROR: Element type not supported")
 
@@ -178,9 +176,8 @@ class ReadMesh:
 
         # add variables to self
         self.nodes = nodes
-        self.elem = elem[:, 5:]
-        self.rose_elem = rose_elem[:,5:]
-        self.materials_index = elem[:, 3]
+        self.elem = geometry_elem[:, 5:]
+        self.materials_index = geometry_elem[:, 3]
         self.materials = names
         self.nb_nodes_elem = len(self.elem[0])
 

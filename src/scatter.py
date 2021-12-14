@@ -11,7 +11,7 @@ from src.rose_utils import RoseUtils
 
 def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,
             inp_settings: dict, loading: dict, time_step: float = 0.1, random_props: bool = False,
-            type_analysis="static") -> None:
+            type_analysis="dynamic") -> None:
     r"""
     3D finite element code.
                                                           y ^
@@ -45,6 +45,12 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     model.connectivities()
     # add rose connectivities
     if loading["type"] == "rose":
+        # pre process rose
+        loading["model"].validate_input()
+        loading["model"].initialise()
+        loading["model"].combine_global_matrices()
+
+        # add rose connectivities
         model.rose_connectivities(loading["model"])
     # mesh edges
     model.get_mesh_edges()
@@ -60,16 +66,24 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         model.materials_index = rf.new_material_index
 
     # generate matrix internal
-    # M, C, K
+    # M, K
     matrix = system_matrix.GenerateMatrix(model.number_eq, inp_settings['int_order'])
     matrix.stiffness(model, materials)
-    matrix.add_rose_stiffness(model,loading["model"])
     matrix.mass(model, materials)
-    matrix.add_rose_mass(model, loading["model"])
-    matrix.damping_Rayleigh(inp_settings["damping"])
-    matrix.add_rose_damping(model, loading["model"])
     matrix.absorbing_boundaries(model, materials, inp_settings["absorbing_BC"])
-    matrix.reshape_absorbing_boundaries_with_rose()
+
+    # add connect scatter and rose stiffness and mass matrices and absorbing boundaries
+    if loading["type"] == "rose":
+        matrix.add_rose_stiffness(model, loading["model"])
+        matrix.add_rose_mass(model, loading["model"])
+        matrix.reshape_absorbing_boundaries_with_rose()
+
+    # generate C matrix with Rayleigh damping
+    matrix.damping_Rayleigh(inp_settings["damping"])
+
+    # connect scatter and rose damping matrices
+    if loading["type"] == "rose":
+        matrix.add_rose_damping(model, loading["model"])
 
     # definition of time
     time = np.linspace(0, loading["time"], int(np.ceil(loading["time"] / time_step) + 1))
@@ -81,7 +95,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         numerical = static_solver.StaticSolver()
     else:
         sys.exit(f"Error: {type_analysis} not supported")
-
+    numerical.initialise(model.number_eq, time)
 
     # generate matrix external
     F = force_external.Force()
@@ -98,7 +112,6 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     elif loading["type"] == "rose":
         F.add_rose_load(model, loading["model"])
         RoseUtils.recalculate_ndof(model, loading["model"])
-        # loading["model"].calculate_initial_state()
 
         # calculate initial displacement of the track system
         loading["model"].calculate_initial_displacement_track()
@@ -111,7 +124,6 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         loading["model"].calculate_static_contact_deformation()
 
         numerical.load_func = loading["model"].update_force_vector
-        numerical.initialise(model.number_eq,time)
 
         # add track displacement and velocity to global system
         numerical.u[:,:loading["model"].track.total_n_dof] = loading["model"].track.solver.u[:,:]
@@ -139,7 +151,11 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # export results to pickle
     results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
     # export results to VTK
-    results.vtk(write=inp_settings["VTK"], output_interval=inp_settings["output_interval"])
+    if "output_interval" in inp_settings.keys():
+        output_interval = inp_settings["output_interval"]
+    else:
+        output_interval = 1
+    results.vtk(write=inp_settings["VTK"], output_interval=output_interval)
 
     # print
     print("Analysis done")
