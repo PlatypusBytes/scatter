@@ -128,7 +128,7 @@ class Write:
                 pickle.dump(self.data, f)
         return
 
-    def vtk(self, name="data", write=True) -> None:
+    def vtk(self, name="data", write=True, output_interval=1) -> None:
         """
         Writes VTK file
 
@@ -165,8 +165,11 @@ class Write:
         elif ndim == 3:
             bc = self.bc
 
-        # for each time writes a VTK file
-        for t in range(len(self.time)):
+        # for each output time writes a VTK file
+        for output_t in range(int(len(self.time)/output_interval)):
+            # calculate actual time step
+            t = int(output_t*output_interval)
+
             # define displacement and velocity
             displacement = np.zeros((nb_nodes, 3))
             velocity = np.zeros((nb_nodes, 3))
@@ -185,7 +188,7 @@ class Write:
                                                self.data["velocity"][str(int(self.nodes[i]))]["y"][t]])
 
             # write VTK at time t
-            vtk = VTK_writer.Write(os.path.join(self.output_folder, "VTK"), file_name=f"{name}_{t}")
+            vtk = VTK_writer.Write(os.path.join(self.output_folder, "VTK"), file_name=f"{name}_{output_t}")
             vtk.add_mesh(self.coordinates, self.elements)
             vtk.add_vector("displacement", displacement)
             vtk.add_vector("velocity", velocity, header=False)

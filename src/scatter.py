@@ -68,6 +68,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     matrix.damping_Rayleigh(inp_settings["damping"])
     matrix.add_rose_damping(model, loading["model"])
     matrix.absorbing_boundaries(model, materials, inp_settings["absorbing_BC"])
+    matrix.reshape_absorbing_boundaries_with_rose()
 
     # definition of time
     time = np.linspace(0, loading["time"], int(np.ceil(loading["time"] / time_step) + 1))
@@ -112,7 +113,6 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         numerical.u[:, loading["model"].track.total_n_dof:loading["model"].total_n_dof] = loading["model"].train.solver.u[:, :]
         numerical.v[:, loading["model"].track.total_n_dof:loading["model"].total_n_dof] = loading["model"].train.solver.v[:, :]
 
-
         print("Rose model is connected")
     else:
         sys.exit(f'Error: Load type {loading["type"]} not supported')
@@ -121,7 +121,8 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # solver
     # numerical = loading["model"].solver
     # numerical.calculate(matrix.M, matrix.C, matrix.K, F.force, 0, F.force.shape[1]-1)
-    numerical.update( 0)
+    numerical.absorbing_boundary = matrix.absorbing_bc
+    numerical.update(0)
     numerical.calculate(matrix.M, matrix.C, matrix.K, F.force, 0, F.force.shape[1]-1)
     # numerical = solver.Solver(model.number_eq)
     # numerical.static(matrix.K, F.force, time_step, time)
@@ -136,7 +137,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         pickle_nodes = "all"
     results.pickle(write=inp_settings["pickle"], nodes=pickle_nodes)
     # export results to VTK
-    results.vtk(write=inp_settings["VTK"])
+    results.vtk(write=inp_settings["VTK"], output_interval=inp_settings["output_interval"])
 
     # print
     print("Analysis done")

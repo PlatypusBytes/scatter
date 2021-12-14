@@ -260,19 +260,7 @@ class GenerateMatrix:
         rose_model.global_damping_matrix = self.C
         rose_model.track.global_mass_matrix = self.C[:data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes),
                                                    :data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes)]
-        # rose_model.calculate_rayleigh_damping()
-        #
-        # rose_C = rose_model.global_damping_matrix
-        # combined_C = lil_matrix((self.C.shape[0] + rose_C.shape[0], self.C.shape[1] + rose_C.shape[1]))
-        # combined_C[:self.C.shape[0], :self.C.shape[0]] = self.C
-        # combined_C[self.C.shape[0]:, self.C.shape[0]:] = rose_C
-        #
-        # combined_C[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] += rose_C[data.rose_eq_nb, data.rose_eq_nb]
-        # combined_C[self.C.shape[0] + np.array(data.rose_eq_nb), self.C.shape[0] + np.array(data.rose_eq_nb)] += \
-        #     self.C[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes]
-        #
-        # self.C = combined_C
-        # rose_model.global_damping_matrix = combined_C
+
 
     def absorbing_boundaries(self, data: classmethod, material: dict, parameters: list) -> None:
         """
@@ -349,3 +337,11 @@ class GenerateMatrix:
             self.absorbing_bc[i1.reshape(len(i1), 1), i1] += abs_bound[i2.reshape(len(i2), 1), i2] * fct
 
         return
+
+    def reshape_absorbing_boundaries_with_rose(self):
+
+        combined_absorbing_bc = lil_matrix(self.K.shape)
+        combined_absorbing_bc[:self.absorbing_bc.shape[0], :self.absorbing_bc.shape[1]] = self.absorbing_bc
+
+        self.absorbing_bc = combined_absorbing_bc
+

@@ -15,7 +15,8 @@ if __name__ == "__main__":
             "absorbing_BC": [1, 1],
             "pickle": True,
             "pickle_nodes": "all",
-            "VTK": True}
+            "VTK": True,
+            "output_interval": 100}
 
     # boundary conditions
     x = 120
@@ -29,10 +30,10 @@ if __name__ == "__main__":
 
     # material dictionary: rho, E, v
     mat = {"solid": {"density": 0.002000,
-                     "Young": 30e10,
+                     "Young": 30e8,
                      "poisson": 0.2},
            "bottom": {"density": 0.002500,
-                      "Young": 300e10,
+                      "Young": 300e8,
                       "poisson": 0.25}}
     # load = {"force": [0, -1e6, 0],
     #         "node": [3,4],
