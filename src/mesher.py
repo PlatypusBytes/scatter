@@ -5,7 +5,7 @@ import numpy as np
 # import scatter packages
 from src import utils
 from src.element_types import HexEight
-
+from src.rose_utils import RoseUtils
 
 class ReadMesh:
     def __init__(self, file_name: str) -> None:

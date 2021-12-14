@@ -3,8 +3,7 @@ import numpy as np
 from src import mesher
 from src import system_matrix
 from src import force_external
-from solvers import newmark_solver
-from src import solver
+from solvers import newmark_solver, static_solver
 from src import random_fields
 from src import export_results
 from src.rose_utils import RoseUtils
@@ -12,7 +11,7 @@ from src.rose_utils import RoseUtils
 
 def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,
             inp_settings: dict, loading: dict, time_step: float = 0.1, random_props: bool = False,
-            type_analysis="dynamic") -> None:
+            type_analysis="static") -> None:
     r"""
     3D finite element code.
                                                           y ^
@@ -75,6 +74,15 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # definition of time
     time = np.linspace(0, loading["time"], int(np.ceil(loading["time"] / time_step) + 1))
 
+    # initialise solver
+    if type_analysis == "dynamic":
+        numerical = newmark_solver.NewmarkSolver()
+    elif type_analysis == "static":
+        numerical = static_solver.StaticSolver()
+    else:
+        sys.exit(f"Error: {type_analysis} not supported")
+
+
     # generate matrix external
     F = force_external.Force()
     if loading["type"] == "pulse":
@@ -102,10 +110,8 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         # calculate initial Hertzian contact deformation
         loading["model"].calculate_static_contact_deformation()
 
-        numerical = newmark_solver.NewmarkSolver()
         numerical.load_func = loading["model"].update_force_vector
         numerical.initialise(model.number_eq,time)
-
 
         # add track displacement and velocity to global system
         numerical.u[:,:loading["model"].track.total_n_dof] = loading["model"].track.solver.u[:,:]
@@ -120,22 +126,13 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         sys.exit(f'Error: Load type {loading["type"]} not supported')
 
     print("solver started")
-    # solver
-    # numerical = loading["model"].solver
-    # numerical.calculate(matrix.M, matrix.C, matrix.K, F.force, 0, F.force.shape[1]-1)
-    numerical.absorbing_boundary = matrix.absorbing_bc
-    numerical.update(0)
-    numerical.calculate(matrix.M, matrix.C, matrix.K, F.force, 0, F.force.shape[1]-1)
-    # numerical = solver.Solver(model.number_eq)
-    # numerical.static(matrix.K, F.force, time_step, time)
-    # numerical.newmark(inp_settings, matrix.M, matrix.C, matrix.K, F.force, matrix.absorbing_bc, time_step, time)
-    numerical = solver.Solver(model.number_eq)
+    # start solver
     if type_analysis == "dynamic":
-        numerical.newmark(inp_settings, matrix.M, matrix.C, matrix.K, F.force, matrix.absorbing_bc, time_step, time)
+        numerical.absorbing_boundary = matrix.absorbing_bc
+        numerical.update(0)
+        numerical.calculate(matrix.M, matrix.C, matrix.K, F.force, 0, F.force.shape[1]-1)
     elif type_analysis == "static":
-        numerical.static(matrix.K, F.force, time)
-    else:
-        sys.exit(f"Error: {solver} not supported")
+        numerical.calculate(matrix.K, F.force, 0, F.force.shape[1] - 1)
 
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)

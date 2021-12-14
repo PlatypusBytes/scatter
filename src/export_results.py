@@ -137,6 +137,7 @@ class Write:
 
         :param name: (optional, default data) basename of the VTK file
         :param write: (optional, default True) checks if file needs to be written
+        :param output_interval: (optional, default 1) interval in timesteps which are written to vtk
         """
         if not write:
             return
