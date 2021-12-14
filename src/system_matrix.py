@@ -2,9 +2,8 @@ import numpy as np
 from scipy.sparse import lil_matrix
 
 # import scatter packages
-from src import shape_functions
+from src import discretisation
 from src import material_models
-from src import utils
 
 
 class GenerateMatrix:
@@ -50,9 +49,9 @@ class GenerateMatrix:
 
             # call shape functions
             if data.dimension == 3:
-                shape_fct = shape_functions.ShapeFunctionVolume(data.element_type, self.order)
+                shape_fct = discretisation.VolumeElement(data.element_type, self.order)
             if data.dimension == 2:
-                shape_fct = shape_functions.ShapeFunctionSurface(data.element_type, self.order)
+                shape_fct = discretisation.SurfaceElement(data.element_type, self.order)
 
             # material index
             mat_idx = data.materials_index[idx]
@@ -80,9 +79,12 @@ class GenerateMatrix:
 
             # assemble Stiffness matrix
             # equation number where the stiff matrix exists
-            i1 = data.eq_nb_elem[idx][~np.isnan(data.eq_nb_elem[idx])]
+            i1 = data.eq_nb_elem[idx][~np.isnan(data.eq_nb_elem[idx])].astype(int)
+            id1 = np.argsort(i1)
+            i1 = np.sort(i1)
             # index where stiffness matrix exists
             i2 = np.where(~np.isnan(data.eq_nb_elem[idx]))[0]
+            i2 = i2[id1]
 
             # assign to the global stiffness matrix
             self.K[i1.reshape(len(i1), 1), i1] += Ke[i2.reshape(len(i2), 1), i2]
@@ -139,9 +141,9 @@ class GenerateMatrix:
 
             # call shape functions
             if data.dimension == 3:
-                shape_fct = shape_functions.ShapeFunctionVolume(data.element_type, self.order)
+                shape_fct = discretisation.VolumeElement(data.element_type, self.order)
             if data.dimension == 2:
-                shape_fct = shape_functions.ShapeFunctionSurface(data.element_type, self.order)
+                shape_fct = discretisation.SurfaceElement(data.element_type, self.order)
 
             # material index
             mat_idx = data.materials_index[idx]
@@ -165,9 +167,12 @@ class GenerateMatrix:
 
             # assemble Mass matrix
             # equation number where the mass matrix exists
-            i1 = data.eq_nb_elem[idx][~np.isnan(data.eq_nb_elem[idx])]
-            # index where mass matrix exists
+            i1 = data.eq_nb_elem[idx][~np.isnan(data.eq_nb_elem[idx])].astype(int)
+            id1 = np.argsort(i1)
+            i1 = np.sort(i1)
+            # index where stiffness matrix exists
             i2 = np.where(~np.isnan(data.eq_nb_elem[idx]))[0]
+            i2 = i2[id1]
 
             # assign to the global mass matrix
             self.M[i1.reshape(len(i1), 1), i1] += Me[i2.reshape(len(i2), 1), i2]
@@ -277,8 +282,12 @@ class GenerateMatrix:
 
         # compute material matrix for isotropic elasticity
         for idx, elem in enumerate(data.elem):
-
-            shape_fct = shape_functions.ShapeFunctionVolume(data.element_type, self.order)
+            # call shape functions
+            if data.dimension == 3:
+                shape_fct = discretisation.VolumeElement(data.element_type, self.order)
+            if data.dimension == 2:
+                # ToDo: implement
+                shape_fct = discretisation.SurfaceElement(data.element_type, self.order)
 
             # material index
             mat_idx = data.materials_index[idx]
@@ -307,6 +316,9 @@ class GenerateMatrix:
             # if there are no absorbing boundaries goes to next element
             if len(xyz_) == 0:
                 continue
+            else:
+                if data.dimension == 2:
+                    exit("ERROR: BC not supported in 2D")
 
             # coordinates for all the nodes in one element
             xyz = []
@@ -323,7 +335,10 @@ class GenerateMatrix:
             # assemble absorbing boundary matrix
             # equation number where the absorbing matrix exists
             i1 = data.eq_nb_elem[idx][(~np.isnan(data.eq_nb_elem[idx])) & (data.type_BC_elem[idx] == "Absorb")]
+            id1 = np.argsort(i1)
+            i1 = np.sort(i1)
             i2 = np.where((~np.isnan(data.eq_nb_elem[idx])) & (data.type_BC_elem[idx] == "Absorb"))[0]
+            i2 = i2[id1]
 
             # assign the absorbing boundary coefficients: vp for perpendicular vs otherwise
             fct = np.ones(len(i1)) * parameters[1] * rho * vs

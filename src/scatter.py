@@ -11,7 +11,8 @@ from src.rose_utils import RoseUtils
 
 
 def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,
-            inp_settings: dict, loading: dict, time_step: float = 0.1, random_props: bool = False) -> None:
+            inp_settings: dict, loading: dict, time_step: float = 0.1, random_props: bool = False,
+            type_analysis="dynamic") -> None:
     r"""
     3D finite element code.
                                                           y ^
@@ -30,6 +31,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     :param loading: dictionary with loading conditions
     :param time_step: time step for the analysis (optional: default 0.1 s)
     :param random_props: bool with random fields analysis
+    :param type_analysis: 'dynamic' or 'static' (default 'dynamic')
     """
 
     # read gmsh mesh & create structure
@@ -76,11 +78,11 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # generate matrix external
     F = force_external.Force()
     if loading["type"] == "pulse":
-        F.pulse_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, loading["node"], time)
+        F.pulse_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time)
     elif loading["type"] == "heaviside":
-        F.heaviside_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, loading["node"], time)
+        F.heaviside_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time)
     elif loading["type"] == "moving":
-        F.moving_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, loading["node"], time, model.nodes)
+        F.moving_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time, model.nodes)
     elif loading["type"] == "moving_at_plane":
         top_surface_elements = model.get_top_surface()
         F.moving_load_at_plane(model.number_eq, model.eq_nb_dof, loading, loading["start_coord"], time, top_surface_elements,
@@ -127,15 +129,18 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # numerical = solver.Solver(model.number_eq)
     # numerical.static(matrix.K, F.force, time_step, time)
     # numerical.newmark(inp_settings, matrix.M, matrix.C, matrix.K, F.force, matrix.absorbing_bc, time_step, time)
+    numerical = solver.Solver(model.number_eq)
+    if type_analysis == "dynamic":
+        numerical.newmark(inp_settings, matrix.M, matrix.C, matrix.K, F.force, matrix.absorbing_bc, time_step, time)
+    elif type_analysis == "static":
+        numerical.static(matrix.K, F.force, time)
+    else:
+        sys.exit(f"Error: {solver} not supported")
 
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)
     # export results to pickle
-    if 'pickle_nodes' in inp_settings.keys():
-        pickle_nodes = inp_settings["pickle_nodes"]
-    else:
-        pickle_nodes = "all"
-    results.pickle(write=inp_settings["pickle"], nodes=pickle_nodes)
+    results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
     # export results to VTK
     results.vtk(write=inp_settings["VTK"], output_interval=inp_settings["output_interval"])
 

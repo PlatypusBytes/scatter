@@ -9,7 +9,8 @@ if __name__ == "__main__":
             "damping": [1, 0.01, 30, 0.01],
             "absorbing_BC": [1, 1],
             "pickle": True,
-            "VTK": False,
+            "pickle_nodes": "all",
+            "VTK": True,
             }
 
     x = 1
@@ -50,4 +51,5 @@ if __name__ == "__main__":
 
     # run scatter
     scatter(r"./mesh/column.msh", "./results", mat, BC, sett, load, time_step=0.5e-3)
-    scatter(r"./mesh/column.msh", "./results_RF", mat, BC, sett, load, time_step=0.5e-3, random_props=RF_props)
+    # scatter(r"./mesh/column.msh", "./results_static", mat, BC, sett, load, time_step=0.5e-3, type_analysis="static")
+    # scatter(r"./mesh/column.msh", "./results_RF", mat, BC, sett, load, time_step=0.5e-3, random_props=RF_props)
