@@ -410,8 +410,7 @@ class ReadMesh:
 
         # indexes = np.unique(a, return_index=True)[1]
         np.unique(node_coords, return_index=True)
-        # add all unqique equation number to one array
-        #todo sort based on coordinate
+        # add all unique equation number to one array
         self.eq_nb_dof_rose_nodes = np.unique(eq_nb_dof_rose).astype(int)[sorted_coords_indices]
         self.rose_eq_nb = RoseUtils.get_bottom_boundary(rose_model)
 

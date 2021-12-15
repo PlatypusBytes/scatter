@@ -113,6 +113,9 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         F.add_rose_load(model, loading["model"])
         RoseUtils.recalculate_ndof(model, loading["model"])
 
+        # reinitialise solver
+        numerical.initialise(model.number_eq, time)
+
         # calculate initial displacement of the track system
         loading["model"].calculate_initial_displacement_track()
 
