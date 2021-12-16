@@ -92,8 +92,6 @@ class GenerateMatrix:
         return
 
     def add_rose_stiffness(self,data, rose_model):
-        import matplotlib.pyplot as plt
-
 
         rose_K = rose_model.global_stiffness_matrix
         combined_k = lil_matrix((self.K.shape[0] + rose_K.shape[0] - len(data.eq_nb_dof_rose_nodes), self.K.shape[1] + rose_K.shape[1] - len(data.eq_nb_dof_rose_nodes)))
@@ -117,7 +115,6 @@ class GenerateMatrix:
 
         # add diagonal of rose connectivies
         combined_k[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] += rose_K[data.rose_eq_nb, data.rose_eq_nb]
-        # combined_k[self.K.shape[0] + np.array(data.rose_eq_nb), self.K.shape[1] + np.array(data.rose_eq_nb)] += self.K[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes]
 
         self.K = combined_k
         rose_model.global_stiffness_matrix = combined_k
@@ -201,28 +198,11 @@ class GenerateMatrix:
         combined_M[self.M.shape[0]:, self.M.shape[1]:] = masked_rose
 
         combined_M[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] += rose_M[data.rose_eq_nb, data.rose_eq_nb]
-        # combined_k[self.K.shape[0] + np.array(data.rose_eq_nb), self.K.shape[1] + np.array(data.rose_eq_nb)] += self.K[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes]
 
         self.M = combined_M
         rose_model.global_mass_matrix = combined_M
         rose_model.track.global_mass_matrix = combined_M[:data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes),
                                                    :data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes)]
-
-
-        #
-        #
-        # rose_M = rose_model.global_mass_matrix
-        # combined_M = lil_matrix((self.M.shape[0] + rose_M.shape[0], self.M.shape[1] + rose_M.shape[1]))
-        # combined_M[:self.M.shape[0], :self.M.shape[0]] = self.M
-        # combined_M[self.M.shape[0]:, self.M.shape[0]:] = rose_M
-        #
-        # combined_M[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] += rose_M[data.rose_eq_nb, data.rose_eq_nb]
-        # combined_M[self.M.shape[0] + np.array(data.rose_eq_nb), self.M.shape[0] + np.array(data.rose_eq_nb)] += self.M[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes]
-        #
-        # self.M = combined_M
-        # rose_model.global_mass_matrix = combined_M
-        # rose_model.track.global_mass_matrix = combined_M[:data.number_eq + rose_model.track.total_n_dof,
-        #                                            :data.number_eq + rose_model.track.total_n_dof]
 
     def damping_Rayleigh(self, damp):
         r"""

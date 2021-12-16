@@ -46,12 +46,11 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # add rose connectivities
     if loading["type"] == "rose":
         # pre process rose
-        loading["model"].validate_input()
-        loading["model"].initialise()
-        loading["model"].combine_global_matrices()
+        loading["model"] = RoseUtils.pre_process_rose_model(loading["model"])
 
         # add rose connectivities
         model.rose_connectivities(loading["model"])
+
     # mesh edges
     model.get_mesh_edges()
 
@@ -111,36 +110,13 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
                                model.nodes)
     elif loading["type"] == "rose":
         F.add_rose_load(model, loading["model"])
-        RoseUtils.recalculate_ndof(model, loading["model"])
-
-        # reinitialise solver
-        numerical.initialise(model.number_eq, time)
-
-        # calculate initial displacement of the track system
-        loading["model"].calculate_initial_displacement_track()
-
-        # calculate initial displacement of the train
-        disp_at_wheels = loading["model"].get_disp_track_at_wheels(0, loading["model"].track.solver.u[0,:])
-        loading["model"].calculate_initial_displacement_train(disp_at_wheels)
-
-        # calculate initial Hertzian contact deformation
-        loading["model"].calculate_static_contact_deformation()
-
-        numerical.load_func = loading["model"].update_force_vector
-
-        # add track displacement and velocity to global system
-        numerical.u[:,:loading["model"].track.total_n_dof] = loading["model"].track.solver.u[:,:]
-        numerical.v[:,:loading["model"].track.total_n_dof] = loading["model"].track.solver.v[:, :]
-
-        # add train displacement and velocity to global system
-        numerical.u[:, loading["model"].track.total_n_dof:loading["model"].total_n_dof] = loading["model"].train.solver.u[:, :]
-        numerical.v[:, loading["model"].track.total_n_dof:loading["model"].total_n_dof] = loading["model"].train.solver.v[:, :]
-
+        RoseUtils.set_rose_loading(model, loading["model"], numerical)
         print("Rose model is connected")
     else:
         sys.exit(f'Error: Load type {loading["type"]} not supported')
 
     print("solver started")
+
     # start solver
     if type_analysis == "dynamic":
         numerical.absorbing_boundary = matrix.absorbing_bc

@@ -271,32 +271,31 @@ class Force:
             valid_dofs = ~np.isnan(active_dof_el)
             self.force[active_dof_el[valid_dofs].astype(int), t] = nodal_force[valid_dofs]
 
-    def add_rose_load(self, data, rose_model):
+    def add_rose_load(self, scatter_model, rose_model):
+        """
+        Adds rose load to global force matrix
 
-        self.force = lil_matrix(np.zeros((data.number_eq + rose_model.total_n_dof -len(data.eq_nb_dof_rose_nodes), len(rose_model.time))))
+        :param scatter_model: model generated with scatter
+        :param rose_model: rose coupled train track model
+        """
 
+        # initialise force matrix
+        ndof = scatter_model.number_eq + rose_model.total_n_dof - len(scatter_model.eq_nb_dof_rose_nodes)
+        self.force = lil_matrix((ndof, len(rose_model.time)))
+
+        # get rose global force vector
         rose_F = rose_model.global_force_vector
-        # combined_F = lil_matrix((self.force.shape[0] + rose_F.shape[0], self.force.shape[1]))
-        # self.force[:self.force.shape[0], :] = self.force
-
         mask = np.ones(rose_F.shape[0], bool)
 
-        # mask rows and columns
-        mask[np.array(data.rose_eq_nb)] = False
+        # mask rose degrees of freedom which correspond to scatter model
+        mask[np.array(scatter_model.rose_eq_nb)] = False
         masked_rose = rose_F.toarray()[mask,:]
-        # masked_rose = masked_rose[mask, :]
 
-        # combined_M[:self.M.shape[0], :self.M.shape[1]] = self.M
-        # combined_M[self.M.shape[0]:, self.M.shape[1]:] = masked_rose
-        self.force[data.number_eq:, :] = masked_rose
+        # add masked rose force matrix to global force matrix
+        self.force[scatter_model.number_eq:, :] = masked_rose
 
-        # self.force[data.eq_nb_dof_rose_nodes, :] += rose_F[data.rose_eq_nb, data.rose_eq_nb]
-        # combined_F[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] += rose_F[data.rose_eq_nb, data.rose_eq_nb]
-        # combined_F[self.M.shape[0] + np.array(data.rose_eq_nb), self.M.shape[0] + np.array(data.rose_eq_nb)] += self.M[
-        #     data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes]
-
-        # self.force = combined_F
+        # return global force matrix to rose model
         rose_model.global_force_vector = self.force
-        rose_model.track.global_force_vector = self.force[:data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes),:]
+        rose_model.track.global_force_vector = self.force[:scatter_model.number_eq + rose_model.track.total_n_dof - len(scatter_model.eq_nb_dof_rose_nodes),:]
 
 

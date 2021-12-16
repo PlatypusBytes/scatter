@@ -1,11 +1,57 @@
 from rose.model.model_part import Material, Section
 from rose.model.train_track_interaction import *
 from solvers.newmark_solver import NewmarkSolver
-from src.mesher import ReadMesh
 
 import numpy as np
 
 class RoseUtils:
+
+    @staticmethod
+    def pre_process_rose_model(rose_model: CoupledTrainTrack):
+        """
+        Pre processes rose model, i.e., validate, initialise and combine train an track matrices
+        """
+
+        # pre process rose
+        rose_model.validate_input()
+        rose_model.initialise()
+        rose_model.combine_global_matrices()
+
+        return rose_model
+
+    @staticmethod
+    def set_rose_loading(scatter_model, rose_model: CoupledTrainTrack, solver):
+        """
+        Sets rose loading. Initialises solver; calculates initial static displacement due to train load; calculates
+        initial contact deformation
+        """
+
+        # recalculate number of degrees of freedom with rose and scatter model combined
+        RoseUtils.recalculate_ndof(scatter_model, rose_model)
+
+        # reinitialise solver with correct ndof
+        solver.initialise(scatter_model.number_eq, solver.time)
+
+        # calculate initial displacement of the track system
+        rose_model.calculate_initial_displacement_track()
+
+        # calculate initial displacement of the train
+        disp_at_wheels = rose_model.get_disp_track_at_wheels(0, rose_model.track.solver.u[0, :])
+        rose_model.calculate_initial_displacement_train(disp_at_wheels)
+
+        # calculate initial Hertzian contact deformation
+        rose_model.calculate_static_contact_deformation()
+
+        solver.load_func = rose_model.update_force_vector
+
+        # add track displacement and velocity to global system
+        solver.u[:, :rose_model.track.total_n_dof] = rose_model.track.solver.u[:, :]
+        solver.v[:, :rose_model.track.total_n_dof] = rose_model.track.solver.v[:, :]
+
+        # add train displacement and velocity to global system
+        solver.u[:, rose_model.track.total_n_dof:rose_model.total_n_dof] = rose_model.train.solver.u[:,:]
+        solver.v[:, rose_model.track.total_n_dof:rose_model.total_n_dof] =rose_model.train.solver.v[:,:]
+
 
     @staticmethod
     def assign_data_to_coupled_model(rose_data: dict) -> CoupledTrainTrack:
@@ -141,7 +187,7 @@ class RoseUtils:
 
 
     @staticmethod
-    def recalculate_ndof(scatter_model: ReadMesh, rose_model: CoupledTrainTrack):
+    def recalculate_ndof(scatter_model: 'ReadMesh', rose_model: CoupledTrainTrack):
         """
         Recalculates all number of degrees of freedom of the scatter and rose model.
 
