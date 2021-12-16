@@ -490,12 +490,12 @@ class TriThree:
         self.N[2] = v
 
         # derivative in u
-        self.dN[0, 0] = 0
+        self.dN[0, 0] = -1
         self.dN[1, 0] = 1
         self.dN[2, 0] = 0
 
         # derivative in v
-        self.dN[0, 1] = 0
+        self.dN[0, 1] = -1
         self.dN[1, 1] = 0
         self.dN[2, 1] = 1
 
@@ -574,15 +574,15 @@ class TriSix:
         self.dN[1, 0] = 4 * u-1
         self.dN[2, 0] = 0
         self.dN[3, 0] = 4*(-v-u+1)-4*u
-        self.dN[4, 0] = 0
-        self.dN[5, 0] = 0
+        self.dN[4, 0] = 4 * v
+        self.dN[5, 0] = -4 * v
 
         # derivative in v
         self.dN[0, 1] = 1 - 4 * (-v-u+1)
         self.dN[1, 1] = 0
         self.dN[2, 1] = 4 * v-1
-        self.dN[3, 1] = 0
-        self.dN[3, 1] = 0
+        self.dN[3, 1] = -4 * u
+        self.dN[3, 1] = 4 * u
         self.dN[3, 1] = 4*(-v-u+1)-4*v
 
 
@@ -618,7 +618,7 @@ class TetraFour:
     def __init__(self):
         self.__surfaces = None
         self.N = np.zeros((4, 1))
-        self.dN = np.zeros((4, 2))
+        self.dN = np.zeros((4, 3))
         return
 
     def get_surfaces(self):
@@ -643,39 +643,44 @@ class TetraFour:
     def is_quadratic(self):
         return False
 
-    def shape_functions(self, xy: list):
+    def shape_functions(self, xyz: list):
         r"""
         Shape functions 4 node quadrilateral element.
 
         Parameters
         ----------
-        :param xy: list with node coordinate
+        :param xyz: list with node coordinate
         :return: Shape function and derivative of shape functions
         """
 
-        u = xy[0]
-        v = xy[1]
+        u = xyz[0]
+        v = xyz[1]
+        w = xyz[2]
 
         # shape functions
-        self.N[0] = 1. / 4. * (1 - u) * (1 - v)
-        self.N[1] = 1. / 4. * (1 + u) * (1 - v)
-        self.N[2] = 1. / 4. * (1 + u) * (1 + v)
-        self.N[3] = 1. / 4. * (1 - u) * (1 + v)
+        self.N[0] = (1-u-v-w)
+        self.N[1] = u
+        self.N[2] = v
+        self.N[3] = w
 
         # derivative in u
-        self.dN[0, 0] = -(1 - v) / 4
-        self.dN[1, 0] = (1 - v) / 4
-        self.dN[2, 0] = (v + 1) / 4
-        self.dN[3, 0] = -(v + 1) / 4
+        self.dN[0, 0] = -1
+        self.dN[1, 0] = 1
+        self.dN[2, 0] = 0
+        self.dN[3, 0] = 0
 
         # derivative in v
-        self.dN[0, 1] = -(1 - u) / 4
-        self.dN[1, 1] = -(u + 1) / 4
-        self.dN[2, 1] = (u + 1) / 4
-        self.dN[3, 1] = (1 - u) / 4
+        self.dN[0, 1] = -1
+        self.dN[1, 1] = 0
+        self.dN[2, 1] = 1
+        self.dN[3, 1] = 0
+
+        # derivative in w
+        self.dN[0, 2] = -1
+        self.dN[1, 2] = 0
+        self.dN[2, 2] = 0
+        self.dN[3, 2] = 1
         return
-
-
 
 class TetraTen:
     r"""
@@ -694,7 +699,7 @@ class TetraTen:
              ,6    '.   `5
            ,/       8     `\
          ,/         |       `\
-        0-----------'.--------1 --> u
+        0--------4--'.--------1 --> u
          `\.         |      ,/
             `\.      |    ,9
                `7.   '. ,/
@@ -707,8 +712,8 @@ class TetraTen:
 
     def __init__(self):
         self.__surfaces = None
-        self.N = np.zeros((4, 1))
-        self.dN = np.zeros((4, 2))
+        self.N = np.zeros((10, 1))
+        self.dN = np.zeros((10, 3))
         return
 
     def get_surfaces(self):
@@ -733,34 +738,64 @@ class TetraTen:
     def is_quadratic(self):
         return False
 
-    def shape_functions(self, xy: list):
+    def shape_functions(self, xyz: list):
         r"""
-        Shape functions 4 node quadrilateral element.
+        Shape functions 10 node quadrilateral element.
 
         Parameters
         ----------
-        :param xy: list with node coordinate
+        :param xyz: list with node coordinate
         :return: Shape function and derivative of shape functions
         """
 
-        u = xy[0]
-        v = xy[1]
+        u = xyz[0]
+        v = xyz[1]
+        w = xyz[2]
 
         # shape functions
-        self.N[0] = 1. / 4. * (1 - u) * (1 - v)
-        self.N[1] = 1. / 4. * (1 + u) * (1 - v)
-        self.N[2] = 1. / 4. * (1 + u) * (1 + v)
-        self.N[3] = 1. / 4. * (1 - u) * (1 + v)
+        self.N[0] = (1-2*u-2*v-2*w)*(1-u-v-w)
+        self.N[1] = (2*u-1) * u
+        self.N[2] = (2*v-1) * v
+        self.N[3] = (2*w-1) * w
+        self.N[4] = 4*u*(1-u-v-w)
+        self.N[5] = 4*u*v
+        self.N[6] = 4*v*(1-u-v-w)
+        self.N[7] = 4*w*(1-u-v-w)
+        self.N[8] = 4*u*w
+        self.N[9] = 4*v*w
 
         # derivative in u
-        self.dN[0, 0] = -(1 - v) / 4
-        self.dN[1, 0] = (1 - v) / 4
-        self.dN[2, 0] = (v + 1) / 4
-        self.dN[3, 0] = -(v + 1) / 4
+        self.dN[0, 0] = 2*w+2*v+2*u-2*(-w-v-u+1)-1
+        self.dN[1, 0] = 4*u-1
+        self.dN[2, 0] = 0
+        self.dN[3, 0] = 0
+        self.dN[4, 0] = 4*(-w-v-u+1)-4*u
+        self.dN[5, 0] = 4*v
+        self.dN[6, 0] = -4*v
+        self.dN[7, 0] = -4*w
+        self.dN[8, 0] = 4*w
+        self.dN[9, 0] = 0
 
         # derivative in v
-        self.dN[0, 1] = -(1 - u) / 4
-        self.dN[1, 1] = -(u + 1) / 4
-        self.dN[2, 1] = (u + 1) / 4
-        self.dN[3, 1] = (1 - u) / 4
-        return
+        self.dN[0, 1] = 2*w+2*v+2*u-2*(-w-v-u+1)-1
+        self.dN[1, 1] = 0
+        self.dN[2, 1] = 4*v-1
+        self.dN[3, 1] = 0
+        self.dN[4, 1] = -4*u
+        self.dN[5, 1] = 4*u
+        self.dN[6, 1] = 4*(-w-v-u+1)-4*v
+        self.dN[7, 1] = -4*w
+        self.dN[8, 1] = 0
+        self.dN[9, 1] = 4*w
+
+        # derivative in w
+        self.dN[0, 2] = 2*w+2*v+2*u-2*(-w-v-u+1)-1
+        self.dN[1, 2] = 0
+        self.dN[2, 2] = 0
+        self.dN[3, 2] = 4*w-1
+        self.dN[4, 2] = -4*u
+        self.dN[5, 2] = 0
+        self.dN[6, 2] = -4*v
+        self.dN[7, 2] = 4*(-w-v-u+1)-4*w
+        self.dN[8, 2] = 4*u
+        self.dN[9, 2] = 4*v
