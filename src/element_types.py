@@ -422,3 +422,345 @@ class QuadEight:
         self.dN[6, 1] = (1 - u ** 2) / 2
         self.dN[7, 1] = -v * (1 - u)
         return
+
+class TriThree:
+    r"""
+    3-node triangular element.
+
+    Node numbering follows:
+
+
+    v
+    ^
+    |
+    2
+    |`\
+    |  `\
+    |    `\
+    |      `\
+    |        `\
+    0----------1 --> u
+
+    """
+
+    def __init__(self):
+        self.__surfaces = None
+        self.N = np.zeros((3, 1))
+        self.dN = np.zeros((3, 2))
+        return
+
+    def get_surfaces(self):
+        """
+        Get node index arrays for each surface of the element
+        """
+        self.__surfaces = []
+
+    @property
+    def surfaces(self):
+        return self.__surfaces
+
+    # @property
+    # def max_element_connections(self):
+    #     return 4
+    #
+    # @property
+    # def n_boundary_nodes(self):
+    #     return 2
+
+    @property
+    def is_quadratic(self):
+        return False
+
+    def shape_functions(self, xy: list):
+        r"""
+        Shape functions 4 node quadrilateral element.
+
+        Parameters
+        ----------
+        :param xy: list with node coordinate
+        :return: Shape function and derivative of shape functions
+        """
+
+        u = xy[0]
+        v = xy[1]
+
+        # shape functions
+        self.N[0] = (1 - u - v)
+        self.N[1] = u
+        self.N[2] = v
+
+        # derivative in u
+        self.dN[0, 0] = 0
+        self.dN[1, 0] = 1
+        self.dN[2, 0] = 0
+
+        # derivative in v
+        self.dN[0, 1] = 0
+        self.dN[1, 1] = 0
+        self.dN[2, 1] = 1
+
+
+class TriSix:
+    r"""
+       3-node triangular element.
+
+       Node numbering follows:
+
+
+       v
+       ^
+       |
+       2
+       |`\
+       |  `\
+       5    `4
+       |      `\
+       |        `\
+       0-----3----1 --> u
+
+       """
+
+    def __init__(self):
+        self.__surfaces = None
+        self.N = np.zeros((6, 1))
+        self.dN = np.zeros((6, 2))
+        return
+
+    def get_surfaces(self):
+        """
+        Get node index arrays for each surface of the element
+        """
+        self.__surfaces = []
+
+    @property
+    def surfaces(self):
+        return self.__surfaces
+
+    @property
+    def max_element_connections(self):
+        return 4
+
+    @property
+    def n_boundary_nodes(self):
+        return 2
+
+    @property
+    def is_quadratic(self):
+        return False
+
+    def shape_functions(self, xy: list):
+        r"""
+        Shape functions 4 node quadrilateral element.
+
+        Parameters
+        ----------
+        :param xy: list with node coordinate
+        :return: Shape function and derivative of shape functions
+        """
+
+        u = xy[0]
+        v = xy[1]
+
+        # shape functions
+        self.N[0] = (2*(1-u-v)-1)*(1-u-v)
+        self.N[1] = (2*u-1) * u
+        self.N[2] = (2*v-1) * v
+        self.N[3] = 4*(1-u-v) * u
+        self.N[4] = 4 * u * v
+        self.N[5] = 4*(1-u-v) * v
+
+        # derivative in u
+        self.dN[0, 0] = 1 -4*(-v-u+1)
+        self.dN[1, 0] = 4 * u-1
+        self.dN[2, 0] = 0
+        self.dN[3, 0] = 4*(-v-u+1)-4*u
+        self.dN[4, 0] = 0
+        self.dN[5, 0] = 0
+
+        # derivative in v
+        self.dN[0, 1] = 1 - 4 * (-v-u+1)
+        self.dN[1, 1] = 0
+        self.dN[2, 1] = 4 * v-1
+        self.dN[3, 1] = 0
+        self.dN[3, 1] = 0
+        self.dN[3, 1] = 4*(-v-u+1)-4*v
+
+
+
+class TetraFour:
+    r"""
+       4-node tetrahedron element.
+
+       Node numbering follows:
+
+
+                           v
+                         .
+                       ,/
+                      /
+                   2
+                 ,/|`\
+               ,/  |  `\
+             ,/    '.   `\
+           ,/       |     `\
+         ,/         |       `\
+        0-----------'.--------1 --> u
+         `\.         |      ,/
+            `\.      |    ,/
+               `\.   '. ,/
+                  `\. |/
+                     `3
+                        `\.
+                           ` w
+
+       """
+
+    def __init__(self):
+        self.__surfaces = None
+        self.N = np.zeros((4, 1))
+        self.dN = np.zeros((4, 2))
+        return
+
+    def get_surfaces(self):
+        """
+        Get node index arrays for each surface of the element
+        """
+        self.__surfaces = []
+
+    @property
+    def surfaces(self):
+        return self.__surfaces
+
+    @property
+    def max_element_connections(self):
+        return 4
+
+    @property
+    def n_boundary_nodes(self):
+        return 2
+
+    @property
+    def is_quadratic(self):
+        return False
+
+    def shape_functions(self, xy: list):
+        r"""
+        Shape functions 4 node quadrilateral element.
+
+        Parameters
+        ----------
+        :param xy: list with node coordinate
+        :return: Shape function and derivative of shape functions
+        """
+
+        u = xy[0]
+        v = xy[1]
+
+        # shape functions
+        self.N[0] = 1. / 4. * (1 - u) * (1 - v)
+        self.N[1] = 1. / 4. * (1 + u) * (1 - v)
+        self.N[2] = 1. / 4. * (1 + u) * (1 + v)
+        self.N[3] = 1. / 4. * (1 - u) * (1 + v)
+
+        # derivative in u
+        self.dN[0, 0] = -(1 - v) / 4
+        self.dN[1, 0] = (1 - v) / 4
+        self.dN[2, 0] = (v + 1) / 4
+        self.dN[3, 0] = -(v + 1) / 4
+
+        # derivative in v
+        self.dN[0, 1] = -(1 - u) / 4
+        self.dN[1, 1] = -(u + 1) / 4
+        self.dN[2, 1] = (u + 1) / 4
+        self.dN[3, 1] = (1 - u) / 4
+        return
+
+
+
+class TetraTen:
+    r"""
+       4-node tetrahedron element.
+
+       Node numbering follows:
+
+
+                           v
+                         .
+                       ,/
+                      /
+                   2
+                 ,/|`\
+               ,/  |  `\
+             ,6    '.   `5
+           ,/       8     `\
+         ,/         |       `\
+        0-----------'.--------1 --> u
+         `\.         |      ,/
+            `\.      |    ,9
+               `7.   '. ,/
+                  `\. |/
+                     `3
+                        `\.
+                           ` w
+
+   """
+
+    def __init__(self):
+        self.__surfaces = None
+        self.N = np.zeros((4, 1))
+        self.dN = np.zeros((4, 2))
+        return
+
+    def get_surfaces(self):
+        """
+        Get node index arrays for each surface of the element
+        """
+        self.__surfaces = []
+
+    @property
+    def surfaces(self):
+        return self.__surfaces
+
+    @property
+    def max_element_connections(self):
+        return 4
+
+    @property
+    def n_boundary_nodes(self):
+        return 2
+
+    @property
+    def is_quadratic(self):
+        return False
+
+    def shape_functions(self, xy: list):
+        r"""
+        Shape functions 4 node quadrilateral element.
+
+        Parameters
+        ----------
+        :param xy: list with node coordinate
+        :return: Shape function and derivative of shape functions
+        """
+
+        u = xy[0]
+        v = xy[1]
+
+        # shape functions
+        self.N[0] = 1. / 4. * (1 - u) * (1 - v)
+        self.N[1] = 1. / 4. * (1 + u) * (1 - v)
+        self.N[2] = 1. / 4. * (1 + u) * (1 + v)
+        self.N[3] = 1. / 4. * (1 - u) * (1 + v)
+
+        # derivative in u
+        self.dN[0, 0] = -(1 - v) / 4
+        self.dN[1, 0] = (1 - v) / 4
+        self.dN[2, 0] = (v + 1) / 4
+        self.dN[3, 0] = -(v + 1) / 4
+
+        # derivative in v
+        self.dN[0, 1] = -(1 - u) / 4
+        self.dN[1, 1] = -(u + 1) / 4
+        self.dN[2, 1] = (u + 1) / 4
+        self.dN[3, 1] = (1 - u) / 4
+        return
