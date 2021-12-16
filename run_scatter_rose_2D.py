@@ -37,11 +37,19 @@ if __name__ == "__main__":
                       "poisson": 0.25}}
 
     rose_data = create_rose.create_input_dict()
+
+    # set time integration,
+    # note that each timestep is equal. This includes the initialisation stage in Rose
+    time_step = 1e-4
+    loading_time = rose_data["time_integration"]["tot_ini_time"] + rose_data["time_integration"]["tot_calc_time"]
+    rose_data["time_integration"]["n_t_ini"] = round(rose_data["time_integration"]["tot_ini_time"] / time_step)
+    rose_data["time_integration"]["n_t_calc"] = round(rose_data["time_integration"]["tot_calc_time"] / time_step)
+
     coupled_model = RoseUtils.assign_data_to_coupled_model(rose_data)
 
     load = {"model": coupled_model,
             "type": "rose",
-            "time": 1.6}
+            "time": loading_time}
 
     # Random field properties
     RF_props = {"number_realisations": 1,
@@ -55,8 +63,7 @@ if __name__ == "__main__":
                 "aniso_y": 5,
                 }
 
-
     # run scatter
-    scatter(r"./mesh/box2d.msh", "./results_rose_2d", mat, BC, sett, load, time_step=1e-4)
+    scatter(r"./mesh/box2d.msh", "./results_rose_2d", mat, BC, sett, load, time_step=time_step)
 
 #
