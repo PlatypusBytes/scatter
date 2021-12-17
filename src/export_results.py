@@ -25,6 +25,7 @@ class Write:
             os.makedirs(output_folder)
 
         # link between gmsh and VTK no index
+        self.element_type = model.element_type
         if model.element_type == "hexa8":
             self.idx_vtk = [0, 1, 2, 3, 4, 5, 6, 7]
         elif model.element_type == "hexa20":
@@ -34,7 +35,7 @@ class Write:
         elif model.element_type == "tri3":
             self.idx_vtk = [0, 1, 2]
         elif model.element_type == "tri6":
-            self.idx_vtk = [0, 1, 2,3,4,5]
+            self.idx_vtk = [0, 1, 2, 3, 4, 5]
 
         # output folder
         self.output_folder = output_folder
@@ -195,7 +196,7 @@ class Write:
 
             # write VTK at time t
             vtk = VTK_writer.Write(os.path.join(self.output_folder, "VTK"), file_name=f"{name}_{output_t}")
-            vtk.add_mesh(self.coordinates, self.elements)
+            vtk.add_mesh(self.coordinates, self.elements, self.element_type)
             vtk.add_vector("displacement", displacement)
             vtk.add_vector("velocity", velocity, header=False)
             vtk.add_vector("boundary_conditions", bc, header=False)
