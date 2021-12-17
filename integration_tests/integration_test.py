@@ -200,6 +200,47 @@ class Test1DWavePropagation_3D(unittest.TestCase):
         assert_dict_almost_equal(data, self.mean_data_high)
         return
 
+    def test_1d_heaviside_wave_tetra4(self):
+        sett = {"gamma": 0.5,
+                "beta": 0.25,
+                "int_order": 2,
+                "damping": [1, 0.01, 30, 0.01],
+                "absorbing_BC": [1, 1],
+                "pickle": True,
+                "pickle_nodes": "all",
+                "VTK": True,
+                "output_interval": 10
+                }
+
+        x = 1
+        y = 10
+        z = 1
+        BC = {"bottom": ["010", [[0, 0, 0], [x, 0, 0], [0, 0, z], [x, 0, z]]],
+              "left": ["100", [[0, 0, 0], [0, 0, z], [0, y, 0], [0, y, z]]],
+              "right": ["100", [[x, 0, 0], [x, 0, z], [x, y, 0], [x, y, z]]],
+              "front": ["001", [[0, 0, 0], [z, 0, 0], [0, y, 0], [x, y, 0]]],
+              "back": ["001", [[0, 0, z], [x, 0, z], [0, y, z], [x, y, z]]],
+              }
+
+        # material dictionary: rho, E, v
+        mat = {"solid": {"density": 1500,
+                         "Young": 30e6,
+                         "poisson": 0.2},
+               "bottom": {"density": 1200.0,
+                          "Young": 300e6,
+                          "poisson": 0.25}}
+
+        load = {"force": [0, -1000, 0],
+                "node": [3, 4, 47, 48, 49],
+                "time": 1,
+                "type": "heaviside",  # pulse or heaviside or moving
+                "speed": 80}  # only for moving
+
+        # run scatter
+        input_file = r"integration_tests/mesh/column_3D_tetra4.msh"
+        output_dir = r"integration_tests/results_tetra4"
+        scatter(input_file, output_dir, mat, BC, sett, load, time_step=0.5e-3)
+
     def test_vtk(self):
         # computational settings
         sett = {"gamma": 0.5,

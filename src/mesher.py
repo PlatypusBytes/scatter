@@ -160,7 +160,7 @@ class ReadMesh:
 
         # check if element type is 3, 5 or 17
         element_type = set(geometry_elem[:, 1])
-        if not all(x in [2,9, 3, 5, 17] for x in element_type):
+        if not all(x in [2,9, 3, 5, 17, 4, 11] for x in element_type):
             sys.exit("ERROR: Element type not supported")
 
         # add element type to self
@@ -178,6 +178,12 @@ class ReadMesh:
             self.dimension = 3
         elif all(x == 17 for x in element_type):
             self.element_type = 'hexa20'
+            self.dimension = 3
+        elif all(x == 4 for x in element_type):
+            self.element_type = 'tetra4'
+            self.dimension = 3
+        elif all(x == 11 for x in element_type):
+            self.element_type = 'tetra10'
             self.dimension = 3
 
         # add variables to self

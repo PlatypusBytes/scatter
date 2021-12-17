@@ -58,10 +58,6 @@ class VolumeElement:
         n_points = len(weights)
 
         for i1 in range(n_points):
-            # for i2 in range(n_points):
-            #     for i3 in range(n_points):
-            #         X = [coords[0, i1], coords[1, i2], coords[2, i3]]
-            #         Wt = np.prod([weights[i1], weights[i2], weights[i3]])
 
             X = coords[:, i1]
             Wt = weights[i1]

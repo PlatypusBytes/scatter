@@ -423,6 +423,7 @@ class QuadEight:
         self.dN[7, 1] = -v * (1 - u)
         return
 
+
 class TriThree:
     r"""
     3-node triangular element.
@@ -459,13 +460,13 @@ class TriThree:
     def surfaces(self):
         return self.__surfaces
 
-    # @property
-    # def max_element_connections(self):
-    #     return 4
-    #
-    # @property
-    # def n_boundary_nodes(self):
-    #     return 2
+    @property
+    def max_element_connections(self):
+        return None
+
+    @property
+    def n_boundary_nodes(self):
+        return None
 
     @property
     def is_quadratic(self):
@@ -538,11 +539,11 @@ class TriSix:
 
     @property
     def max_element_connections(self):
-        return 4
+        return None
 
     @property
     def n_boundary_nodes(self):
-        return 2
+        return None
 
     @property
     def is_quadratic(self):
@@ -560,8 +561,6 @@ class TriSix:
 
         u = xy[0]
         v = xy[1]
-
-        w = (1-u-v)
 
         # shape functions
         self.N[0] = (2*(1-u-v)-1)*(1-u-v)
@@ -586,7 +585,6 @@ class TriSix:
         self.dN[3, 1] = -4 * u
         self.dN[4, 1] = 4 * u
         self.dN[5, 1] = 4*(-v-u+1)-4*v
-
 
 
 class TetraFour:
@@ -635,11 +633,11 @@ class TetraFour:
 
     @property
     def max_element_connections(self):
-        return 4
+        return None
 
     @property
     def n_boundary_nodes(self):
-        return 2
+        return None
 
     @property
     def is_quadratic(self):
@@ -683,6 +681,7 @@ class TetraFour:
         self.dN[2, 2] = 0
         self.dN[3, 2] = 1
         return
+
 
 class TetraTen:
     r"""
@@ -730,15 +729,15 @@ class TetraTen:
 
     @property
     def max_element_connections(self):
-        return 4
+        return None
 
     @property
     def n_boundary_nodes(self):
-        return 2
+        return None
 
     @property
     def is_quadratic(self):
-        return False
+        return True
 
     def shape_functions(self, xyz: list):
         r"""
