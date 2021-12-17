@@ -365,6 +365,83 @@ class Test1DWavePropagation_2D(unittest.TestCase):
         assert_dict_almost_equal(data, self.random_data)
         return
 
+    def test_1d_wave_tri3(self):
+        sett = {"gamma": 0.5,
+                "beta": 0.25,
+                "int_order": 2,
+                "damping": [1, 0.01, 30, 0.01],
+                "absorbing_BC": [1, 1],
+                "pickle": True,
+                "pickle_nodes": "all",
+                "VTK": True,
+                "output_interval": 10
+                }
+
+        x = 1
+        y = 10
+        BC = {"bottom": ["01", [[0, 0, 0], [x, 0, 0]]],
+              "left": ["10", [[0, 0, 0], [0, y, 0]]],
+              "right": ["10", [[x, 0, 0], [x, y, 0]]]
+              }
+
+        # material dictionary: rho, E, v
+        mat = {"solid": {"density": 1500,
+                         "Young": 30e6,
+                         "poisson": 0.2},
+               "bottom": {"density": 1200.0,
+                          "Young": 300e6,
+                          "poisson": 0.25}}
+
+        load = {"force": [0, -1000, 0],
+                "node": [3, 4, 25],
+                "time": 1,
+                "type": "heaviside",  # pulse or heaviside or moving
+                "speed": 80}  # only for moving
+
+
+        # run scatter
+        input_file = r"integration_tests/mesh/column_2D_tri3.msh"
+        output_dir = r"integration_tests/results_tri3"
+        scatter(input_file, output_dir, mat, BC, sett, load, time_step=0.5e-3)
+
+    def test_1d_wave_tri6(self):
+        sett = {"gamma": 0.5,
+                "beta": 0.25,
+                "int_order": 2,
+                "damping": [1, 0.01, 30, 0.01],
+                "absorbing_BC": [1, 1],
+                "pickle": True,
+                "pickle_nodes": "all",
+                "VTK": True,
+                "output_interval": 10
+                }
+
+        x = 1
+        y = 10
+        BC = {"bottom": ["01", [[0, 0, 0], [x, 0, 0]]],
+              "left": ["10", [[0, 0, 0], [0, y, 0]]],
+              "right": ["10", [[x, 0, 0], [x, y, 0]]]
+              }
+
+        # material dictionary: rho, E, v
+        mat = {"solid": {"density": 1500,
+                         "Young": 30e6,
+                         "poisson": 0.2},
+               "bottom": {"density": 1200.0,
+                          "Young": 300e6,
+                          "poisson": 0.25}}
+
+        load = {"force": [0, -1000, 0],
+                "node": [3, 4, 47, 48, 49],
+                "time": 1,
+                "type": "heaviside",  # pulse or heaviside or moving
+                "speed": 80}  # only for moving
+
+        # run scatter
+        input_file = r"integration_tests/mesh/column_2D_tri6.msh"
+        output_dir = r"integration_tests/results_tri6"
+        scatter(input_file, output_dir, mat, BC, sett, load, time_step=0.5e-3)
+
     def test_vtk(self):
         # computational settings
         sett = {"gamma": 0.5,
@@ -417,7 +494,8 @@ class Test1DWavePropagation_2D(unittest.TestCase):
         return
 
     def tearDown(self):
-        shutil.rmtree(self.fold_results)
+        if self.fold_results:
+            shutil.rmtree(self.fold_results)
         return
 
 
