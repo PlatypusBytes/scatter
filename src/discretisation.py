@@ -343,7 +343,7 @@ class SurfaceElement:
         return f_abs
 
 
-def Gauss_weights(n: int) -> [np.array, np.array]:
+def Gauss_weights(n: int, type: str) -> [np.array, np.array]:
     r"""
     Coordinates and weights in Gauss–Legendre quadrilateral integration formulae
 
@@ -353,16 +353,44 @@ def Gauss_weights(n: int) -> [np.array, np.array]:
     :return:  points, weights
     """
 
-    if n == 1:
-        x = [0.]
-        w = [2.]
-    elif n == 2:
-        x = [-np.sqrt(1. / 3.), np.sqrt(1. / 3.)]
-        w = [1., 1.]
-    elif n == 3:
-        x = [-np.sqrt(3. / 5.), 0, np.sqrt(3. / 5.)]
-        w = [5. / 9., 8. / 9., 5. / 9.]
+    if type == "quad":
+
+        if n == 1:
+            x = [0.]
+            w = [2.]
+        elif n == 2:
+            x = [-np.sqrt(1. / 3.), np.sqrt(1. / 3.)]
+            w = [1., 1.]
+        elif n == 3:
+            x = [-np.sqrt(3. / 5.), 0, np.sqrt(3. / 5.)]
+            w = [5. / 9., 8. / 9., 5. / 9.]
+        else:
+            sys.exit("ERROR: integration order not supported")
+    elif type == "tri":
+        if n == 1:
+            x = [[1/3], [1/3]]
+            w = [1/2]
+        elif n == 2:
+            x = [[1/6, 2/3, 1/6], [1/6,1/6,2/3]]
+            w = [1/6, 1/6, 1/6]
+        elif n == 3:
+            x = [[1/3, 1/5, 3/5, 1/5], [1/3, 1/5, 1/5, 3/5]]
+            w = [-27/96, 25/96, 25/96, 25/96]
+        else:
+            sys.exit("ERROR: integration order not supported")
+    elif type == "tetra":
+        if n == 1:
+            x = [[1 / 4], [1 / 4], [1/4]]
+            w = [1 / 6]
+        elif n == 2:
+            x = [[1/4 - 1/20 * np.sqrt(5), 1/4 + 3/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5)],
+                 [1/4 - 1/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5), 1/4 + 3/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5)],
+                 [1/4 - 1/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5), 1/4 + 3/20 * np.sqrt(5)]]
+            w = [1 / 24, 1 / 24, 1 / 24, 1 / 24]
+        else:
+            sys.exit(f"ERROR: integration order not supported for type {type}")
+
     else:
-        sys.exit("ERROR: integration order not supported")
+        sys.exit("ERROR: integration type not supported")
 
     return np.array(x), np.array(w)
