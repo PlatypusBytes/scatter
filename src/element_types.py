@@ -546,7 +546,7 @@ class TriSix:
 
     @property
     def is_quadratic(self):
-        return False
+        return True
 
     def shape_functions(self, xy: list):
         r"""
@@ -560,6 +560,8 @@ class TriSix:
 
         u = xy[0]
         v = xy[1]
+
+        w = (1-u-v)
 
         # shape functions
         self.N[0] = (2*(1-u-v)-1)*(1-u-v)
@@ -582,8 +584,8 @@ class TriSix:
         self.dN[1, 1] = 0
         self.dN[2, 1] = 4 * v-1
         self.dN[3, 1] = -4 * u
-        self.dN[3, 1] = 4 * u
-        self.dN[3, 1] = 4*(-v-u+1)-4*v
+        self.dN[4, 1] = 4 * u
+        self.dN[5, 1] = 4*(-v-u+1)-4*v
 
 
 
