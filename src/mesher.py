@@ -160,14 +160,20 @@ class ReadMesh:
 
         # check if element type is 3, 5 or 17
         element_type = set(geometry_elem[:, 1])
-        if not all(x in [3, 5, 17] for x in element_type):
+        if not all(x in [2,9, 3, 5, 17] for x in element_type):
             sys.exit("ERROR: Element type not supported")
 
         # add element type to self
-        if all(x == 3 for x in element_type):
+        if all(x == 2 for x in element_type):
+            self.element_type = 'tri3'
+            self.dimension = 2
+        if all(x == 9 for x in element_type):
+            self.element_type = 'tri6'
+            self.dimension = 2
+        elif all(x == 3 for x in element_type):
             self.element_type = 'quad4'
             self.dimension = 2
-        if all(x == 5 for x in element_type):
+        elif all(x == 5 for x in element_type):
             self.element_type = 'hexa8'
             self.dimension = 3
         elif all(x == 17 for x in element_type):
@@ -219,7 +225,7 @@ class ReadMesh:
                 sys.exit(f"ERROR: dimension: {self.dimension}, is  not supported")
 
             # find indexes
-            indices = np.where(residual == 0.)[0]
+            indices = np.where(np.isclose(residual, 0.))[0]
 
             # assign BC type and perpendicular direction
             for idx in indices:

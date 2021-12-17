@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 # import scatter packages
-from src.element_types import HexEight, HexTwenty, QuadFour, QuadEight
+from src.element_types import HexEight, HexTwenty, TetraFour, TetraTen, QuadFour, QuadEight, TriThree, TriSix
 
 
 class VolumeElement:
@@ -28,18 +28,8 @@ class VolumeElement:
 
         return
 
-    def generate(self, coordinates: list) -> None:
-        r"""
-        Generate shape functions, Jacobian, *B* and *N* matrix for solid element
-
-        Parameters
-        ----------
-        :param coordinates: list of coordinates of nodes in one element
-        """
-
-        # natural coordinates and integration weights: Gauss integration
-        coords, weights = Gauss_weights(self.n)
-
+    def hex_integration(self):
+        coords, weights = Gauss_weights(self.n, type='quad')
         for i1 in range(self.n):
             for i2 in range(self.n):
                 for i3 in range(self.n):
@@ -63,14 +53,59 @@ class VolumeElement:
                     self.dN.append(dN)
                     self.W.append(Wt)
 
+    def tetra_integration(self):
+        coords, weights = Gauss_weights(self.n, type='tetra')
+        n_points = len(weights)
+
+        for i1 in range(n_points):
+            # for i2 in range(n_points):
+            #     for i3 in range(n_points):
+            #         X = [coords[0, i1], coords[1, i2], coords[2, i3]]
+            #         Wt = np.prod([weights[i1], weights[i2], weights[i3]])
+
+            X = coords[:, i1]
+            Wt = weights[i1]
+            # call shape functions depending on the type of element
+            if self.type == 'tetra4':
+                tetra = TetraFour()
+                tetra.shape_functions(X)
+            elif self.type == 'tetra10':
+                tetra = TetraTen()
+                tetra.shape_functions(X)
+
+            # shape functions
+            N = tetra.N
+            dN = tetra.dN
+
+            # add to self
+            self.N.append(N)
+            self.dN.append(dN)
+            self.W.append(Wt)
+
+
+    def generate(self, coordinates: list) -> None:
+        r"""
+        Generate shape functions, Jacobian, *B* and *N* matrix for solid element
+
+        Parameters
+        ----------
+        :param coordinates: list of coordinates of nodes in one element
+        """
+
+        # natural coordinates and integration weights: Gauss integration
+
+        if self.type =='hexa8' or self.type =='hexa20':
+            self.hex_integration()
+
+        elif self.type == 'tetra4' or self.type == 'tetra10':
+            self.tetra_integration()
+
         # compute jacobian
         self.jacob(coordinates)
         # compute B matrix
         self.matrix_B()
         # compute N matrix
         self.matrix_N()
-
-        return
 
     def jacob(self, xyz: list) -> None:
         """
@@ -201,6 +236,31 @@ class SurfaceElement:
 
         return
 
+    def tri_integration(self):
+        coords, weights = Gauss_weights(self.n, type='tri')
+        n_points = len(weights)
+
+        for i1 in range(n_points):
+            X = coords[:, i1]
+            Wt = weights[i1]
+
+            # call shape functions depending on the type of element
+            if self.type == 'tri3':
+                tri = TriThree()
+                tri.shape_functions(X)
+            elif self.type == 'tri6':
+                tri = TriSix()
+                tri.shape_functions(X)
+
+            # shape functions
+            N = tri.N
+            dN = tri.dN
+
+            # add to self
+            self.N.append(N)
+            self.dN.append(dN)
+            self.W.append(Wt)
+
     def generate(self, coordinates):
         r"""
         Generate shape functions, Jacobian, *B* and *N* matrix for plane element
@@ -211,29 +271,33 @@ class SurfaceElement:
         """
 
         # natural coordinates and integration weights: Gauss integration
-        coords, weights = Gauss_weights(self.n)
 
-        for i1 in range(self.n):
-            for i2 in range(self.n):
-                X = [coords[i1], coords[i2]]
-                Wt = np.prod([weights[i1], weights[i2]])
+        if self.type == 'quad4' or self.type == 'quad8':
+            coords, weights = Gauss_weights(self.n, type='quad')
+            for i1 in range(self.n):
+                for i2 in range(self.n):
+                    X = [coords[i1], coords[i2]]
+                    Wt = np.prod([weights[i1], weights[i2]])
 
-                # call shape functions depending on the type of element
-                if self.type == 'quad4':
-                    quad = QuadFour()
-                    quad.shape_functions(X)
-                elif self.type == 'quad8':
-                    quad = QuadEight()
-                    quad.shape_functions(X)
+                    # call shape functions depending on the type of element
+                    if self.type == 'quad4':
+                        quad = QuadFour()
+                        quad.shape_functions(X)
+                    elif self.type == 'quad8':
+                        quad = QuadEight()
+                        quad.shape_functions(X)
 
-                # shape functions
-                N = quad.N
-                dN = quad.dN
+                    # shape functions
+                    N = quad.N
+                    dN = quad.dN
 
-                # add to self
-                self.N.append(N)
-                self.dN.append(dN)
-                self.W.append(Wt)
+                    # add to self
+                    self.N.append(N)
+                    self.dN.append(dN)
+                    self.W.append(Wt)
+
+        elif self.type == 'tri3' or self.type == 'tri6':
+            self.tri_integration()
 
         # compute jacobian
         self.jacob(coordinates)

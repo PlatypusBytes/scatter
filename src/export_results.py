@@ -31,6 +31,10 @@ class Write:
             self.idx_vtk = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 ,13, 14, 15, 16, 17, 18, 19]
         elif model.element_type == "quad4":
             self.idx_vtk = [0, 1, 2, 3]
+        elif model.element_type == "tri3":
+            self.idx_vtk = [0, 1, 2]
+        elif model.element_type == "tri6":
+            self.idx_vtk = [0, 1, 2,3,4,5]
 
         # output folder
         self.output_folder = output_folder
