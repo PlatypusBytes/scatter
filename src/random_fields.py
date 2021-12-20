@@ -40,6 +40,9 @@ class RF:
         return
 
     def element_type_to_meshio_element_type(self):
+        """
+        Translates scatter element types to meshio element types
+        """
         translation_dict ={"hexa8": "hexahedron",
                            "hexa20": "hexahedron20",
                            "tetra4": "tetra",
@@ -60,7 +63,7 @@ class RF:
         seed = abs(self.seed)
 
         # set scale of fluctuation
-        len_scale = np.array([self.aniso_x, 1, self.aniso_y])*self.theta
+        len_scale = np.array([self.aniso_x, 1, self.aniso_z])*self.theta
 
         # calculate variance and mean
         mean = self.materials[self.material_name][self.key_material]
