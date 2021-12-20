@@ -6,7 +6,7 @@ import meshio
 
 
 class RF:
-    def __init__(self, random_properties, materials, output_folder):
+    def __init__(self, random_properties, materials, output_folder, element_type):
         self.n = random_properties["number_realisations"]  # number of realisations in one set
         self.max_lvl = []  # number of levels of subdivision (2**max_lvl) is size.
         self.cellsize = random_properties["element_size"]  # Cell size
@@ -21,7 +21,7 @@ class RF:
         # self.mean = random_properties["material"][random_properties["index_material"]]
         self.sd = random_properties["std_value"]
         self.aniso_x = random_properties["aniso_x"]
-        self.aniso_y = random_properties["aniso_y"]
+        self.aniso_z = random_properties["aniso_z"]
         self.lognormal = True
         self.fieldfromcentre = False
         self.fields = []
@@ -32,11 +32,24 @@ class RF:
         self.new_elements = []
         self.output_folder = output_folder
         self.tol = 1e-6  # tolerance for checking equality
+        self.element_type = element_type
 
         # check if output folder exists. if not creates
         if not os.path.isdir(output_folder):
             os.makedirs(output_folder)
         return
+
+    def element_type_to_meshio_element_type(self):
+        translation_dict ={"hexa8": "hexahedron",
+                           "hexa20": "hexahedron20",
+                           "tetra4": "tetra",
+                           "tetra10": "tetra10",
+                           "tri3": "triangle",
+                           "tri6":"triangle6",
+                           "quad4": "quad",
+                           "quad8": "quad8"}
+
+        return translation_dict[self.element_type]
 
     def generate_gstools_rf(self, nodes, elements, ndim, angles=0.0, model_name='Exponential'):
         """
@@ -47,7 +60,7 @@ class RF:
         seed = abs(self.seed)
 
         # set scale of fluctuation
-        len_scale = np.array([self.aniso_x, self.aniso_y, 1])*self.theta
+        len_scale = np.array([self.aniso_x, 1, self.aniso_y])*self.theta
 
         # calculate variance and mean
         mean = self.materials[self.material_name][self.key_material]
@@ -76,7 +89,9 @@ class RF:
 
         # create meshio mesh
         # todo, make dependent on type of element, currently only hexahedron elements are generated
-        mesh = meshio.Mesh(nodes[:, 1:], {"hexahedron": elements - 1})
+
+        element_type = self.element_type_to_meshio_element_type()
+        mesh = meshio.Mesh(nodes[:, 1:], {element_type: elements - 1})
 
         # create random fields
         for i in range(self.n):
