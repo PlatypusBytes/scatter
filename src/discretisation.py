@@ -440,12 +440,14 @@ def Gauss_weights(n: int, type: str) -> [np.array, np.array]:
             sys.exit("ERROR: integration order not supported")
     elif type == "tetra":
         if n == 1:
-            x = [[1 / 4], [1 / 4], [1/4]]
+            x = [[1 / 4],
+                 [1 / 4],
+                 [1 / 4]]
             w = [1 / 6]
         elif n == 2:
-            x = [[1/4 - 1/20 * np.sqrt(5), 1/4 + 3/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5)],
-                 [1/4 - 1/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5), 1/4 + 3/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5)],
-                 [1/4 - 1/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5), 1/4 + 3/20 * np.sqrt(5)]]
+            x = [[1/4 - 1/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5), 1/4 + 3/20 * np.sqrt(5)],
+                 [1 / 4 - 1 / 20 * np.sqrt(5), 1 / 4 - 1 / 20 * np.sqrt(5), 1 / 4 + 3 / 20 * np.sqrt(5), 1 / 4 - 1 / 20 * np.sqrt(5)],
+                 [1/4 - 1/20 * np.sqrt(5), 1/4 + 3/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5)]]
             w = [1 / 24, 1 / 24, 1 / 24, 1 / 24]
         else:
             sys.exit(f"ERROR: integration order not supported for type {type}")

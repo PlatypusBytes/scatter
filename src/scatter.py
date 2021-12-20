@@ -116,7 +116,6 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         sys.exit(f'Error: Load type {loading["type"]} not supported')
 
     print("solver started")
-
     # start solver
     if type_analysis == "dynamic":
         numerical.absorbing_boundary = matrix.absorbing_bc

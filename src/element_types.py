@@ -474,7 +474,7 @@ class TriThree:
 
     def shape_functions(self, xy: list):
         r"""
-        Shape functions 4 node quadrilateral element.
+        Shape functions 3-node triangular element.
 
         Parameters
         ----------
@@ -503,7 +503,7 @@ class TriThree:
 
 class TriSix:
     r"""
-       3-node triangular element.
+       6-node triangular element.
 
        Node numbering follows:
 
@@ -551,7 +551,7 @@ class TriSix:
 
     def shape_functions(self, xy: list):
         r"""
-        Shape functions 4 node quadrilateral element.
+        Shape functions 6-node triangular element.
 
         Parameters
         ----------
@@ -645,7 +645,7 @@ class TetraFour:
 
     def shape_functions(self, xyz: list):
         r"""
-        Shape functions 4 node quadrilateral element.
+        Shape functions 4 node tetrahedron element.
 
         Parameters
         ----------
@@ -685,7 +685,7 @@ class TetraFour:
 
 class TetraTen:
     r"""
-       4-node tetrahedron element.
+       10-node tetrahedron element.
 
        Node numbering follows:
 
@@ -741,7 +741,7 @@ class TetraTen:
 
     def shape_functions(self, xyz: list):
         r"""
-        Shape functions 10 node quadrilateral element.
+        Shape functions 10 node tetrahedron element.
 
         Parameters
         ----------
@@ -752,21 +752,21 @@ class TetraTen:
         u = xyz[0]
         v = xyz[1]
         w = xyz[2]
-
+        x = (1 - u - v - w)
         # shape functions
-        self.N[0] = (1-2*u-2*v-2*w)*(1-u-v-w)
-        self.N[1] = (2*u-1) * u
-        self.N[2] = (2*v-1) * v
-        self.N[3] = (2*w-1) * w
-        self.N[4] = 4*u*(1-u-v-w)
-        self.N[5] = 4*u*v
-        self.N[6] = 4*v*(1-u-v-w)
-        self.N[7] = 4*w*(1-u-v-w)
-        self.N[8] = 4*u*w
-        self.N[9] = 4*v*w
+        self.N[0] = (2*x - 1)*x
+        self.N[1] = (2 * u - 1) * u
+        self.N[2] = (2 * v - 1) * v
+        self.N[3] = (2 * w - 1) * w
+        self.N[4] = 4 * u * x
+        self.N[5] = 4 * u * v
+        self.N[6] = 4 * v * x
+        self.N[7] = 4 * w * x
+        self.N[8] = 4*v*w
+        self.N[9] = 4*u*w
 
         # derivative in u
-        self.dN[0, 0] = 2*w+2*v+2*u-2*(-w-v-u+1)-1
+        self.dN[0, 0] = 4*u + 4*v + 4*w - 3
         self.dN[1, 0] = 4*u-1
         self.dN[2, 0] = 0
         self.dN[3, 0] = 0
@@ -774,11 +774,11 @@ class TetraTen:
         self.dN[5, 0] = 4*v
         self.dN[6, 0] = -4*v
         self.dN[7, 0] = -4*w
-        self.dN[8, 0] = 4*w
-        self.dN[9, 0] = 0
+        self.dN[8, 0] = 0
+        self.dN[9, 0] = 4*w
 
         # derivative in v
-        self.dN[0, 1] = 2*w+2*v+2*u-2*(-w-v-u+1)-1
+        self.dN[0, 1] = 4*u + 4*v + 4*w - 3
         self.dN[1, 1] = 0
         self.dN[2, 1] = 4*v-1
         self.dN[3, 1] = 0
@@ -786,11 +786,11 @@ class TetraTen:
         self.dN[5, 1] = 4*u
         self.dN[6, 1] = 4*(-w-v-u+1)-4*v
         self.dN[7, 1] = -4*w
-        self.dN[8, 1] = 0
-        self.dN[9, 1] = 4*w
+        self.dN[8, 1] = 4*w
+        self.dN[9, 1] = 0
 
         # derivative in w
-        self.dN[0, 2] = 2*w+2*v+2*u-2*(-w-v-u+1)-1
+        self.dN[0, 2] = 4*u + 4*v + 4*w - 3
         self.dN[1, 2] = 0
         self.dN[2, 2] = 0
         self.dN[3, 2] = 4*w-1
@@ -798,5 +798,5 @@ class TetraTen:
         self.dN[5, 2] = 0
         self.dN[6, 2] = -4*v
         self.dN[7, 2] = 4*(-w-v-u+1)-4*w
-        self.dN[8, 2] = 4*u
-        self.dN[9, 2] = 4*v
+        self.dN[8, 2] = 4*v
+        self.dN[9, 2] = 4*u

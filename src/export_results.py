@@ -39,7 +39,7 @@ class Write:
         elif model.element_type == "tetra4":
             self.idx_vtk = [0, 1, 2, 3]
         elif model.element_type == "tetra10":
-            self.idx_vtk = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+            self.idx_vtk = [0, 1, 2, 3, 4, 5, 6, 7, 9, 8]
 
         # output folder
         self.output_folder = output_folder
