@@ -143,7 +143,7 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                     "key_material": "Young",
                     "std_value": 1e6,
                     "aniso_x": 1,
-                    "aniso_y": 1,
+                    "aniso_z": 1,
                     }
 
         # run scatter
@@ -346,13 +346,13 @@ class Test1DWavePropagation_2D(unittest.TestCase):
         # Random field properties
         RF_props = {"number_realisations": 1,
                     "element_size": 1,
-                    "theta": 1,
+                    "theta": 5,
                     "seed_number": -26021981,
                     "material": "solid",
                     "key_material": "Young",
                     "std_value": 3e6,
-                    "aniso_x": 2,
-                    "aniso_y": 5,
+                    "aniso_x": 2/5,
+                    "aniso_z": 1/5,
                     }
 
         # run scatter
@@ -417,8 +417,7 @@ class Test1DWavePropagation_2D(unittest.TestCase):
         return
 
     def tearDown(self):
-        if self.fold_results:
-            shutil.rmtree(self.fold_results)
+        shutil.rmtree(self.fold_results)
         return
 
 
@@ -471,13 +470,13 @@ class TestBenchmarkSet(unittest.TestCase):
         # Random field properties
         RF_props = {"number_realisations": 1,
                     "element_size": 1,
-                    "theta": 1,
+                    "theta": 5,
                     "seed_number": -26021981,
                     "material": "solid",
                     "key_material": "Young",
                     "std_value": 7.5e6,
-                    "aniso_x": 1,
-                    "aniso_y": 5,
+                    "aniso_x": 1/5,
+                    "aniso_z": 1/5,
                     }
 
         # run scatter
