@@ -11,7 +11,7 @@ from src.rose_utils import RoseUtils
 
 def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,
             inp_settings: dict, loading: dict, time_step: float = 0.1, random_props: bool = False,
-            type_analysis="dynamic") -> None:
+            type_analysis="dynamic") -> export_results.Write:
     r"""
     3D finite element code.
                                                           y ^
@@ -137,4 +137,4 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
 
     # print
     print("Analysis done")
-    return
+    return results

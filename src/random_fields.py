@@ -91,8 +91,6 @@ class RF:
         srf = SRF(model, mean=mean, seed=seed)
 
         # create meshio mesh
-        # todo, make dependent on type of element, currently only hexahedron elements are generated
-
         element_type = self.element_type_to_meshio_element_type()
         mesh = meshio.Mesh(nodes[:, 1:], {element_type: elements - 1})
 
