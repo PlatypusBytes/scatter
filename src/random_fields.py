@@ -21,6 +21,7 @@ class RF:
         self.new_material_index = []
         self.output_folder = output_folder
         self.element_type = element_type
+        self.model_name = random_properties["model_name"]
 
         # check if output folder exists. if not creates
         if not os.path.isdir(output_folder):
@@ -42,7 +43,7 @@ class RF:
 
         return translation_dict[self.element_type]
 
-    def generate_gstools_rf(self, nodes, elements, ndim, angles=0.0, model_name='Exponential'):
+    def generate_gstools_rf(self, nodes, elements, ndim, angles=0.0):
         """
         Generates a random field with the gstools random field generator
         """
@@ -63,16 +64,16 @@ class RF:
             var = self.sd**2
 
         # initialise model
-        if model_name == 'Gaussian':
+        if self.model_name == 'Gaussian':
             model = Gaussian(dim=ndim, var=var, len_scale=len_scale, angles=angles)
-        elif model_name == 'Exponential':
+        elif self.model_name == 'Exponential':
             model = Exponential(dim=ndim, var=var, len_scale=len_scale, angles=angles)
-        elif model_name == 'Matern':
+        elif self.model_name == 'Matern':
             model = Matern(dim=ndim, var=var, len_scale=len_scale, angles=angles)
-        elif model_name == 'Linear':
+        elif self.model_name == 'Linear':
             model = Linear(dim=ndim, var=var, len_scale=len_scale, angles=angles)
         else:
-            print('model name: "', model_name, '" is not supported')
+            print('model name: "', self.model_name, '" is not supported')
             return
 
         # initialise random field
@@ -109,6 +110,7 @@ class RF:
         # dump information about the RF
         with open(os.path.join(self.output_folder, 'rf_props.txt'), 'w') as fo:
             fo.write('Random field properties\n')
+            fo.write(f"Model: {self.model_name}\n")
             fo.write('Theta: ' + str(self.theta) + '\n')
             fo.write('Aniso_x: ' + str(self.aniso_x) + '\n')
             fo.write('Aniso_z: ' + str(self.aniso_z) + '\n')

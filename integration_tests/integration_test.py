@@ -144,6 +144,7 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                     "std_value": 1e6,
                     "aniso_x": 1,
                     "aniso_z": 1,
+                    "model_name": "Exponential"
                     }
 
         # run scatter
@@ -353,6 +354,7 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                     "std_value": 3e6,
                     "aniso_x": 2/5,
                     "aniso_z": 1/5,
+                    "model_name": "Exponential"
                     }
 
         # run scatter
@@ -477,6 +479,7 @@ class TestBenchmarkSet(unittest.TestCase):
                     "std_value": 7.5e6,
                     "aniso_x": 1/5,
                     "aniso_z": 1/5,
+                    "model_name": "Exponential"
                     }
 
         # run scatter
