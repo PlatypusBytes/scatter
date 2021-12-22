@@ -55,10 +55,8 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     model.get_mesh_edges()
 
     if random_props:
-        # model.remap_elements()
         rf = random_fields.RF(random_props, materials, outfile_folder, model.element_type)
-        rf.generate_gstools_rf(model.nodes, model.elem, model.dimension, angles=0.0, model_name='Exponential')
-        # rf.generate(model.nodes, model.elem)
+        rf.generate_gstools_rf(model.nodes, model.elem, model.dimension, angles=0.0, model_name='Gaussian')
         rf.dump()
         materials = rf.new_material
         model.materials = rf.new_model_material
