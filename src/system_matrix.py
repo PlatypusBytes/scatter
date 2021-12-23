@@ -361,8 +361,13 @@ class GenerateMatrix:
 
     def reshape_absorbing_boundaries_with_rose(self):
 
-        combined_absorbing_bc = lil_matrix(self.K.shape)
-        combined_absorbing_bc[:self.absorbing_bc.shape[0], :self.absorbing_bc.shape[1]] = self.absorbing_bc
+        combined_absorbing_bc = coo_matrix(self.K.shape)
+
+        # first transform data to coo matrices for efficient memory usage
+        coo_absorbing_bc = self.absorbing_bc.tocoo()
+        reshaped_coo = coo_matrix(((coo_absorbing_bc.data),(coo_absorbing_bc.row,coo_absorbing_bc.col)), shape=combined_absorbing_bc.shape)
+        combined_absorbing_bc = combined_absorbing_bc + reshaped_coo
+        combined_absorbing_bc = combined_absorbing_bc.tolil()
 
         self.absorbing_bc = combined_absorbing_bc
 
