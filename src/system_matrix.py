@@ -105,7 +105,12 @@ class GenerateMatrix:
         masked_rose = masked_rose[mask,:]
 
         # add scatter
-        combined_k[:self.K.shape[0], :self.K.shape[1]] = self.K
+        # first transform data to coo matrices for efficient memory usage
+        combined_k = combined_k.tocoo()
+        coo_k = self.K.tocoo()
+        reshaped_coo = coo_matrix(((coo_k.data),(coo_k.row,coo_k.col)),shape=combined_k.shape)
+        combined_k = combined_k + reshaped_coo
+        combined_k = combined_k.tolil()
 
         # add non-diagonal of rose connectivities
         combined_k[self.K.shape[0]:,data.eq_nb_dof_rose_nodes] = rose_K.toarray()[mask, :][:,data.rose_eq_nb]
@@ -202,7 +207,13 @@ class GenerateMatrix:
         masked_rose = masked_rose[mask,:]
 
         # add scatter mass matrix to combined mass matrix
-        combined_M[:self.M.shape[0], :self.M.shape[1]] = self.M
+
+        # first transform data to coo matrices for efficient memory usage
+        combined_M = combined_M.tocoo()
+        coo_m = self.M.tocoo()
+        reshaped_coo = coo_matrix(((coo_m.data),(coo_m.row,coo_m.col)),shape=combined_M.shape)
+        combined_M = combined_M + reshaped_coo
+        combined_M = combined_M.tolil()
 
         # add non-diagonal of rose connectivities
         combined_M[self.M.shape[0]:,data.eq_nb_dof_rose_nodes] = rose_M.toarray()[mask, :][:,data.rose_eq_nb]

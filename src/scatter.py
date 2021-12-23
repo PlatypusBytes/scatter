@@ -55,6 +55,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     model.get_mesh_edges()
 
     if random_props:
+        print("Generating random field")
         rf = random_fields.RF(random_props, materials, outfile_folder, model.element_type)
         rf.generate_gstools_rf(model.nodes, model.elem, model.dimension, angles=0.0)
         rf.dump()
@@ -64,7 +65,9 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
 
     # generate matrix internal
     # M, K
+    print("Generating global matrices scatter")
     matrix = system_matrix.GenerateMatrix(model.number_eq, inp_settings['int_order'])
+    # matrix.add_rose_stiffness(model, loading["model"])
     matrix.stiffness(model, materials)
     matrix.mass(model, materials)
     matrix.absorbing_boundaries(model, materials, inp_settings["absorbing_BC"])
@@ -95,6 +98,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     numerical.initialise(model.number_eq, time)
 
     # generate matrix external
+    print("Setting load")
     F = force_external.Force()
     if loading["type"] == "pulse":
         F.pulse_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time)
