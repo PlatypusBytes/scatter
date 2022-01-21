@@ -49,7 +49,7 @@ class Write:
         self.eq_nb_dof = model.eq_nb_dof
         self.coordinates = model.nodes[:, 1:]
         self.elements = model.elem[:, self.idx_vtk] - 1
-        self.time = numerical.time
+        self.time = numerical.output_time
         self.dis = numerical.u
         self.vel = numerical.v
         self.acc = numerical.a

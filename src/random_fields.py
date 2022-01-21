@@ -43,6 +43,19 @@ class RF:
 
         return translation_dict[self.element_type]
 
+    def update_material_list(self, materials, model, material_idx):
+        # add all random field materials to materials dict
+        materials.update(self.new_material)
+
+        # update index of initial materials
+        for material in model.materials:
+            material[1] = material[1] + self.new_material_index[-1]
+        # combine existing and new material list
+        model.materials = model.materials + self.new_model_material
+        # update material indices
+        model.materials_index = model.materials_index + self.new_material_index[-1]
+        model.materials_index[model.materials_index == material_idx + self.new_material_index[-1]] = self.new_material_index
+
     def generate_gstools_rf(self, nodes, elements, ndim, angles=0.0):
         """
         Generates a random field with the gstools random field generator

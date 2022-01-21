@@ -57,17 +57,26 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     if random_props:
         print("Generating random field")
         rf = random_fields.RF(random_props, materials, outfile_folder, model.element_type)
-        rf.generate_gstools_rf(model.nodes, model.elem, model.dimension, angles=0.0)
+
+        # find material index in materials dict of material which should have a random field
+        material_idx = [material[1] for material in model.materials if material[2] == random_props["material"]][0]
+
+        # find all elements find should be part of the random field
+        elements = model.elem[model.materials_index == material_idx]
+
+        # generate random field
+        rf.generate_gstools_rf(model.nodes, elements, model.dimension, angles=0.0)
         rf.dump()
-        materials = rf.new_material
-        model.materials = rf.new_model_material
-        model.materials_index = rf.new_material_index
+
+        # add all random field materials to materials dict
+
+        rf.update_material_list(materials, model, material_idx)
+
+        materials.update(rf.new_material)
 
     # generate matrix internal
-    # M, K
     print("Generating global matrices scatter")
     matrix = system_matrix.GenerateMatrix(model.number_eq, inp_settings['int_order'])
-    # matrix.add_rose_stiffness(model, loading["model"])
     matrix.stiffness(model, materials)
     matrix.mass(model, materials)
     matrix.absorbing_boundaries(model, materials, inp_settings["absorbing_BC"])
@@ -95,6 +104,12 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         numerical = static_solver.StaticSolver()
     else:
         sys.exit(f"Error: {type_analysis} not supported")
+
+    if "output_interval" in inp_settings.keys():
+        output_interval = inp_settings["output_interval"]
+    else:
+        output_interval = 1
+    numerical.output_interval = output_interval
     numerical.initialise(model.number_eq, time)
 
     # generate matrix external
@@ -131,10 +146,6 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # export results to pickle
     results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
     # export results to VTK
-    if "output_interval" in inp_settings.keys():
-        output_interval = inp_settings["output_interval"]
-    else:
-        output_interval = 1
     results.vtk(write=inp_settings["VTK"], output_interval=output_interval)
 
     # print
