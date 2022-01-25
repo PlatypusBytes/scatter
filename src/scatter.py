@@ -146,7 +146,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # export results to pickle
     results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
     # export results to VTK
-    results.vtk(write=inp_settings["VTK"], output_interval=output_interval)
+    results.vtk(write=inp_settings["VTK"], output_interval=1)
 
     # print
     print("Analysis done")
