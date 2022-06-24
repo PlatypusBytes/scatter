@@ -29,12 +29,23 @@ if __name__ == "__main__":
           }
 
     # material dictionary: rho, E, v
-    mat = {"solid": {"density": 0.002000,
-                     "Young": 30e8,
+    # mat = {"solid": {"density": 0.002000,
+    #                  "Young": 30e6,
+    #                  "poisson": 0.2},
+    #        "bottom": {"density": 0.002500,
+    #                   "Young": 30e5,
+    #                   "poisson": 0.25}}
+
+    mat = {"embankment": {"density": 2000,
+                     "Young": 100e6,
                      "poisson": 0.2},
-           "bottom": {"density": 0.002500,
-                      "Young": 300e8,
-                      "poisson": 0.25}}
+           "soil1": {"density": 1700,
+                          "Young": 40e6,
+                          "poisson": 0.2},
+           "soil2": {"density": 2000,
+                          "Young": 10e6,
+                          "poisson": 0.2},
+           }
 
     rose_data = create_rose.create_input_dict()
 
@@ -51,19 +62,28 @@ if __name__ == "__main__":
             "type": "rose",
             "time": loading_time}
 
+    load = {"force": [0, -1000, 0],
+            "node": [2],
+            "time": 1,
+            "type": "heaviside",  # pulse or heaviside or moving
+            "speed": 80}
+
     # Random field properties
     RF_props = {"number_realisations": 1,
                 "element_size": 1,
                 "theta": 1,
                 "seed_number": -26021981,
-                "material": "solid",
+                "material": "soil2",
                 "key_material": "Young",
                 "std_value": 3e6,
-                "aniso_x": 2,
-                "aniso_y": 5,
+                "aniso_x": 10,
+                "aniso_z": 5,
+                "model_name": "Gaussian"
                 }
 
     # run scatter
-    scatter(r"./mesh/box2d.msh", "./results_rose_2d", mat, BC, sett, load, time_step=time_step)
+    # scatter(r"./mesh/box2d.msh", "./results_rose_2d", mat, BC, sett, load, time_step=time_step)
+
+    scatter(r"./mesh/embankment_rose2D.msh", "./results_emb_rose_2d", mat, BC, sett, load, time_step=time_step, random_props=RF_props)
 
 #

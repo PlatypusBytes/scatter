@@ -45,12 +45,12 @@ class RoseUtils:
         solver.load_func = rose_model.update_force_vector
 
         # add track displacement and velocity to global system
-        solver.u[:, :rose_model.track.total_n_dof] = rose_model.track.solver.u[:, :]
-        solver.v[:, :rose_model.track.total_n_dof] = rose_model.track.solver.v[:, :]
+        solver.u[0, :rose_model.track.total_n_dof] = rose_model.track.solver.u[0, :]
+        solver.v[0, :rose_model.track.total_n_dof] = rose_model.track.solver.v[0, :]
 
         # add train displacement and velocity to global system
-        solver.u[:, rose_model.track.total_n_dof:rose_model.total_n_dof] = rose_model.train.solver.u[:,:]
-        solver.v[:, rose_model.track.total_n_dof:rose_model.total_n_dof] =rose_model.train.solver.v[:,:]
+        solver.u[0, rose_model.track.total_n_dof:rose_model.total_n_dof] = rose_model.train.solver.u[0,:]
+        solver.v[0, rose_model.track.total_n_dof:rose_model.total_n_dof] = rose_model.train.solver.v[0,:]
 
 
     @staticmethod
@@ -205,8 +205,8 @@ class RoseUtils:
         rose_model.train.contact_dofs = list(np.array(rose_model.train.contact_dofs) + scatter_model.number_eq -len(scatter_model.eq_nb_dof_rose_nodes))
 
         # reinitialise rose solvers with new number of degree of freedom
-        rose_model.solver.initialise(rose_model.total_n_dof, rose_model.time)
-        rose_model.track.solver.initialise(rose_model.track.total_n_dof, rose_model.time)
+        # rose_model.solver.initialise(rose_model.total_n_dof, rose_model.time)
+        rose_model.track.solver.initialise(rose_model.track.total_n_dof, [0, 1])
 
         # recalculate indices of degree of freedom on rose track nodes
         for node in rose_model.track.mesh.nodes:

@@ -90,8 +90,8 @@ class TestBenchmarkSet2:
             expected_vel = expected_res["velocity"]["3"]["y"]
 
         # assert displacement and velocity on top node
-        np.testing.assert_array_almost_equal(calculated_disp, expected_disp)
-        np.testing.assert_array_almost_equal(calculated_vel, expected_vel)
+        np.testing.assert_array_almost_equal(calculated_disp, expected_disp[0::10])
+        np.testing.assert_array_almost_equal(calculated_vel, expected_vel[0::10])
 
         # compare velocity with analytical solution if CHECK_RESULTS is true
         if CHECK_RESULT:

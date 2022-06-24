@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.sparse import lil_matrix
+from scipy.sparse import lil_matrix, coo_matrix
 
 # import scatter packages
 from src import discretisation
@@ -44,6 +44,9 @@ class GenerateMatrix:
         :param material: material dictionary
         """
 
+        # create dictionaries of materials and nodes for quicker look-up
+        dict_materials = dict(np.array(data.materials)[:, 1:])
+        dict_nodes = dict([(node[0], node[1:]) for node in data.nodes])
         # compute material matrix for isotropic elasticity
         for idx, elem in enumerate(data.elem):
 
@@ -56,7 +59,7 @@ class GenerateMatrix:
             # material index
             mat_idx = data.materials_index[idx]
             # find material name
-            name_material = [i[2] for i in data.materials if i[1] == mat_idx][0]
+            name_material = dict_materials[str(mat_idx)]
 
             # solid elastic properties
             E = material[name_material]["Young"]
@@ -66,13 +69,10 @@ class GenerateMatrix:
             D = material_models.stiffness_elasticity(E, v, data.dimension)
 
             # coordinates for all the nodes in one element
-            xyz = []
-            for node in elem:
-                # get global coordinates of the node
-                xyz.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
+            xyz = np.array([dict_nodes[node] for node in elem])
 
             # generate shape functions B and H matrix
-            shape_fct.generate(np.array(xyz))
+            shape_fct.generate(xyz)
 
             # compute stiffness
             Ke = shape_fct.compute_stiffness(D)
@@ -93,18 +93,24 @@ class GenerateMatrix:
 
     def add_rose_stiffness(self,data, rose_model):
 
+        # initialise combined scatter-rose mass matrix
         rose_K = rose_model.global_stiffness_matrix
-        combined_k = lil_matrix((self.K.shape[0] + rose_K.shape[0] - len(data.eq_nb_dof_rose_nodes), self.K.shape[1] + rose_K.shape[1] - len(data.eq_nb_dof_rose_nodes)))
+        combined_k = lil_matrix((self.K.shape[0] + rose_K.shape[0] - len(data.eq_nb_dof_rose_nodes), self.K.shape[1]
+                                 + rose_K.shape[1] - len(data.eq_nb_dof_rose_nodes)))
 
+        # mask rows and columns of rose stiffness matrix which coincide with scatter stiffness matrix
         mask = np.ones(rose_K.shape[0], bool)
-
-        # mask rows and columns
         mask[np.array(data.rose_eq_nb)] = False
         masked_rose = rose_K.toarray()[:, mask]
         masked_rose = masked_rose[mask,:]
 
         # add scatter
-        combined_k[:self.K.shape[0], :self.K.shape[1]] = self.K
+        # first transform data to coo matrices for efficient memory usage
+        combined_k = combined_k.tocoo()
+        coo_k = self.K.tocoo()
+        reshaped_coo = coo_matrix(((coo_k.data),(coo_k.row,coo_k.col)),shape=combined_k.shape)
+        combined_k = combined_k + reshaped_coo
+        combined_k = combined_k.tolil()
 
         # add non-diagonal of rose connectivities
         combined_k[self.K.shape[0]:,data.eq_nb_dof_rose_nodes] = rose_K.toarray()[mask, :][:,data.rose_eq_nb]
@@ -113,7 +119,7 @@ class GenerateMatrix:
         # add rose
         combined_k[self.K.shape[0]:, self.K.shape[1]:] = masked_rose
 
-        # add diagonal of rose connectivies
+        # add diagonal of rose connectivities
         combined_k[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] += rose_K[data.rose_eq_nb, data.rose_eq_nb]
 
         self.K = combined_k
@@ -133,6 +139,9 @@ class GenerateMatrix:
         :param material: material dictionary
         """
 
+        # create dictionaries of materials and nodes for quicker look-up
+        dict_materials = dict(np.array(data.materials)[:, 1:])
+        dict_nodes = dict([(node[0], node[1:]) for node in data.nodes])
         # compute material matrix for isotropic elasticity
         for idx, elem in enumerate(data.elem):
 
@@ -144,17 +153,15 @@ class GenerateMatrix:
 
             # material index
             mat_idx = data.materials_index[idx]
+
             # find material name
-            name_material = [i[2] for i in data.materials if i[1] == mat_idx][0]
+            name_material = dict_materials[str(mat_idx)]
 
             # solid elastic properties
             rho = material[name_material]["density"]
 
             # coordinates for all the nodes in one element
-            xyz = []
-            for node in elem:
-                # get global coordinates of the node
-                xyz.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
+            xyz = np.array([dict_nodes[node] for node in elem])
 
             # generate shape functions B and H matrix
             shape_fct.generate(np.array(xyz))
@@ -176,29 +183,49 @@ class GenerateMatrix:
 
         return
 
-    def add_rose_mass(self,data, rose_model):
+    def add_rose_mass(self, data, rose_model):
+        r"""
+        Adds rose mass matrix to scatter global mass matrix
 
+        Generates and assembles the global mass matrix for the structure.
 
+        Parameters
+        ----------
+        :param data:  mesh and geometry data class
+        :param rose_model: rose coupled train track system
+        """
+
+        # initialise combined scatter-rose mass matrix
         rose_M = rose_model.global_mass_matrix
-        combined_M = lil_matrix((self.M.shape[0] + rose_M.shape[0] - len(data.eq_nb_dof_rose_nodes), self.M.shape[1] + rose_M.shape[1] - len(data.eq_nb_dof_rose_nodes)))
+        combined_M = lil_matrix((self.M.shape[0] + rose_M.shape[0] - len(data.eq_nb_dof_rose_nodes), self.M.shape[1]
+                                 + rose_M.shape[1] - len(data.eq_nb_dof_rose_nodes)))
 
+        # mask rows and columns of rose mass matrix which coincide with scatter mass matrix
         mask = np.ones(rose_M.shape[0], bool)
-
-        # mask rows and columns
         mask[np.array(data.rose_eq_nb)] = False
         masked_rose = rose_M.toarray()[:, mask]
         masked_rose = masked_rose[mask,:]
 
-        combined_M[:self.M.shape[0], :self.M.shape[1]] = self.M
+        # add scatter mass matrix to combined mass matrix
+
+        # first transform data to coo matrices for efficient memory usage
+        combined_M = combined_M.tocoo()
+        coo_m = self.M.tocoo()
+        reshaped_coo = coo_matrix(((coo_m.data),(coo_m.row,coo_m.col)),shape=combined_M.shape)
+        combined_M = combined_M + reshaped_coo
+        combined_M = combined_M.tolil()
 
         # add non-diagonal of rose connectivities
         combined_M[self.M.shape[0]:,data.eq_nb_dof_rose_nodes] = rose_M.toarray()[mask, :][:,data.rose_eq_nb]
         combined_M[data.eq_nb_dof_rose_nodes, self.M.shape[1]:] = rose_M.toarray()[:,mask][data.rose_eq_nb,:]
 
+        # add rose mass matrix
         combined_M[self.M.shape[0]:, self.M.shape[1]:] = masked_rose
 
+        # add diagonal of rose connectivities
         combined_M[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] += rose_M[data.rose_eq_nb, data.rose_eq_nb]
 
+        # update global mass matrix of rose
         self.M = combined_M
         rose_model.global_mass_matrix = combined_M
         rose_model.track.global_mass_matrix = combined_M[:data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes),
@@ -246,7 +273,6 @@ class GenerateMatrix:
         rose_model.track.global_mass_matrix = self.C[:data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes),
                                                    :data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes)]
 
-
     def absorbing_boundaries(self, data: classmethod, material: dict, parameters: list) -> None:
         """
         Compute absorbing boundary force
@@ -260,6 +286,9 @@ class GenerateMatrix:
         """
         # ToDo: improve this with surface elements. this is not very well done at the moment
 
+        # create dictionaries of materials and nodes for quicker look-up
+        dict_materials = dict(np.array(data.materials)[:, 1:])
+        dict_nodes = dict([(node[0], node[1:]) for node in data.nodes])
         # compute material matrix for isotropic elasticity
         for idx, elem in enumerate(data.elem):
             # call shape functions
@@ -272,7 +301,7 @@ class GenerateMatrix:
             # material index
             mat_idx = data.materials_index[idx]
             # find material name
-            name_material = [i[2] for i in data.materials if i[1] == mat_idx][0]
+            name_material = dict_materials[str(mat_idx)]
 
             # solid elastic properties
             rho = material[name_material]["density"]
@@ -301,10 +330,7 @@ class GenerateMatrix:
                     exit("ERROR: BC not supported in 2D")
 
             # coordinates for all the nodes in one element
-            xyz = []
-            for node in elem:
-                # get global coordinates of the node
-                xyz.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
+            xyz = np.array([dict_nodes[node] for node in elem])
 
             # generate shape functions B and H matrix
             shape_fct.generate(xyz)
@@ -335,8 +361,13 @@ class GenerateMatrix:
 
     def reshape_absorbing_boundaries_with_rose(self):
 
-        combined_absorbing_bc = lil_matrix(self.K.shape)
-        combined_absorbing_bc[:self.absorbing_bc.shape[0], :self.absorbing_bc.shape[1]] = self.absorbing_bc
+        combined_absorbing_bc = coo_matrix(self.K.shape)
+
+        # first transform data to coo matrices for efficient memory usage
+        coo_absorbing_bc = self.absorbing_bc.tocoo()
+        reshaped_coo = coo_matrix(((coo_absorbing_bc.data),(coo_absorbing_bc.row,coo_absorbing_bc.col)), shape=combined_absorbing_bc.shape)
+        combined_absorbing_bc = combined_absorbing_bc + reshaped_coo
+        combined_absorbing_bc = combined_absorbing_bc.tolil()
 
         self.absorbing_bc = combined_absorbing_bc
 

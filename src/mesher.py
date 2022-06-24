@@ -141,7 +141,9 @@ class ReadMesh:
 
         # read PhysicalNames
         names, nb_names = utils.search_idx(data, r"$PhysicalNames", r"$EndPhysicalNames")
-
+        # set material name as integer
+        for name in names:
+            name[1] = int(name[1])
         # read Elements
         elem, _ = utils.search_idx(data, r"$Elements", r"$EndElements")
         elem = [list(map(int, i)) for i in elem]
