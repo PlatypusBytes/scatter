@@ -1,9 +1,6 @@
-import sys
-# sys.path.append(r"C:\Users\zuada\software_dev\scatter")
 from src.scatter import scatter
-
-import create_rose
 from src.rose_utils import RoseUtils
+import create_rose
 
 
 if __name__ == "__main__":
