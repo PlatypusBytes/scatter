@@ -47,6 +47,7 @@ if __name__ == "__main__":
                 "std_value": 1e6,
                 "aniso_x": 1,
                 "aniso_y": 1,
+                "aniso_z": 1,
                 }
 
     # run scatter

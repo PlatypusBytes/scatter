@@ -236,7 +236,7 @@ class GenerateMatrix:
         # solution
         coefs = np.linalg.solve(damp_mat, damp_qsi)
 
-        self.C = (self.M.tocsr().dot(coefs[0]) + self.K.tocsr().dot(coefs[1])).tolil()
+        self.C = (self.M.tocsr() * coefs[0] + self.K.tocsr() * coefs[1]).tolil()
         
         return
 

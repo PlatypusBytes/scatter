@@ -89,7 +89,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
 
     # initialise solver
     if type_analysis == "dynamic":
-        numerical = newmark_solver.NewmarkSolver()
+        numerical = newmark_solver.NewmarkExplicit()
     elif type_analysis == "static":
         numerical = static_solver.StaticSolver()
     else:
