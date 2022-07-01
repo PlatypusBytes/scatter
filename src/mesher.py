@@ -7,6 +7,7 @@ from src import utils
 from src.element_types import HexEight
 from src.rose_utils import RoseUtils
 
+
 class ReadMesh:
     def __init__(self, file_name: str) -> None:
         """
@@ -31,7 +32,8 @@ class ReadMesh:
         self.nodes = []  # node list
         self.elem = []  # element list
         self.rose_elem = []  # rose connection element list
-        self.boundary_elem = [] # boundary element list
+        self.rose_nodes = []  # rose nodes
+        self.boundary_elem = []  # boundary element list
         self.nb_nodes_elem = []  # number of nodes
         self.materials = []  # materials
         self.BC = []  # Boundary conditions for each node
@@ -156,6 +158,14 @@ class ReadMesh:
                 rose_elements = np.array([el for el in elem if el[3] == rose_idx])
                 self.rose_elem = rose_elements[:, 5:]
                 break
+
+        # get rose nodes
+        for elem_ in self.rose_elem:
+            idx_nodes = [np.where(nodes[:, 0] == j)[0][0] for j in elem_]
+            self.rose_nodes.append(nodes[idx_nodes][:, 1:])
+
+        rose_nodes = np.array([el[5:] for el in elem if el in rose_elements])
+        self.rose_nodes = np.unique(rose_nodes)
 
         # get all geometry elements which are not part of ROSE
         geometry_elem = np.array([el for el in elem if el not in rose_elements])
@@ -409,11 +419,11 @@ class ReadMesh:
             idx_nodes = [np.where(self.nodes[:, 0] == j)[0][0] for j in elem]
             # eq_nb_dof_rose_nodes = self.eq_nb_dof[elem][:,vertical_index]
             eq_nb_dof_rose.append(self.eq_nb_dof[idx_nodes][:, vertical_index])
-            node_coords.append(self.nodes[idx_nodes][:,1:])
+            node_coords.append(self.nodes[idx_nodes][:, 1:])
 
         node_coords = np.array(node_coords)
 
-        node_coords = node_coords.reshape((node_coords.shape[0]*node_coords.shape[1], node_coords.shape[2]))
+        node_coords = node_coords.reshape((node_coords.shape[0] * node_coords.shape[1], node_coords.shape[2]))
         # np.array(node_coords).reshape((40, 3))
         # np.unique(np.array(node_coords).reshape((40, 3)),axis=1)
         indices = np.unique(node_coords, axis=0, return_index=True)[1]

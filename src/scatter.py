@@ -47,7 +47,6 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     if loading["type"] == "rose":
         # pre process rose
         loading["model"] = RoseUtils.pre_process_rose_model(loading["model"])
-
         # add rose connectivities
         model.rose_connectivities(loading["model"])
 
@@ -57,21 +56,15 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     if random_props:
         print("Generating random field")
         rf = random_fields.RF(random_props, materials, outfile_folder, model.element_type)
-
         # find material index in materials dict of material which should have a random field
         material_idx = [material[1] for material in model.materials if material[2] == random_props["material"]][0]
-
         # find all elements find should be part of the random field
         elements = model.elem[model.materials_index == material_idx]
-
         # generate random field
         rf.generate_gstools_rf(model.nodes, elements, model.dimension, angles=0.0)
         rf.dump()
-
         # add all random field materials to materials dict
-
         rf.update_material_list(materials, model, material_idx)
-
         materials.update(rf.new_material)
 
     # generate matrix internal

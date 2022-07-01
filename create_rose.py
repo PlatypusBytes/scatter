@@ -1,15 +1,18 @@
-
-from rose.pre_process.default_trains import TrainType, set_train
+import numpy as np
+# rose packages
+from rose.pre_process.default_trains import set_train
+from src.mesher import ReadMesh
 
 
 def geometry(nb_sleeper, fact=1):
     """
     Sets track geometry parameters
 
-    :param nb_sleeper:
-    :param fact:
-    :return:
+    :param nb_sleeper: number of sleepers
+    :param fact: scale factor between sleepers. Default 1
+    :return: dictionary with geometry
     """
+
     # Set geometry parameters
     geometry = {}
     geometry["n_segments"] = len(nb_sleeper)
@@ -23,7 +26,8 @@ def geometry(nb_sleeper, fact=1):
 def materials():
     """
     Sets track material parameters
-    :return:
+
+    :return: Dictionary with track materials
     """
     material = {}
     # set parameters of the rail
@@ -54,47 +58,59 @@ def materials():
     return material
 
 
-def time_integration():
+def time_integration(t_ini, t_calc):
     """
     Sets time integration data
 
-    :return:
+    :param t_ini: Time for initialisation
+    :param t_calc: Time for calculation
+    :return: time dictionary
     """
-    time = {}
-
-    # set time parameters in two stages
-    time["tot_ini_time"] = 0.4  # total initalisation time  [s]
-    time["n_t_ini"] = None  # number of time steps initialisation time  [-]
-
-    time["tot_calc_time"] = 1.2  # total time during calculation phase   [s]
-    time["n_t_calc"] = None  # number of time steps during calculation phase [-]
-
+    time = {"tot_ini_time": t_ini,
+            "n_t_ini": None,
+            "tot_calc_time": t_calc,
+            "n_t_calc": None}
     return time
 
 
-def create_input_dict():
-    import numpy as np
+def create_input_dict(speed, initial_time, travelling_time,
+                      stiffness, damping,
+                      start_coordinate, mesh, train_type):
+    """
+    Creates ROSE input dictionary
 
-
+    :param speed: travelling speed [km/h]
+    :param initial_time: Initialisation time
+    :param travelling_time: Running time
+    :param stiffness: Soil stiffness
+    :param damping: Soil damping
+    :param start_coordinate: starting y coordinate of the train
+    :param mesh: file for the mesh
+    :param train_type: Train type
+    :return: ROSE input dictionary
+    """
     # set time integration and track information
-    time_data = time_integration()
+    time_data = time_integration(initial_time, travelling_time)
     track_materials = materials()
-    track_geometry = geometry([201],fact=1)
+
+    mesh = ReadMesh(mesh)
+    mesh.read_gmsh()
+
+    track_geometry = geometry([len(mesh.rose_nodes)], fact=1)
 
     track_info = {"geometry": track_geometry,
                   "materials": track_materials}
 
     # get default trains
-    train_velocity = 100 / 3.6
-    train_type = "sprinter"
-    train_model = set_train(np.nan, np.nan, 15, TrainType.DOUBLEDEKKER)
+    train_velocity = speed / 3.6
+    train_model = set_train(np.nan, np.nan, start_coordinate, train_type)
     train_dict = {"velocity": train_velocity,
-                  "type": train_type,
+                  "type": train_type.name,
                   "model": train_model}
 
-    #set soil data
-    soil_dict={"stiffness": 200e6,
-               "damping": 20e6}
+    # set soil data
+    soil_dict = {"stiffness": stiffness,
+                 "damping": damping}
 
     input_dict = {"traffic_data": train_dict,
                   "track_info": track_info,
@@ -102,7 +118,3 @@ def create_input_dict():
                   "time_integration": time_data}
 
     return input_dict
-
-
-if __name__ == '__main__':
-    create_input_dict()

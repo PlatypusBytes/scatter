@@ -52,7 +52,6 @@ class RoseUtils:
         solver.u[0, rose_model.track.total_n_dof:rose_model.total_n_dof] = rose_model.train.solver.u[0,:]
         solver.v[0, rose_model.track.total_n_dof:rose_model.total_n_dof] = rose_model.train.solver.v[0,:]
 
-
     @staticmethod
     def assign_data_to_coupled_model(rose_data: dict) -> CoupledTrainTrack:
         """
