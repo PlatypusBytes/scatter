@@ -15,7 +15,6 @@ dependencies:
   - pytest-cov=2.12.1
   - pip:
     - gstools==1.4.0
-    - meshio==4.4.6
     - "git+https://bitbucket.org/zuada/vtk_tools.git#egg=VTK-tools"
     - "git+https://bitbucket.org/DeltaresGEO/rose.git#egg=rose"
     - "git+https://bitbucket.org/DeltaresGEO/solvers.git#egg=solvers"
