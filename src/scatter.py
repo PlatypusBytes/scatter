@@ -146,6 +146,6 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     results.vtk(write=inp_settings["VTK"], output_interval=1)
 
     # print end statement
-    print("\n\x1B[3m" + "  There is no value in anything until it is finished. " + "\x1B[0m")
-    print("\x1B[3m" + "--- Genghis Khan" + "\x1B[0m")
+    print("\n\n\n\x1B[3m" + "  Never tell me the odds. " + "\x1B[0m")
+    print("\x1B[3m" + "--- Han Solo" + "\x1B[0m")
     return results
