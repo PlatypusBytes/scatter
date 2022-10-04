@@ -1,3 +1,4 @@
+import os
 import sys
 import numpy as np
 from src import mesher
@@ -32,6 +33,9 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     :param random_props: bool with random fields analysis
     :param type_analysis: 'dynamic' or 'static' (default 'dynamic')
     """
+
+    # print message
+    print(open(os.path.join(os.path.dirname(__file__), '../docs/static/message.txt'), "r").read())
 
     # read gmsh mesh & create structure
     model = mesher.ReadMesh(mesh_file)
@@ -141,6 +145,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # export results to VTK
     results.vtk(write=inp_settings["VTK"], output_interval=1)
 
-    # print
-    print("Analysis done")
+    # print end statement
+    print("\n\x1B[3m" + "  There is no value in anything until it is finished. " + "\x1B[0m")
+    print("\x1B[3m" + "--- Genghis Khan" + "\x1B[0m")
     return results
