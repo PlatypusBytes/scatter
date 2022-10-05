@@ -108,31 +108,34 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # generate matrix external
     print("Setting load")
     F = force_external.Force()
-    if loading["type"] == "pulse":
-        F.pulse_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time)
-    elif loading["type"] == "heaviside":
-        F.heaviside_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time)
-    elif loading["type"] == "moving":
-        F.moving_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time, model.nodes)
-    elif loading["type"] == "moving_at_plane":
-        top_surface_elements = model.get_top_surface()
-        F.moving_load_at_plane(model.number_eq, model.eq_nb_dof, loading, loading["start_coord"], time, top_surface_elements,
-                               model.nodes)
-    elif loading["type"] == "rose":
-        F.add_rose_load(model, loading["model"])
-        RoseUtils.set_rose_loading(model, loading["model"], numerical)
-        print("Rose model is connected")
-    else:
-        sys.exit(f'Error: Load type {loading["type"]} not supported')
+    F.initialise_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time)
+    numerical.update_rhs_at_time_step_func = F.update_load_at_t
+
+    # if loading["type"] == "pulse":
+    #     F.pulse_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time)
+    # elif loading["type"] == "heaviside":
+    #     F.heaviside_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time)
+    # elif loading["type"] == "moving":
+    #     F.moving_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time, model.nodes)
+    # elif loading["type"] == "moving_at_plane":
+    #     top_surface_elements = model.get_top_surface()
+    #     F.moving_load_at_plane(model.number_eq, model.eq_nb_dof, loading, loading["start_coord"], time, top_surface_elements,
+    #                            model.nodes)
+    # elif loading["type"] == "rose":
+    #     F.add_rose_load(model, loading["model"])
+    #     RoseUtils.set_rose_loading(model, loading["model"], numerical)
+    #     print("Rose model is connected")
+    # else:
+    #     sys.exit(f'Error: Load type {loading["type"]} not supported')
 
     print("solver started")
     # start solver
     if type_analysis == "dynamic":
         numerical.absorbing_boundary = matrix.absorbing_bc
         numerical.update(0)
-        numerical.calculate(matrix.M, matrix.C, matrix.K, F.force, 0, F.force.shape[1]-1)
+        numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time)-1)
     elif type_analysis == "static":
-        numerical.calculate(matrix.K, F.force, 0, F.force.shape[1] - 1)
+        numerical.calculate(matrix.K, F.force_vector, 0,len(F.time)-1)
 
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)

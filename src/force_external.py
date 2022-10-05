@@ -9,44 +9,142 @@ from shapely.geometry import Point
 
 class Force:
     def __init__(self):
-        self.force = []
-        return
+        self.force_vector = []
 
-    def pulse_load(self, nb_equations, eq_nb_dof, nodes, load_set, time, steps=5):
+        self.factor = None
+        self.contact_nodes = None
+
+
+    def initialise_load(self, nb_equations, eq_nb_dof, nodes, load_set, time, steps=5):
         """
-        Pulse load on nodes
+       initialises load
 
-        :param nb_equations: total number of equations
-        :param eq_nb_dof: number of equation for each dof in node list
-        :param nodes: list of nodes
-        :param load_set: loading settings
-        :param time: list of time
-        :param steps: (optional: default = 5) number of steps to apply the load following a triangular form
-        """
+       :param nb_equations: total number of equations
+       :param eq_nb_dof: number of equation for each dof in node list
+       :param nodes: list of nodes
+       :param load_set: loading settings
+       :param time: list of time
+       :param steps: (optional: default = 5) number of steps to apply the load following a triangular form
+       """
+        self.nb_equations = nb_equations
+        self.factor = load_set["force"]
+        self.contact_nodes = load_set["node"]
+        self.eq_nb_dof = eq_nb_dof
+        self.model_nodes = nodes
+        self.time = time
+        self.steps = steps
 
-        # generation of variable
-        self.force = lil_matrix((nb_equations, len(time)))
+        self.loading_type = load_set["type"]
 
-        factor = load_set["force"]
-        node = load_set["node"]
+        if self.loading_type == "pulse":
+            self.initialise_pulse_load()
+        elif self.loading_type == "heaviside":
+            self.initialise_heaviside_load()
+        elif self.loading_type == "moving_at_plane":
+            self.initialise_moving_load_at_plane()
+
+    def update_load_at_t(self, t, **kwargs):
+
+        if self.loading_type == "pulse":
+            self.update_pulse_load(t)
+        elif self.loading_type == "heaviside":
+            self.update_heaviside_load(t)
+
+        return self.force_vector
+
+    def initialise_pulse_load(self):
 
         # check that length of computation is bigger than the number of steps
-        if len(time) <= steps:
-            sys.exit("Error: Number of loading steps smaller than " + str(steps))
+        if len(self.time) <= self.steps:
+            sys.exit("Error: Number of loading steps smaller than " + str(self.steps))
+
+        self.step_factors = np.append(np.linspace(0, 1, int((self.steps - 1) / 2), endpoint=False),
+                                                               np.linspace(1, 0, int((self.steps + 1) / 2)))
+
+        self.update_pulse_load(0)
+
+    def initialise_heaviside_load(self):
+
+        # check that length of computation is bigger than the number of steps
+        if len(self.time) <= self.steps:
+            sys.exit("Error: Number of loading steps smaller than " + str(self.steps))
+
+        initialise_steps = np.linspace(0, 1, self.steps)
+        self.step_factors = np.ones(len(self.time))
+        self.step_factors[:self.steps] = initialise_steps
+
+        self.update_heaviside_load(0)
+
+    def initialise_moving_load_at_plane(self):
+        pass
+
+
+    def update_pulse_load(self, t):
+        """
+
+        :param time: time index
+        """
+
+        self.force_vector = np.zeros(self.nb_equations)
+
+        if t < self.steps-1:
+            # for each node with load
+            for n in self.contact_nodes:
+                # index of node
+                idx = list(self.model_nodes[:, 0].astype(int)).index(n)
+                # for dof which have equation number
+                for i, eq in enumerate(self.eq_nb_dof[idx]):
+                    if ~np.isnan(eq):
+                        self.force_vector[int(eq)] = float(self.factor[i]) * self.step_factors[t]
+
+    def update_heaviside_load(self, t):
+
+        self.force_vector = np.zeros(self.nb_equations)
 
         # for each node with load
-        for n in node:
+        for n in self.contact_nodes:
             # index of node
-            idx = list(nodes[:, 0].astype(int)).index(n)
+            idx = list(self.model_nodes[:, 0].astype(int)).index(n)
             # for dof which have equation number
-            for i, eq in enumerate(eq_nb_dof[idx]):
+            for i, eq in enumerate(self.eq_nb_dof[idx]):
                 if ~np.isnan(eq):
-                    # pulse in steps
-                    for k in range(steps):
-                        self.force[int(eq), k] = float(factor[i]) * np.append(np.linspace(0, 1, int((steps - 1)/2), endpoint=False),
-                                                                              np.linspace(1, 0, int((steps + 1)/2)))[k]
+                    self.force_vector[int(eq)] = float(self.factor[i]) * self.step_factors[t]
 
-        return
+    # def pulse_load(self, nb_equations, eq_nb_dof, nodes, load_set, time, steps=5):
+    #     """
+    #     Pulse load on nodes
+    #
+    #     :param nb_equations: total number of equations
+    #     :param eq_nb_dof: number of equation for each dof in node list
+    #     :param nodes: list of nodes
+    #     :param load_set: loading settings
+    #     :param time: list of time
+    #     :param steps: (optional: default = 5) number of steps to apply the load following a triangular form
+    #     """
+    #
+    #     # generation of variable
+    #     self.force = lil_matrix((nb_equations, len(time)))
+    #
+    #     factor = load_set["force"]
+    #     node = load_set["node"]
+    #
+    #     # check that length of computation is bigger than the number of steps
+    #     if len(time) <= steps:
+    #         sys.exit("Error: Number of loading steps smaller than " + str(steps))
+    #
+    #     # for each node with load
+    #     for n in node:
+    #         # index of node
+    #         idx = list(nodes[:, 0].astype(int)).index(n)
+    #         # for dof which have equation number
+    #         for i, eq in enumerate(eq_nb_dof[idx]):
+    #             if ~np.isnan(eq):
+    #                 # pulse in steps
+    #                 for k in range(steps):
+    #                     self.force[int(eq), k] = float(factor[i]) * np.append(np.linspace(0, 1, int((steps - 1)/2), endpoint=False),
+    #                                                                           np.linspace(1, 0, int((steps + 1)/2)))[k]
+    #
+    #     return
 
     def heaviside_load(self, nb_equations, eq_nb_dof, nodes, load_set, time, steps=5):
         """
