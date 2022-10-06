@@ -4,11 +4,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
-
-from src.scatter import scatter
-from analytical_solutions import analytical_wave_prop
-
 import pytest
+from scatter.scatter import scatter
+from analytical_solutions import analytical_wave_prop
 
 CHECK_RESULT = False
 
