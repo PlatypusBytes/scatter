@@ -1,7 +1,7 @@
 import numpy as np
 # rose packages
 from rose.pre_process.default_trains import set_train
-from src.mesher import ReadMesh
+from scatter.mesher import ReadMesh
 
 
 def geometry(nb_sleeper, fact=1):

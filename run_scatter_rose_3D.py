@@ -1,5 +1,5 @@
-from src.scatter import scatter
-from src.rose_utils import RoseUtils
+from scatter.scatter import scatter
+from scatter.rose_utils import RoseUtils
 from rose.pre_process.default_trains import TrainType
 import create_rose
 

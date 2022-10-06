@@ -1,4 +1,4 @@
-from src.scatter import scatter
+from scatter.scatter import scatter
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ import unittest
 import shutil
 import pickle
 from pathlib import Path
-from src.scatter import scatter
+from scatter.scatter import scatter
 
 
 dec_places = 5
