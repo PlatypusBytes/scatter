@@ -1,11 +1,10 @@
 from rose.model.model_part import Material, Section
 from rose.model.train_track_interaction import *
 from solvers.newmark_solver import NewmarkSolver
-
 import numpy as np
 
-class RoseUtils:
 
+class RoseUtils:
     @staticmethod
     def pre_process_rose_model(rose_model: CoupledTrainTrack):
         """
@@ -108,6 +107,7 @@ class RoseUtils:
 
         sleeper_model_part.mass = rose_data["track_info"]["materials"]["mass_sleeper"]
 
+        # ToDo: check this!
         for idx, soil_model_part in enumerate(soil_model_parts):
             soil_model_part.stiffness = rose_data["soil_data"]["stiffness"]
             soil_model_part.damping = rose_data["soil_data"]["damping"]

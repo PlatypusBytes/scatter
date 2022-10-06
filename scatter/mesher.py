@@ -3,9 +3,9 @@ import os
 import sys
 import numpy as np
 # import scatter packages
-from src import utils
-from src.element_types import HexEight
-from src.rose_utils import RoseUtils
+from scatter import utils
+from scatter.element_types import HexEight
+from scatter.rose_utils import RoseUtils
 
 
 class ReadMesh:

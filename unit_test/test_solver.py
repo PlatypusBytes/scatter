@@ -1,7 +1,7 @@
 # unit test for gen_matrix
 # unit_test based on Bathe
 import unittest
-from src import solver
+from scatter import solver
 import numpy as np
 from scipy.sparse import lil_matrix
 

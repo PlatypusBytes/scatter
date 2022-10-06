@@ -1,5 +1,4 @@
 from typing import Tuple
-
 import numpy as np
 
 
@@ -17,7 +16,7 @@ def calculate_distance(p1: list, p2: list) -> float:
     return dist
 
 
-def calculate_centroid(coordinates: np.ndarray)-> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def calculate_centroid(coordinates: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Calculate centroid of numpy array
     :param coordinates: numpy array of coordinates in 3D

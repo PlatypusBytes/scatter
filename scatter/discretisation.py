@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 # import scatter packages
-from src.element_types import HexEight, HexTwenty, TetraFour, TetraTen, QuadFour, QuadEight, TriThree, TriSix
+from scatter.element_types import HexEight, HexTwenty, TetraFour, TetraTen, QuadFour, QuadEight, TriThree, TriSix
 
 
 class VolumeElement:

@@ -1,13 +1,13 @@
 import os
 import sys
 import numpy as np
-from src import mesher
-from src import system_matrix
-from src import force_external
+from scatter import mesher
+from scatter import system_matrix
+from scatter import force_external
+from scatter import random_fields
+from scatter import export_results
+from scatter.rose_utils import RoseUtils
 from solvers import newmark_solver, static_solver
-from src import random_fields
-from src import export_results
-from src.rose_utils import RoseUtils
 
 
 def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,

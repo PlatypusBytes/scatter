@@ -2,8 +2,8 @@ import numpy as np
 from scipy.sparse import lil_matrix, coo_matrix
 
 # import scatter packages
-from src import discretisation
-from src import material_models
+from scatter import discretisation
+from scatter import material_models
 
 
 class GenerateMatrix:
