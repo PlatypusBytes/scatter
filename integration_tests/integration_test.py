@@ -426,6 +426,9 @@ class Test1DWavePropagation_2D(unittest.TestCase):
 class TestBenchmarkSet(unittest.TestCase):
 
     def setUp(self):
+
+        self.root = "integration_tests"
+        self.root = "."
         pass
 
     def test_moving_load_plain(self):
@@ -483,8 +486,8 @@ class TestBenchmarkSet(unittest.TestCase):
                     }
 
         # run scatter
-        input_file = r"integration_tests/mesh/cube.msh"
-        output_dir = "integration_tests/results_RF/cube_res"
+        input_file = os.path.join(self.root, r"mesh/cube.msh")
+        output_dir = os.path.join(self.root,"results_RF/cube_res")
         scatter(input_file, output_dir, mat, BC, sett, load, time_step=0.5e-2, random_props=RF_props)
 
         # open results and delete file
@@ -493,7 +496,7 @@ class TestBenchmarkSet(unittest.TestCase):
         Path(output_dir, "data.pickle").unlink()
 
         # open results to be asserted with
-        with open("integration_tests/test_data/moving_load_plane_res.pickle", "rb") as f:
+        with open(os.path.join(self.root,"test_data/moving_load_plane_res.pickle"), "rb") as f:
             assert_data = pickle.load(f)
 
         assert_dict_almost_equal(res_data, assert_data)

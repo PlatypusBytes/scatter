@@ -108,7 +108,8 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # generate matrix external
     print("Setting load")
     F = force_external.Force()
-    F.initialise_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time)
+    top_surface_elements = model.get_top_surface()
+    F.initialise_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time,top_surface_elements=top_surface_elements)
     numerical.update_rhs_at_time_step_func = F.update_load_at_t
 
     # if loading["type"] == "pulse":

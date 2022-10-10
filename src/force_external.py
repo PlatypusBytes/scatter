@@ -15,7 +15,7 @@ class Force:
         self.contact_nodes = None
 
 
-    def initialise_load(self, nb_equations, eq_nb_dof, nodes, load_set, time, steps=5):
+    def initialise_load(self, nb_equations, eq_nb_dof, nodes, load_set, time, steps=5, **kwargs):
         """
        initialises load
 
@@ -28,7 +28,7 @@ class Force:
        """
         self.nb_equations = nb_equations
         self.factor = load_set["force"]
-        self.contact_nodes = load_set["node"]
+        self.contact_nodes = load_set.get("node")
         self.eq_nb_dof = eq_nb_dof
         self.model_nodes = nodes
         self.time = time
@@ -41,7 +41,8 @@ class Force:
         elif self.loading_type == "heaviside":
             self.initialise_heaviside_load()
         elif self.loading_type == "moving_at_plane":
-            self.initialise_moving_load_at_plane()
+            self.initialise_moving_load_at_plane(kwargs["top_surface_elements"], load_set["speed"],
+                                                 load_set["direction"], load_set["start_coord"])
 
     def update_load_at_t(self, t, **kwargs):
 
@@ -49,6 +50,8 @@ class Force:
             self.update_pulse_load(t)
         elif self.loading_type == "heaviside":
             self.update_heaviside_load(t)
+        elif self.loading_type == "moving_at_plane":
+            self.update_moving_load_at_plane(t)
 
         return self.force_vector
 
@@ -75,7 +78,103 @@ class Force:
 
         self.update_heaviside_load(0)
 
-    def initialise_moving_load_at_plane(self):
+    def initialise_moving_load_at_plane(self, xz_plane_elements, load_speed, load_direction, start_coord):
+
+        # get coordinates of each element on the xz plane
+        elem_coordinates = self.model_nodes[xz_plane_elements - 1, 1:]
+
+        # add elem x,z coordinates to shapely polygons, get convex hull such that coordinate sorting is correct
+        polygons = np.array([Polygon(elem).convex_hull for elem in elem_coordinates[:, :, [0, 2]]])
+
+        # set loading factor
+        initialise_steps = np.linspace(0, 1, self.steps)
+        self.step_factors = np.ones(len(self.time))
+        self.step_factors[:self.steps] = initialise_steps
+
+        # calculate traveled distance of point load at each time step
+        dt = np.diff(self.time[self.steps:])
+        distance = np.zeros(len(self.time))
+        distance[self.steps:] = np.append(0, np.cumsum(load_speed * dt))
+
+        # calculate angle of the direction of the moving point load
+        if np.isclose(load_direction[0], 0):
+            if load_direction[1] > 0:
+                angle_direction = 0.5 * np.pi
+            else:
+                angle_direction = -0.5 * np.pi
+        else:
+            angle_direction = np.arctan(load_direction[1] / load_direction[0])
+
+        # calculate position of the point load at each time step
+        x_coordinates = np.cos(angle_direction) * distance + start_coord[0]
+        z_coordinates = np.sin(angle_direction) * distance + start_coord[1]
+        self.position = np.array([x_coordinates, z_coordinates])
+
+        # define kdtree of centroids of all surface polygons, to speed up search of active elements
+        centroids = np.array([np.array(polygon.centroid.xy)[:, 0] for polygon in polygons])
+        tree = scipy.spatial.kdtree.KDTree(centroids)
+
+        # todo, make nbr_nearest_neightbours more general
+        nbr_nearest_neighbours = 10
+
+        # find elements which are in contact with the moving load at each time step
+        self.active_elements = []
+        for coord in self.position.T:
+
+            # get nearest centroids of polygons to speed up search
+            nearest_centroids_indices = tree.query(coord, nbr_nearest_neighbours)[1]
+            near_polygons = polygons[nearest_centroids_indices]
+
+            # find elements which contain the point load, only elements with near polygons are checked
+            found_element = False
+            for idx, polygon in enumerate(near_polygons):
+                if polygon.contains(Point(coord)):
+                    element_idx = nearest_centroids_indices[idx]
+                    self.active_elements.append(xz_plane_elements[element_idx])
+                    found_element = True
+                    break
+
+            # if no polygon is found, add none to active elements
+            if not found_element:
+                self.active_elements.append(None)
+
+        self.update_moving_load_at_plane(0)
+
+        # # loop over each time step
+        # for t in range(len(time)):
+        #
+        #     # get x,z coords of active elements at time t
+        #     xz_coords_active_el = nodes_coord[active_elements[t] - 1][:, [1, 3]]
+        #
+        #     # calculate distance of point load to the nodes of the active element
+        #     distances_to_nodes = xz_coords_active_el - position[:, t]
+        #     x_dist = abs(distances_to_nodes[:, 0])
+        #     z_dist = abs(distances_to_nodes[:, 1])
+        #
+        #     # determine interpolation weights in x and z direction separately
+        #     if any(x_dist < 1e-10):
+        #         x_weights = (x_dist < 1e-10) * 1
+        #     else:
+        #         x_weights = 1 / x_dist
+        #
+        #     if any(z_dist < 1e-10):
+        #         z_weights = (z_dist < 1e-10) * 1
+        #     else:
+        #         z_weights = 1 / z_dist
+        #
+        #     # calculate combined interpolation weights
+        #     weights = x_weights * z_weights
+        #     weights /= weights.sum()
+        #
+        #     # calculate force on nodes of the active element
+        #     nodal_force = weights[:, None].dot(point_load[:, t][None, :])
+        #
+        #     # get active degrees of freedom of the active element
+        #     active_dof_el = self.eq_nb_dof[active_elements[t] - 1]
+        #
+        #     # add force at active element at time t to global force matrix
+        #     valid_dofs = ~np.isnan(active_dof_el)
+        #     self.force[active_dof_el[valid_dofs].astype(int), t] = nodal_force[valid_dofs]
         pass
 
 
@@ -109,6 +208,45 @@ class Force:
             for i, eq in enumerate(self.eq_nb_dof[idx]):
                 if ~np.isnan(eq):
                     self.force_vector[int(eq)] = float(self.factor[i]) * self.step_factors[t]
+
+    def update_moving_load_at_plane(self,t):
+        self.force_vector = np.zeros(self.nb_equations)
+
+        # get x,z coords of active elements at time t
+        xz_coords_active_el = self.model_nodes[self.active_elements[t] - 1][:, [1, 3]]
+
+        # calculate distance of point load to the nodes of the active element
+        distances_to_nodes = xz_coords_active_el - self.position[:, t]
+        x_dist = abs(distances_to_nodes[:, 0])
+        z_dist = abs(distances_to_nodes[:, 1])
+
+        # determine interpolation weights in x and z direction separately
+        if any(x_dist < 1e-10):
+            x_weights = (x_dist < 1e-10) * 1
+        else:
+            x_weights = 1 / x_dist
+
+        if any(z_dist < 1e-10):
+            z_weights = (z_dist < 1e-10) * 1
+        else:
+            z_weights = 1 / z_dist
+
+        # calculate combined interpolation weights
+        weights = x_weights * z_weights
+        weights /= weights.sum()
+
+        # calculate force on nodes of the active element
+
+        point_load = np.array(self.factor) * self.step_factors[t]
+
+        nodal_force = weights[:, None].dot(point_load[:][None, :])
+
+        # get active degrees of freedom of the active element
+        active_dof_el = self.eq_nb_dof[self.active_elements[t] - 1]
+
+        # add force at active element at time t to global force matrix
+        valid_dofs = ~np.isnan(active_dof_el)
+        self.force_vector[active_dof_el[valid_dofs].astype(int)] = nodal_force[valid_dofs]
 
     # def pulse_load(self, nb_equations, eq_nb_dof, nodes, load_set, time, steps=5):
     #     """
