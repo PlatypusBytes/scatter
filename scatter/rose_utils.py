@@ -77,7 +77,7 @@ class RoseUtils:
 
         # Setup global mesh and combine model parts of all segments
         rail_model_part, sleeper_model_part, rail_pad_model_part, soil_model_parts, all_mesh = \
-            combine_horizontal_tracks(all_element_model_parts, all_meshes)
+            combine_horizontal_tracks(all_element_model_parts, all_meshes,0.6)
 
         # set initialisation time
         initialisation_time = np.linspace(0, rose_data["time_integration"]["tot_ini_time"], rose_data["time_integration"]["n_t_ini"]+1)
@@ -138,7 +138,7 @@ class RoseUtils:
         train = rose_data["traffic_data"]["model"]
         train.time = time
         train.velocities = velocities
-        train.use_irregularities = True
+        train.use_irregularities = False
 
         # setup coupled train track system
         coupled_model = CoupledTrainTrack()
