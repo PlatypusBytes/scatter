@@ -31,18 +31,22 @@ class GenerateMatrix:
         self.order = order
 
         return
-    
-    def stiffness(self, data: classmethod, material: dict) -> None:
-        r"""
-        Global stiffness matrix generation.
 
-        Generates and assembles the global stiffness matrix for the structure.
+    def generate_stiffness_and_mass(self, data: classmethod, material:dict) -> None:
+        r"""
+        Global stiffness and mass matrix generation.
+
+        Generates and assembles the global stiffness and mass matrix for the structure.
 
         Parameters
         ----------
         :param data: mesh and geometry data class
         :param material: material dictionary
         """
+
+        # initialise stiffness and mass dictionary
+        k_dict = {}
+        mass_dict = {}
 
         # create dictionaries of materials and nodes for quicker look-up
         dict_materials = dict(np.array(data.materials)[:, 1:])
@@ -64,6 +68,7 @@ class GenerateMatrix:
             # solid elastic properties
             E = material[name_material]["Young"]
             v = material[name_material]["poisson"]
+            rho = material[name_material]["density"]
 
             # element stiffness matrix
             D = material_models.stiffness_elasticity(E, v, data.dimension)
@@ -77,19 +82,49 @@ class GenerateMatrix:
             # compute stiffness
             Ke = shape_fct.compute_stiffness(D)
 
-            # assemble Stiffness matrix
-            # equation number where the stiff matrix exists
+            # compute mass
+            Me = shape_fct.compute_mass(rho)
+
+            # assemble Stiffness and mass matrix
+            # equation number where the stiff and mass matrix exists
             i1 = data.eq_nb_elem[idx][~np.isnan(data.eq_nb_elem[idx])].astype(int)
             id1 = np.argsort(i1)
             i1 = np.sort(i1)
-            # index where stiffness matrix exists
+            # index where stiffness and mass matrix exists
             i2 = np.where(~np.isnan(data.eq_nb_elem[idx]))[0]
             i2 = i2[id1]
 
-            # assign to the global stiffness matrix
-            self.K[i1.reshape(len(i1), 1), i1] += Ke[i2.reshape(len(i2), 1), i2]
+            # assign to the global stiffness matrix dictionary
+            for i, j in zip(i1, i2):
+                for k, l in zip(i1, i2):
+                    # get existing value from dict if exist, else return 0
+                    val_k = k_dict.get((i, k), 0)
+                    val_m = mass_dict.get((i, k), 0)
 
-        return
+                    # add value to dictionary
+                    k_dict[i, k] = Ke[j, l] + val_k
+                    mass_dict[i, k] = Me[j, l] + val_m
+
+        # create lists from dictionary keys and values
+        values_k, values_m = [], []
+        row_k, row_m = [], []
+        col_k, col_m = [], []
+
+        # stiffness data
+        for k, v in k_dict.items():
+            row_k.append(k[0])
+            col_k.append(k[1])
+            values_k.append(v)
+
+        # mass data
+        for k, v in mass_dict.items():
+            row_m.append(k[0])
+            col_m.append(k[1])
+            values_m.append(v)
+
+        # create sparse lil matrices
+        self.K = coo_matrix((values_k, (row_k, col_k))).tolil()
+        self.M = coo_matrix((values_m, (row_m, col_m))).tolil()
 
     def add_rose_stiffness(self,data, rose_model):
 
@@ -126,62 +161,6 @@ class GenerateMatrix:
         rose_model.global_stiffness_matrix = combined_k
         rose_model.track.global_stiffness_matrix = combined_k[:data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes),
                                                    :data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes)]
-
-    def mass(self, data: classmethod, material: dict) -> None:
-        r"""
-        Global mass matrix generation.
-
-        Generates and assembles the global mass matrix for the structure.
-
-        Parameters
-        ----------
-        :param data:  mesh and geometry data class
-        :param material: material dictionary
-        """
-
-        # create dictionaries of materials and nodes for quicker look-up
-        dict_materials = dict(np.array(data.materials)[:, 1:])
-        dict_nodes = dict([(node[0], node[1:]) for node in data.nodes])
-        # compute material matrix for isotropic elasticity
-        for idx, elem in enumerate(data.elem):
-
-            # call shape functions
-            if data.dimension == 3:
-                shape_fct = discretisation.VolumeElement(data.element_type, self.order)
-            if data.dimension == 2:
-                shape_fct = discretisation.SurfaceElement(data.element_type, self.order)
-
-            # material index
-            mat_idx = data.materials_index[idx]
-
-            # find material name
-            name_material = dict_materials[str(mat_idx)]
-
-            # solid elastic properties
-            rho = material[name_material]["density"]
-
-            # coordinates for all the nodes in one element
-            xyz = np.array([dict_nodes[node] for node in elem])
-
-            # generate shape functions B and H matrix
-            shape_fct.generate(np.array(xyz))
-
-            # compute mass
-            Me = shape_fct.compute_mass(rho)
-
-            # assemble Mass matrix
-            # equation number where the mass matrix exists
-            i1 = data.eq_nb_elem[idx][~np.isnan(data.eq_nb_elem[idx])].astype(int)
-            id1 = np.argsort(i1)
-            i1 = np.sort(i1)
-            # index where stiffness matrix exists
-            i2 = np.where(~np.isnan(data.eq_nb_elem[idx]))[0]
-            i2 = i2[id1]
-
-            # assign to the global mass matrix
-            self.M[i1.reshape(len(i1), 1), i1] += Me[i2.reshape(len(i2), 1), i2]
-
-        return
 
     def add_rose_mass(self, data, rose_model):
         r"""

@@ -74,8 +74,8 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # generate matrix internal
     print("Generating global matrices scatter")
     matrix = system_matrix.GenerateMatrix(model.number_eq, inp_settings['int_order'])
-    matrix.stiffness(model, materials)
-    matrix.mass(model, materials)
+    matrix.generate_stiffness_and_mass(model, materials)
+
     matrix.absorbing_boundaries(model, materials, inp_settings["absorbing_BC"])
 
     # add connect scatter and rose stiffness and mass matrices and absorbing boundaries
