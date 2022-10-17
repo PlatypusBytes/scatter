@@ -5,6 +5,7 @@ from scipy.sparse import lil_matrix, coo_matrix
 from scatter import discretisation
 from scatter import material_models
 
+from collections import defaultdict
 
 class GenerateMatrix:
     r"""
@@ -45,8 +46,8 @@ class GenerateMatrix:
         """
 
         # initialise stiffness and mass dictionary
-        k_dict = {}
-        mass_dict = {}
+        k_dict = defaultdict(float)
+        mass_dict = defaultdict(float)
 
         # create dictionaries of materials and nodes for quicker look-up
         dict_materials = dict(np.array(data.materials)[:, 1:])
@@ -97,30 +98,24 @@ class GenerateMatrix:
             # assign to the global stiffness matrix dictionary
             for i, j in zip(i1, i2):
                 for k, l in zip(i1, i2):
-                    # get existing value from dict if exist, else return 0
-                    val_k = k_dict.get((i, k), 0)
-                    val_m = mass_dict.get((i, k), 0)
 
                     # add value to dictionary
-                    k_dict[i, k] = Ke[j, l] + val_k
-                    mass_dict[i, k] = Me[j, l] + val_m
+                    k_dict[i, k] += Ke[j, l]
+                    mass_dict[i, k] += Me[j, l]
 
-        # create lists from dictionary keys and values
-        values_k, values_m = [], []
-        row_k, row_m = [], []
-        col_k, col_m = [], []
+        # create arrays from dictionary keys and values
 
         # stiffness data
-        for k, v in k_dict.items():
-            row_k.append(k[0])
-            col_k.append(k[1])
-            values_k.append(v)
+        keys_k = np.array(list(k_dict.keys())).astype("uint32")
+        row_k = keys_k[:,0]
+        col_k = keys_k[:,1]
+        values_k = list(k_dict.values())
 
         # mass data
-        for k, v in mass_dict.items():
-            row_m.append(k[0])
-            col_m.append(k[1])
-            values_m.append(v)
+        keys_m = np.array(list(mass_dict.keys())).astype("uint32")
+        row_m = keys_m[:,0]
+        col_m = keys_m[:,1]
+        values_m = list(mass_dict.values())
 
         # create sparse lil matrices
         self.K = coo_matrix((values_k, (row_k, col_k))).tolil()
