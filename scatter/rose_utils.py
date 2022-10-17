@@ -52,6 +52,81 @@ class RoseUtils:
         solver.v[0, rose_model.track.total_n_dof:rose_model.total_n_dof] = rose_model.train.solver.v[0,:]
 
     @staticmethod
+    def create_horizontal_rose_track(n_sleepers, sleeper_distance):
+        """
+        Creates mesh of an horizontal track. Where the top of the track lies at z=0; the sleeper thickness is 1.0m.
+
+        :param n_sleepers: number of sleepers [-]
+        :param sleeper_distance: distance between sleepers [m]
+        :return: Dictionary with: rail model part, rail pad model part, sleeper model part. Mesh
+
+        """
+        # define constants
+        track_level = 0.0
+        sleeper_thickness = 1.0
+
+        n_rail_per_sleeper = 1
+
+        # initialise mesh
+        mesh = Mesh()
+
+        # add track nodes and elements to mesh
+        nodes_track = [Node(i * sleeper_distance/n_rail_per_sleeper, track_level, 0.0) for i in range(n_sleepers * n_rail_per_sleeper)]
+        mesh.add_unique_nodes_to_mesh(nodes_track)
+        elements_track = [
+            Element([nodes_track[i], nodes_track[i + 1]]) for i in range(n_sleepers * n_rail_per_sleeper - 1)
+        ]
+        mesh.add_unique_elements_to_mesh(elements_track)
+
+        # add railpad nodes and elements to mesh
+        points_rail_pad = [
+            [nodes_track[i*n_rail_per_sleeper], Node(i * sleeper_distance, -sleeper_thickness, 0.0)]
+            for i in range(n_sleepers)
+        ]
+        points_rail_pad = list(itertools.chain.from_iterable(points_rail_pad))
+        mesh.add_unique_nodes_to_mesh(points_rail_pad)
+
+        elements_rail_pad = [
+            Element([points_rail_pad[i * 2], points_rail_pad[i * 2 + 1]])
+            for i in range(n_sleepers)
+        ]
+        mesh.add_unique_elements_to_mesh(elements_rail_pad)
+
+        # add sleeper nodes to mesh
+        nodes_sleeper = [points_rail_pad[i * 2 + 1] for i in range(n_sleepers)]
+        mesh.add_unique_nodes_to_mesh(nodes_sleeper)
+
+        # reorder node and element indices
+        mesh.reorder_element_ids()
+        mesh.reorder_node_ids()
+
+        # initialise rail model part
+        rail_model_part = Rail()
+        rail_model_part.elements = elements_track
+        rail_model_part.nodes = nodes_track
+        rail_model_part.length_rail = sleeper_distance
+
+        # initialise railpad model part
+        rail_pad_model_part = RailPad()
+        rail_pad_model_part.elements = elements_rail_pad
+        rail_pad_model_part.nodes = points_rail_pad
+
+        # initialise sleeper model part
+        sleeper_model_part = Sleeper()
+        sleeper_model_part.nodes = nodes_sleeper
+
+        # return dictionary of model parts present in horizontal track
+        return (
+            {
+                "rail": rail_model_part,
+                "rail_pad": rail_pad_model_part,
+                "sleeper": sleeper_model_part,
+                "soil": []
+            },
+            mesh,
+        )
+
+    @staticmethod
     def assign_data_to_coupled_model(rose_data: dict) -> CoupledTrainTrack:
         """
         assigns rose data from dictionary to rose coupled model
@@ -68,16 +143,17 @@ class RoseUtils:
         # loop over number of segments
         for idx in range(rose_data["track_info"]["geometry"]["n_segments"]):
             # set geometry of one segment
-            element_model_parts, mesh = create_horizontal_track(rose_data["track_info"]["geometry"]["n_sleepers"][idx],
-                                                                rose_data["track_info"]["geometry"]["sleeper_distance"],
-                                                                rose_data["track_info"]["geometry"]["depth_soil"][idx])
+            element_model_parts, mesh = RoseUtils.create_horizontal_rose_track(
+                rose_data["track_info"]["geometry"]["n_sleepers"][idx],
+                rose_data["track_info"]["geometry"]["sleeper_distance"])
+
             # add segment model parts and mesh to list
             all_element_model_parts.append(element_model_parts)
             all_meshes.append(mesh)
 
         # Setup global mesh and combine model parts of all segments
-        rail_model_part, sleeper_model_part, rail_pad_model_part, soil_model_parts, all_mesh = \
-            combine_horizontal_tracks(all_element_model_parts, all_meshes,0.6)
+        rail_model_part, sleeper_model_part, rail_pad_model_part, _, all_mesh = \
+            combine_horizontal_tracks(all_element_model_parts, all_meshes, 0.6)
 
         # set initialisation time
         initialisation_time = np.linspace(0, rose_data["time_integration"]["tot_ini_time"], rose_data["time_integration"]["n_t_ini"]+1)
@@ -107,12 +183,6 @@ class RoseUtils:
 
         sleeper_model_part.mass = rose_data["track_info"]["materials"]["mass_sleeper"]
 
-        # ToDo: check this!
-        for idx, soil_model_part in enumerate(soil_model_parts):
-            soil_model_part.stiffness = rose_data["soil_data"]["stiffness"]
-            soil_model_part.damping = rose_data["soil_data"]["damping"]
-            soil_model_part.mass = 1000
-
         # set velocity of train
         velocities = np.ones(len(time)) * rose_data["traffic_data"]["velocity"]
 
@@ -129,8 +199,7 @@ class RoseUtils:
         track.time = time
 
         # collect all model parts track
-        model_parts = [rail_model_part, rail_pad_model_part, sleeper_model_part, side_boundaries] \
-                      + soil_model_parts
+        model_parts = [rail_model_part, rail_pad_model_part, sleeper_model_part, side_boundaries]
 
         track.model_parts = model_parts
 
