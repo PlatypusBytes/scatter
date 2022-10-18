@@ -1,7 +1,8 @@
 import numpy as np
+import math
 import sys
 # import scatter packages
-from src.element_types import HexEight, HexTwenty, TetraFour, TetraTen, QuadFour, QuadEight, TriThree, TriSix
+from scatter.element_types import HexEight, HexTwenty, TetraFour, TetraTen, QuadFour, QuadEight, TriThree, TriSix
 
 
 class VolumeElement:
@@ -112,34 +113,47 @@ class VolumeElement:
         :param xyz: list of coordinates of nodes in one element
         """
 
-        for deriv in self.dN:
-            jcb = np.transpose(deriv).dot(xyz)
-            self.d_jacob.append(np.linalg.det(jcb))
-            self.dN_global.append(np.dot(deriv, np.linalg.inv(np.transpose(jcb))))
+        # transpose dN
+        dN_array = np.transpose(self.dN, (0, 2, 1))
 
-        return
+        # calculate Jacobians
+        jcbs = np.transpose(np.einsum('ijk,kl', dN_array, xyz), (0, 2, 1))
+
+        # invert Jacobians
+        inv_jcbs = np.linalg.inv(jcbs)
+
+        # calculate determinant Jacobians
+        self.d_jacob = np.linalg.det(jcbs)
+
+        # generate global dN array, by doing a dotproduct of the dN with the inverse Jacobian at each point
+        self.dN_global = np.einsum("ijk, ikl -> ijl", np.transpose(dN_array, (0, 2, 1)), inv_jcbs)
+
+        # Above procedure is equivalent to procedure as shown below, however, the above procedure is more efficient
+        #
+        #
+        # for deriv in self.dN:
+        #     jcb = np.transpose(deriv).dot(xyz)
+        #     self.d_jacob.append(np.linalg.det(jcb))
+        #     self.dN_global.append(np.dot(deriv, np.linalg.inv(np.transpose(jcb))))
 
     def matrix_B(self) -> None:
         """
         Computes B matrix (strain-displacement matrix): the derivative of the shape functions
         """
 
-        for dnx in self.dN_global:
-            B = np.zeros((6, dnx.shape[0] * dnx.shape[1]))
+        self.B_matrix = np.zeros((self.dN_global.shape[0],6,self.dN_global.shape[1] * self.dN_global.shape[2]))
 
-            for i in range(int(dnx.shape[0])):
-                idx = i * 3
-                B[0, idx + 0] = dnx[i, 0]
-                B[1, idx + 1] = dnx[i, 1]
-                B[2, idx + 2] = dnx[i, 2]
-                B[3, idx + 0] = dnx[i, 1]
-                B[3, idx + 1] = dnx[i, 0]
-                B[4, idx + 1] = dnx[i, 2]
-                B[4, idx + 2] = dnx[i, 1]
-                B[5, idx + 0] = dnx[i, 2]
-                B[5, idx + 2] = dnx[i, 0]
-
-            self.B_matrix.append(B)
+        for i in range(self.dN_global.shape[1]):
+            idx = i * 3
+            self.B_matrix[:, 0, idx + 0] = self.dN_global[:,i, 0]
+            self.B_matrix[:, 1, idx + 1] = self.dN_global[:,i, 1]
+            self.B_matrix[:, 2, idx + 2] = self.dN_global[:,i, 2]
+            self.B_matrix[:, 3, idx + 0] = self.dN_global[:,i, 1]
+            self.B_matrix[:, 3, idx + 1] = self.dN_global[:,i, 0]
+            self.B_matrix[:, 4, idx + 1] = self.dN_global[:,i, 2]
+            self.B_matrix[:, 4, idx + 2] = self.dN_global[:,i, 1]
+            self.B_matrix[:, 5, idx + 0] = self.dN_global[:,i, 2]
+            self.B_matrix[:, 5, idx + 2] = self.dN_global[:,i, 0]
 
         return
 
@@ -147,15 +161,14 @@ class VolumeElement:
         """
         Computes N matrix: matrix with the shape functions
         """
+        ndof = 3
 
         for nx in self.N:
-            N = np.zeros((self.dN_global[0][0].shape[0], nx.shape[0] * self.dN_global[0][0].shape[0]))
+            N = np.zeros((self.dN_global.shape[2], nx.shape[0] * self.dN_global.shape[2]))
 
-            for i in range(int(nx.shape[0])):
-                idx = i * 3
-                N[0, idx] = nx[i]
-                N[1, idx + 1] = nx[i]
-                N[2, idx + 2] = nx[i]
+            N[0, 0::ndof] = nx
+            N[1, 1::ndof] = nx
+            N[2, 2::ndof] = nx
 
             self.N_matrix.append(N)
 
@@ -170,9 +183,20 @@ class VolumeElement:
         :param D: Material matrix
         :return: Stiffness matrix
         """
-        Ke = np.zeros((self.B_matrix[0].shape[1], self.B_matrix[0].shape[1]))
-        for i, b in enumerate(self.B_matrix):
-            Ke += np.dot(np.dot(np.transpose(b), D), b) * self.d_jacob[i] * self.W[i]
+
+        # B_transpose dot D
+        BtD = np.einsum("ikj,kl-> ijl", self.B_matrix, D)
+
+        #Ke = BtDB * det_jacobian * weight
+        Ke = np.einsum("ijk,ikl, i-> jl", BtD, self.B_matrix,self.d_jacob * self.W)
+
+
+        # above einstein summation is equivalent to the code as stated below
+
+        # Ke = np.zeros((self.B_matrix[0].shape[1], self.B_matrix[0].shape[1]))
+        # for i in range(len(self.B_matrix)):
+        #     #Ke += np.dot(np.dot(np.transpose(b), D), b) * self.d_jacob[i] * self.W[i]
+        #     Ke += BtDB[i,:,:] * self.d_jacob[i] * self.W[i]
 
         return Ke
 
@@ -185,9 +209,15 @@ class VolumeElement:
         :param rho: Material density
         :return: Mass matrix
         """
-        Me = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
-        for i, N in enumerate(self.N_matrix):
-            Me += np.dot(np.dot(np.transpose(N), rho), N) * self.d_jacob[i] * self.W[i]
+
+        np_N_matrix = np.array(self.N_matrix)
+        Me = np.einsum("ikj, ikl, i -> jl", np_N_matrix, np_N_matrix, self.d_jacob * self.W) * rho
+
+        # above einstein summation is equivalent to the code below
+
+        # Me = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
+        # for i, N in enumerate(self.N_matrix):
+        #     Me += np.dot(np.dot(np.transpose(N), rho), N) * self.d_jacob[i] * self.W[i]
 
         return Me
 
@@ -367,7 +397,7 @@ class SurfaceElement:
         """
         Ke = np.zeros((self.B_matrix[0].shape[1], self.B_matrix[0].shape[1]))
         for i, b in enumerate(self.B_matrix):
-            Ke += np.dot(np.dot(np.transpose(b), D), b) * self.d_jacob[i] * self.W[i]
+            Ke = Ke + np.dot(np.dot(np.transpose(b), D), b) * self.d_jacob[i] * self.W[i]
 
         return Ke
 
@@ -382,7 +412,7 @@ class SurfaceElement:
         """
         Me = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
         for i, N in enumerate(self.N_matrix):
-            Me += np.dot(np.dot(np.transpose(N), rho), N) * self.d_jacob[i] * self.W[i]
+            Me = Me + np.dot(np.dot(np.transpose(N), rho), N) * self.d_jacob[i] * self.W[i]
 
         return Me
 
@@ -398,7 +428,7 @@ class SurfaceElement:
 
         f_abs = np.zeros((self.N_matrix[0].shape[1]))
         for i, N in enumerate(self.N_matrix):
-            f_abs += np.dot(np.transpose(N), 1) * self.d_jacob[i] * self.W[i]
+            f_abs = f_abs + np.dot(np.transpose(N), 1) * self.d_jacob[i] * self.W[i]
 
         return f_abs
 
@@ -419,10 +449,10 @@ def Gauss_weights(n: int, type: str) -> [np.array, np.array]:
             x = [0.]
             w = [2.]
         elif n == 2:
-            x = [-np.sqrt(1. / 3.), np.sqrt(1. / 3.)]
+            x = [-math.sqrt(1. / 3.), math.sqrt(1. / 3.)]
             w = [1., 1.]
         elif n == 3:
-            x = [-np.sqrt(3. / 5.), 0, np.sqrt(3. / 5.)]
+            x = [-math.sqrt(3. / 5.), 0, math.sqrt(3. / 5.)]
             w = [5. / 9., 8. / 9., 5. / 9.]
         else:
             sys.exit("ERROR: integration order not supported")
@@ -445,10 +475,19 @@ def Gauss_weights(n: int, type: str) -> [np.array, np.array]:
                  [1 / 4]]
             w = [1 / 6]
         elif n == 2:
-            x = [[1/4 - 1/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5), 1/4 + 3/20 * np.sqrt(5)],
-                 [1 / 4 - 1 / 20 * np.sqrt(5), 1 / 4 - 1 / 20 * np.sqrt(5), 1 / 4 + 3 / 20 * np.sqrt(5), 1 / 4 - 1 / 20 * np.sqrt(5)],
-                 [1/4 - 1/20 * np.sqrt(5), 1/4 + 3/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5), 1/4 - 1/20 * np.sqrt(5)]]
-            w = [1 / 24, 1 / 24, 1 / 24, 1 / 24]
+
+            constant_1 = 1 / 4 - 1/20 * math.sqrt(5)
+            constant_2 = 1 / 4 + 3 / 20 * math.sqrt(5)
+
+            x = [[constant_1, constant_1, constant_1,
+                  constant_2],
+                 [constant_1, constant_1, constant_2,
+                  constant_1],
+                 [constant_1, constant_2, constant_1,
+                  constant_1]]
+
+            weight_constant = 1/24
+            w = [weight_constant, weight_constant, weight_constant, weight_constant]
         else:
             sys.exit(f"ERROR: integration order not supported for type {type}")
 

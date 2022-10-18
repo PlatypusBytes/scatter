@@ -23,7 +23,7 @@ class HexEight:
 
     def __init__(self):
         self.__surfaces = None
-        self.N = np.zeros((8, 1))
+        self.N = np.zeros(8)
         self.dN = np.zeros((8, 3))
         return
 
@@ -126,7 +126,7 @@ class HexTwenty:
 
     def __init__(self):
         self.__surfaces = None
-        self.N = np.zeros((20, 1))
+        self.N = np.zeros(20)
         self.dN = np.zeros((20, 3))
         return
 
@@ -617,7 +617,7 @@ class TetraFour:
 
     def __init__(self):
         self.__surfaces = None
-        self.N = np.zeros((4, 1))
+        self.N = np.zeros(4)
         self.dN = np.zeros((4, 3))
         return
 
@@ -713,7 +713,7 @@ class TetraTen:
 
     def __init__(self):
         self.__surfaces = None
-        self.N = np.zeros((10, 1))
+        self.N = np.zeros(10)
         self.dN = np.zeros((10, 3))
         return
 

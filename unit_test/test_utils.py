@@ -1,5 +1,5 @@
 # unit test for utils
-from src import utils
+from scatter import utils
 import unittest
 import numpy as np
 

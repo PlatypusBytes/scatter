@@ -3,9 +3,9 @@ import os
 import sys
 import numpy as np
 # import scatter packages
-from src import utils
-from src.element_types import HexEight
-from src.rose_utils import RoseUtils
+from scatter import utils
+from scatter.element_types import HexEight
+from scatter.rose_utils import RoseUtils
 
 
 class ReadMesh:
@@ -243,14 +243,14 @@ class ReadMesh:
                 sys.exit(f"ERROR: dimension: {self.dimension}, is  not supported")
 
             # find indexes
-            indices = np.where(np.isclose(residual, 0.))[0]
+            indices = np.where(np.isclose(residual, 0.,atol=1.e-5))[0]
 
             # assign BC type and perpendicular direction
             for idx in indices:
                 for j, val in enumerate(type):
                     # chooses the maximum type of BC
                     self.BC[idx, j] = max(self.BC[idx, j], int(val))
-                    self.BC_dir[idx, j] = max(self.BC_dir[idx, j], int(direction[j]))
+                    self.BC_dir[idx, j] = max(self.BC_dir[idx, j], abs(int(direction[j])))
         return
 
     def mapping(self) -> None:
@@ -433,9 +433,14 @@ class ReadMesh:
         sorted_coords_indices = np.lexsort((node_coords[:, 0], node_coords[:, 2]))
 
         # indexes = np.unique(a, return_index=True)[1]
-        np.unique(node_coords, return_index=True)
         # add all unique equation number to one array
-        self.eq_nb_dof_rose_nodes = np.unique(eq_nb_dof_rose).astype(int)[sorted_coords_indices]
+        stack = np.hstack(eq_nb_dof_rose)
+        unique_indices = np.unique(stack, return_index=True)[1]
+        sorted_eq_nb_dof_rose =np.array([stack[index] for index in sorted(unique_indices)]).astype(int)
+
+        self.eq_nb_dof_rose_nodes = sorted_eq_nb_dof_rose[sorted_coords_indices]
+
+        #self.eq_nb_dof_rose_nodes = np.unique(eq_nb_dof_rose).astype(int)[sorted_coords_indices]
         self.rose_eq_nb = RoseUtils.get_bottom_boundary(rose_model)
 
         #check if rose and scatter connectivities have the same size

@@ -38,15 +38,15 @@ def plot_surface(X, Z, coords, data_plane, time, t, label, folder):
     ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
 
     # Customize the z axis.
-    ax.set_zlim((np.min(data_plane), np.max(data_plane)))
-    # ax.set_zlim((-0.6, 0.1))
+    # ax.set_zlim((np.min(data_plane), np.max(data_plane)))
+    ax.set_zlim((-0.08, 0.04))
+    ax.set_zlim((-0.1, 0.1))
     ax.text2D(0.80, 0.95, "time = " + str(round(time[t], len(str(len(time))))) + " s", transform=ax.transAxes)
     ax.set_xlabel("Distance X [m]")
     ax.set_ylabel("Distance Z [m]")
-    # ax.set_zlabel(r"Vertical displacement $\times 10 ^{-6}$ [m]")
-    ax.set_zlabel(f"{label}")
+    ax.set_zlabel(r"Vertical velocity [m/s]")
+    # ax.set_zlabel(f"{label}")
     ax.view_init(35, -135)
-    # ax.view_init(90, 90)
     # ax.set_zticks([])
     plt.savefig(os.path.join(folder, str(t).zfill(len(str(len(time)))) + ".png"))
     # plt.savefig(os.path.join(folder, str(t).zfill(len(str(len(time)))) + ".pdf"))
@@ -54,7 +54,7 @@ def plot_surface(X, Z, coords, data_plane, time, t, label, folder):
     return
 
 
-def make_movie(data_location, y_ref, elem_size, dimension, data_val, t_max=False,
+def make_movie(data_location, y_ref, elem_size, dimension_x, dimension_z, data_val, t_max=False,
                output_file="movie.gif", temp_folder="./tmp"):
     # only works for square bricks with dimension and elem_size
 
@@ -66,8 +66,8 @@ def make_movie(data_location, y_ref, elem_size, dimension, data_val, t_max=False
         t_max = np.max(data["time"])
 
     # define mesh model
-    x = np.linspace(0, dimension, int(dimension / elem_size) + 1)
-    z = np.linspace(0, dimension, int(dimension / elem_size) + 1)
+    x = np.linspace(0, dimension_x, int(dimension_x / elem_size) + 1)
+    z = np.linspace(0, dimension_z, int(dimension_z / elem_size) + 1)
 
     # get coordinates and nodes on the y-plane
     nodes = []
@@ -105,5 +105,5 @@ def make_movie(data_location, y_ref, elem_size, dimension, data_val, t_max=False
 
 
 if __name__ == "__main__":
-    make_movie(r".\data.pickle", 10, 1, 20, 0.2, "velocity",
+    make_movie(r"./data.pickle", 10, 0.5, 20, "velocity", t_max=False,
                output_file=r"./output.gif", temp_folder=r"./tmp")

@@ -1,7 +1,7 @@
 # unit test for gen_matrix
-# add the src folder to the path to search for files
+# add the scatter folder to the path to search for files
 import unittest
-from src import system_matrix
+from scatter import system_matrix
 import numpy as np
 from scipy.sparse import lil_matrix
 
