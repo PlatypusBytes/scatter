@@ -39,13 +39,13 @@ pipelines:
                 - conda activate scatter
                 - pytest -v ./integration_tests
         - step: # Test package
-            name: Run integration tests.
+            name: Test scatter package.
             caches:
                 - conda
                 - pip
             script:
                 - conda create -n scatter_pkg python=3.9
-                - pip install "git+https://bitbucket.org/DeltaresGEO/scatter.git"
+                - pip install .
                 - pip install pytest==7.2.0
                 - pytest -v ./unit_test -m "not workinprogress"
                 - pytest -v ./integration_tests
