@@ -23,6 +23,10 @@ class RoseUtils:
         """
         Sets rose loading. Initialises solver; calculates initial static displacement due to train load; calculates
         initial contact deformation
+
+        :param scatter_model: scatter model object
+        :param rose_model: rose model object
+        :param solver: solver
         """
 
         # recalculate number of degrees of freedom with rose and scatter model combined

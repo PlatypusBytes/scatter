@@ -1,8 +1,8 @@
 import os
-import numpy as np
-import ctypes as ct
-from gstools import SRF, Exponential, Gaussian, Matern, Linear
+
 import meshio
+import numpy as np
+from gstools import SRF, Exponential, Gaussian, Linear, Matern
 
 
 class RF:
@@ -132,4 +132,3 @@ class RF:
             fo.write('Std value: ' + str(self.sd) + '\n')
             fo.write('Log normal: ' + str(self.lognormal) + '\n')
         return
-
