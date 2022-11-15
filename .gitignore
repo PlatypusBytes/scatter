@@ -1,0 +1,5 @@
+# venv artifact files
+__*/
+venv/
+.vscode/
+results*/

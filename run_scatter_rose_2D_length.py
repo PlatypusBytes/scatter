@@ -1,7 +1,7 @@
 from scatter.scatter import scatter
 from scatter.rose_utils import RoseUtils
 from rose.pre_process.default_trains import TrainType
-import create_rose
+from scatter import create_rose
 
 
 if __name__ == "__main__":

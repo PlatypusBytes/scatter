@@ -410,6 +410,8 @@ class ReadMesh:
     def rose_connectivities(self, rose_model):
         """
         Connects scatter to a rose model. Rose is connected to the vertical degree of freedom in the scatter elements.
+
+        :param rose_model: Rose model object
         """
 
         vertical_index = 1
