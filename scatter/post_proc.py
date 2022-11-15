@@ -66,8 +66,8 @@ def make_movie(data_location, y_ref, elem_size, dimension_x, dimension_z, data_v
         t_max = np.max(data["time"])
 
     # define mesh model
-    x = np.linspace(0, dimension_x, int(dimension_x / elem_size) + 1)
-    z = np.linspace(0, dimension_z, int(dimension_z / elem_size) + 1)
+    x = np.linspace(0, dimension_x, abs(int(dimension_x / elem_size)) + 1)
+    z = np.linspace(0, dimension_z, abs(int(dimension_z / elem_size)) + 1)
 
     # get coordinates and nodes on the y-plane
     nodes = []

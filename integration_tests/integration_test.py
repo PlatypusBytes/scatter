@@ -470,7 +470,8 @@ class TestBenchmarkSet(unittest.TestCase):
                 "time": 1,
                 "type": "moving_at_plane",
                 "direction": [0.5, -1],
-                "speed": 10}  # pulse or heaviside
+                "speed": 10,
+                "ini_steps": 50}
 
         # Random field properties
         RF_props = {"number_realisations": 1,

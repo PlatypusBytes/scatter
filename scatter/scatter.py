@@ -6,6 +6,7 @@ from scatter import system_matrix
 from scatter import force_external
 from scatter import random_fields
 from scatter import export_results
+from scatter import validator
 from scatter.rose_utils import RoseUtils
 from solvers import newmark_solver, static_solver
 
@@ -36,6 +37,9 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
 
     # print message
     print(open(os.path.join(os.path.dirname(__file__), '../docs/static/message.txt'), "r").read())
+
+    # validate loading
+    validator.ValidateLoad.validate(loading)
 
     # read gmsh mesh & create structure
     model = mesher.ReadMesh(mesh_file)
@@ -113,7 +117,9 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     print("Setting load")
     F = force_external.Force()
     top_surface_elements = model.get_top_surface()
-    F.initialise_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time,top_surface_elements=top_surface_elements)
+
+    F.initialise_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time, steps=loading["ini_steps"],
+                      top_surface_elements=top_surface_elements)
     numerical.update_rhs_at_time_step_func = F.update_load_at_t
 
     # if loading["type"] == "pulse":
