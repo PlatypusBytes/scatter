@@ -431,7 +431,65 @@ class TestBenchmarkSet(unittest.TestCase):
         self.root = "."
         pass
 
-    def test_moving_load_plain(self):
+
+    def test_moving_load(self):
+        """
+        Regression test for moving load at plane.
+        """
+
+        # computational settings
+        sett = {"gamma": 0.5,
+                "beta": 0.25,
+                "int_order": 2,
+                "damping": [1, 0.00, 30, 0.00],
+                # "damping": [1, 0.01, 30, 0.01],
+                "absorbing_BC": [1, 1],
+                "pickle": True,
+                "pickle_nodes": "all",
+                "VTK": True}
+
+        x = 10
+        y = 10
+        z = -10
+        BC = {"bottom": ["010", [[0, 0, 0], [x, 0, 0], [0, 0, z], [x, 0, z]]],
+              "left": ["100", [[0, 0, 0], [0, 0, z], [0, y, 0], [0, y, z]]],
+              "right": ["100", [[x, 0, 0], [x, 0, z], [x, y, 0], [x, y, z]]],
+              "front": ["001", [[0, 0, 0], [z, 0, 0], [0, y, 0], [x, y, 0]]],
+              "back": ["001", [[0, 0, z], [x, 0, z], [0, y, z], [x, y, z]]],
+              }
+
+        # material dictionary: rho, E, v
+        mat = {"solid": {"density": 1500,
+                         "Young": 10e6,
+                         "poisson": 0.2},
+               "bottom": {"density": 1200,
+                          "Young": 300e6,
+                          "poisson": 0.25}}
+
+        load = {"force": [0, -1000, 0],
+                "node": [8],
+                "time": 1,
+                "type": "moving",
+                "speed": 10,
+                "ini_steps": 50}
+
+        # run scatter
+        input_file = os.path.join(self.root, r"mesh/cube.msh")
+        output_dir = os.path.join(self.root,"results_mean/cube_res")
+        scatter(input_file, output_dir, mat, BC, sett, load, time_step=0.5e-2)
+
+        # open results and delete file
+        with open(Path(output_dir, "data.pickle"), "rb") as f:
+            res_data = pickle.load(f)
+        Path(output_dir, "data.pickle").unlink()
+
+        # open results to be asserted with
+        with open(os.path.join(self.root,"test_data/moving_load_res.pickle"), "rb") as f:
+            assert_data = pickle.load(f)
+
+        assert_dict_almost_equal(res_data, assert_data)
+
+    def test_moving_load_plane(self):
         """
         Regression test for moving load at plane.
         """
