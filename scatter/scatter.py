@@ -116,10 +116,14 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # generate matrix external
     print("Setting load")
     F = force_external.Force()
-    top_surface_elements = model.get_top_surface()
 
-    F.initialise_load(model.number_eq, model.eq_nb_dof, model.nodes, loading, time, steps=loading["ini_steps"],
-                      top_surface_elements=top_surface_elements)
+    # note that moving load at plane, only works at hexa8 elements
+    if loading["type"] == "moving_at_plane":
+        top_surface_elements = model.get_top_surface()
+    else:
+        top_surface_elements = []
+
+    F.initialise_load(loading, time, model, numerical, top_surface_elements=top_surface_elements)
     numerical.update_rhs_at_time_step_func = F.update_load_at_t
 
     # if loading["type"] == "pulse":
@@ -147,6 +151,10 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time)-1)
     elif type_analysis == "static":
         numerical.calculate(matrix.K, F.force_vector, 0,len(F.time)-1)
+
+    rose_u = numerical.u[:, -212:]
+    rail_u = rose_u[:,0::2][:,:53]
+
 
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)

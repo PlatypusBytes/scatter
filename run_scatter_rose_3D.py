@@ -14,7 +14,7 @@ if __name__ == "__main__":
             "pickle": True,
             "pickle_nodes": "all",
             "VTK": True,
-            "output_interval": 5}
+            "output_interval": 10}
 
     # boundary conditions
     x = 10
@@ -23,9 +23,9 @@ if __name__ == "__main__":
 
     BC = {"bottom": ["010", [[0, y_min, 0], [x, y_min, 0], [0, y_min, z], [x, y_min, z]]],
           "left": ["100", [[0, y_min, 0], [0, y_min, z], [0, y_max, 0], [0, y_max, z]]],
-          "right": ["200", [[x, y_min, 0], [x, y_min, z], [x, y_max, 0], [x, y_max, z]]],
-          "front": ["002", [[0, y_min, 0], [x, y_min, 0], [0, y_max, 0], [x, y_max, 0]]],
-          "back": ["002", [[0, y_min, z], [x, y_min, z], [0, y_max, z], [x, y_max, z]]],
+          "right": ["100", [[x, y_min, 0], [x, y_min, z], [x, y_max, 0], [x, y_max, z]]],
+          "front": ["001", [[0, y_min, 0], [x, y_min, 0], [0, y_max, 0], [x, y_max, 0]]],
+          "back": ["001", [[0, y_min, z], [x, y_min, z], [0, y_max, z], [x, y_max, z]]],
           }
 
     # material dictionary: rho, E, v
@@ -40,7 +40,7 @@ if __name__ == "__main__":
                      "poisson": 0.2},
            }
 
-    rose_data = create_rose.create_input_dict(100, 0.4, 1.2,
+    rose_data = create_rose.create_input_dict(100, 0.01, 1.2,
                                               200e6, 20e6,
                                               15,
                                               r"./mesh/embankment_rose.msh",
@@ -73,4 +73,4 @@ if __name__ == "__main__":
                 }
 
     # run scatter
-    scatter(r"./mesh/embankment_rose.msh", "./results_rose_embankment_3d_rf2", mat, BC, sett, load, time_step=time_step, random_props=RF_props)
+    scatter(r"./mesh/embankment_rose.msh", "./results_rose_embankment_3d_rf3", mat, BC, sett, load, time_step=time_step, random_props=RF_props)

@@ -5,6 +5,7 @@ from scipy.sparse import lil_matrix
 
 from shapely.geometry.polygon import Polygon
 from shapely.geometry import Point
+from scatter.rose_utils import RoseUtils
 
 
 class Force:
@@ -15,26 +16,26 @@ class Force:
         self.contact_nodes = None
         self.step_factors = None
 
-    def initialise_load(self, nb_equations, eq_nb_dof, nodes, load_set, time, steps=5, **kwargs):
+    def initialise_load(self,  load_set, time, model, solver, **kwargs):
         """
-       initialises load
+       initialises load,
+       #todo allow different elements than hexa8 for moving load at plane
 
-       :param nb_equations: total number of equations
-       :param eq_nb_dof: number of equation for each dof in node list
-       :param nodes: list of nodes
        :param load_set: loading settings
-       :param time: list of time
-       :param steps: (optional: default = 5) number of steps to apply the load following a triangular form
+       :param time: time array
+       :param model: scatter model
+       :param solver: numerical solver
+       :param kwargs: key word arguments
        """
-        self.nb_equations = nb_equations
-        self.factor = load_set["force"]
-        self.contact_nodes = load_set.get("node")
-        self.eq_nb_dof = eq_nb_dof
-        self.model_nodes = nodes
-        self.time = time
-        self.steps = steps
-
-        self.loading_type = load_set["type"]
+        self.nb_equations = model.number_eq # total number of equations
+        self.factor = load_set.get("force") # force value
+        self.contact_nodes = load_set.get("node") # nodes numbers where force is located
+        self.eq_nb_dof = model.eq_nb_dof  # number of equation for each dof in node list
+        self.model_nodes = model.nodes # all model nodes
+        self.time = time # time array
+        self.steps = load_set["ini_steps"] #  number of steps to apply the load following a triangular form
+        self.loading_type = load_set["type"] # loading type
+        self.solver = solver
 
         if self.loading_type == "pulse":
             self.initialise_pulse_load()
@@ -45,8 +46,19 @@ class Force:
                                                  load_set["direction"], load_set["start_coord"])
         elif self.loading_type == "moving":
             self.initialise_moving_load(load_set["speed"])
+        elif self.loading_type == "rose":
+            self.initialise_rose_load(model, load_set["model"], self.solver)
+        else:
+            sys.exit(f'Error: Load type {load_set["type"]} not supported')
+
 
     def update_load_at_t(self, t, **kwargs):
+        """
+       Updates load at timestep t,
+
+       :param t: time index
+       :param kwargs: key word arguments, which is required for numerical solver
+       """
 
         if self.loading_type == "pulse":
             self.update_pulse_load(t)
@@ -56,6 +68,8 @@ class Force:
             self.update_moving_load_at_plane(t)
         elif self.loading_type == "moving":
             self.update_moving_load(t)
+        elif self.loading_type == "rose":
+            self.update_rose_load(t)
 
         return self.force_vector
 
@@ -196,43 +210,42 @@ class Force:
 
         self.update_moving_load_at_plane(0)
 
-        # # loop over each time step
-        # for t in range(len(time)):
-        #
-        #     # get x,z coords of active elements at time t
-        #     xz_coords_active_el = nodes_coord[active_elements[t] - 1][:, [1, 3]]
-        #
-        #     # calculate distance of point load to the nodes of the active element
-        #     distances_to_nodes = xz_coords_active_el - position[:, t]
-        #     x_dist = abs(distances_to_nodes[:, 0])
-        #     z_dist = abs(distances_to_nodes[:, 1])
-        #
-        #     # determine interpolation weights in x and z direction separately
-        #     if any(x_dist < 1e-10):
-        #         x_weights = (x_dist < 1e-10) * 1
-        #     else:
-        #         x_weights = 1 / x_dist
-        #
-        #     if any(z_dist < 1e-10):
-        #         z_weights = (z_dist < 1e-10) * 1
-        #     else:
-        #         z_weights = 1 / z_dist
-        #
-        #     # calculate combined interpolation weights
-        #     weights = x_weights * z_weights
-        #     weights /= weights.sum()
-        #
-        #     # calculate force on nodes of the active element
-        #     nodal_force = weights[:, None].dot(point_load[:, t][None, :])
-        #
-        #     # get active degrees of freedom of the active element
-        #     active_dof_el = self.eq_nb_dof[active_elements[t] - 1]
-        #
-        #     # add force at active element at time t to global force matrix
-        #     valid_dofs = ~np.isnan(active_dof_el)
-        #     self.force[active_dof_el[valid_dofs].astype(int), t] = nodal_force[valid_dofs]
-        pass
 
+    def initialise_rose_load(self,scatter_model, rose_model, solver):
+
+        """
+        Adds rose load to global force matrix
+
+        :param scatter_model: model generated with scatter
+        :param rose_model: rose coupled train track model
+        """
+
+        self.ndof_scatter = scatter_model.number_eq
+        self.contact_nodes = scatter_model.eq_nb_dof_rose_nodes
+        self.rose_model = rose_model
+        self.ndof_rose_scatter = self.ndof_scatter + rose_model.total_n_dof - len(scatter_model.eq_nb_dof_rose_nodes)
+        self.ndof_track = self.ndof_scatter  + rose_model.track.total_n_dof - len(scatter_model.eq_nb_dof_rose_nodes)
+
+
+        # initialise force vector
+        self.force_vector = np.zeros(self.ndof_rose_scatter)
+
+        # get rose global force vector
+        rose_F = rose_model.global_force_vector
+        self.rose_mask = np.ones(rose_F.shape[0], bool)
+
+        # mask rose degrees of freedom which correspond to scatter model
+        self.rose_mask[np.array(scatter_model.rose_eq_nb)] = False
+        masked_rose = rose_F[self.rose_mask]
+
+        # add masked rose force matrix to global force matrix
+        self.force_vector[scatter_model.number_eq:] = masked_rose
+
+        # return global force matrix to rose model
+        self.rose_model.global_force_vector = self.force_vector
+        self.rose_model.track.global_force_vector = self.force_vector[:self.ndof_track]
+
+        RoseUtils.set_rose_loading(scatter_model, self.rose_model, solver)
 
     def update_pulse_load(self, t):
         """
@@ -331,6 +344,20 @@ class Force:
                 if ~np.isnan(eq):
                     self.force_vector[int(eq)] = float(self.factor[i]) * shp[j] * self.step_factors[t]
 
+    def update_rose_load(self, t):
+        self.force_vector = np.zeros(self.ndof_rose_scatter)
+        self.force_vector = self.rose_model.update_time_step_rhs(t)
+
+        # add track displacement and velocity to global system
+        # self.solver.u[:, :self.rose_model.track.total_n_dof] = self.rose_model.track.solver.u[:, :]
+        # self.solver.v[:, :self.rose_model.track.total_n_dof] = self.rose_model.track.solver.v[:, :]
+        # self.solver.v[0, :self.rose_model.track.total_n_dof] = rose_model.track.solver.v[0, :]
+        #
+        # # add train displacement and velocity to global system
+        # self.solver.u[0, rose_model.track.total_n_dof:rose_model.total_n_dof] = rose_model.train.solver.u[0, :]
+        # self.solver.v[0, rose_model.track.total_n_dof:rose_model.total_n_dof] = rose_model.train.solver.v[0, :]
+
+        # self.force_vector = self.rose_model.global_force_vector
 
 
     #
@@ -546,6 +573,6 @@ class Force:
 
         # return global force matrix to rose model
         rose_model.global_force_vector = self.force
-        rose_model.track.global_force_vector = self.force[:scatter_model.number_eq + rose_model.track.total_n_dof - len(scatter_model.eq_nb_dof_rose_nodes),:]
+        rose_model.track.global_force_vector = self.force[:scatter_model.number_eq + rose_model.track.total_n_dof - len(scatter_model.eq_nb_dof_rose_nodes), :]
 
 

@@ -45,7 +45,9 @@ class RoseUtils:
         # calculate initial Hertzian contact deformation
         rose_model.calculate_static_contact_deformation()
 
-        solver.load_func = rose_model.update_force_vector
+        # self.solver.update_rhs_at_time_step_func = self.update_time_step_rhs
+        solver.update_rhs_at_non_linear_iteration_func = rose_model.update_non_linear_iteration
+        # solver.load_func = rose_model.update_non_linear_iteration
 
         # add track displacement and velocity to global system
         solver.u[0, :rose_model.track.total_n_dof] = rose_model.track.solver.u[0, :]
@@ -270,8 +272,10 @@ class RoseUtils:
         # recalculate rose track numbers of degree of freedom, this includes scatter + rose track
         rose_model.track.total_n_dof = scatter_model.number_eq + rose_model.track.total_n_dof - len(scatter_model.eq_nb_dof_rose_nodes)
         rose_model.total_n_dof = scatter_model.number_eq +rose_model.total_n_dof -len(scatter_model.eq_nb_dof_rose_nodes)
-        rose_model.track_global_indices += scatter_model.number_eq
 
+        #todo check
+        # rose_model.track_global_indices += scatter_model.number_eq-len(scatter_model.eq_nb_dof_rose_nodes)
+        rose_model.track_global_indices = rose_model.track_global_indices + scatter_model.number_eq - len(scatter_model.eq_nb_dof_rose_nodes)
         # recalculate rose train numbers of degree of freedom
         #todo check if rose requires a list
         rose_model.train.contact_dofs = list(np.array(rose_model.train.contact_dofs) + scatter_model.number_eq -len(scatter_model.eq_nb_dof_rose_nodes))
@@ -284,7 +288,10 @@ class RoseUtils:
         for node in rose_model.track.mesh.nodes:
             for i, dof in enumerate(node.index_dof):
                 if dof is not None:
-                    node.index_dof[i] += scatter_model.number_eq -len(scatter_model.eq_nb_dof_rose_nodes)
+                    if node.index_dof[i] in scatter_model.rose_eq_nb:
+                        node.index_dof[i] = scatter_model.eq_nb_dof_rose_nodes[scatter_model.rose_eq_nb.index(node.index_dof[i])]
+                    else:
+                        node.index_dof[i] += scatter_model.number_eq -len(scatter_model.eq_nb_dof_rose_nodes)
                     #todo connect rose-scatter nodes, currently visualisation of the results on the rose nodes will not
                     # work properly on the bottom elements of the rose model
 
@@ -293,5 +300,9 @@ class RoseUtils:
             for i, dof in enumerate(node.index_dof):
                 if dof is not None:
                     node.index_dof[i] += scatter_model.number_eq - len(scatter_model.eq_nb_dof_rose_nodes)
+
+        # add dof indices to model part
+        for model_part in rose_model.track.model_parts:
+            model_part.update_dof_indices()
 
         scatter_model.number_eq = rose_model.total_n_dof
