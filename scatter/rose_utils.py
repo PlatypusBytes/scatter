@@ -54,8 +54,8 @@ class RoseUtils:
         solver.v[0, :rose_model.track.total_n_dof] = rose_model.track.solver.v[0, :]
 
         # add train displacement and velocity to global system
-        solver.u[0, rose_model.track.total_n_dof:rose_model.total_n_dof] = rose_model.train.solver.u[0,:]
-        solver.v[0, rose_model.track.total_n_dof:rose_model.total_n_dof] = rose_model.train.solver.v[0,:]
+        solver.u[0, rose_model.track.total_n_dof:] = rose_model.train.solver.u[0,:]
+        solver.v[0, rose_model.track.total_n_dof:] = rose_model.train.solver.v[0,:]
 
     @staticmethod
     def create_horizontal_rose_track(n_sleepers, sleeper_distance):
@@ -291,7 +291,7 @@ class RoseUtils:
                     if node.index_dof[i] in scatter_model.rose_eq_nb:
                         node.index_dof[i] = scatter_model.eq_nb_dof_rose_nodes[scatter_model.rose_eq_nb.index(node.index_dof[i])]
                     else:
-                        node.index_dof[i] += scatter_model.number_eq -len(scatter_model.eq_nb_dof_rose_nodes)
+                        node.index_dof[i] = node.index_dof[i] + scatter_model.number_eq - len(scatter_model.eq_nb_dof_rose_nodes)
                     #todo connect rose-scatter nodes, currently visualisation of the results on the rose nodes will not
                     # work properly on the bottom elements of the rose model
 
@@ -299,10 +299,14 @@ class RoseUtils:
         for node in rose_model.train.mesh.nodes:
             for i, dof in enumerate(node.index_dof):
                 if dof is not None:
-                    node.index_dof[i] += scatter_model.number_eq - len(scatter_model.eq_nb_dof_rose_nodes)
+                    node.index_dof[i] = node.index_dof[i] + scatter_model.number_eq - len(scatter_model.eq_nb_dof_rose_nodes)
 
         # add dof indices to model part
         for model_part in rose_model.track.model_parts:
+            aaa = model_part.dof_indices
             model_part.update_dof_indices()
+            bbb = model_part.dof_indices
+
+            print(aaa - bbb)
 
         scatter_model.number_eq = rose_model.total_n_dof
