@@ -87,20 +87,17 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         matrix.add_rose_stiffness(model, loading["model"])
         matrix.add_rose_mass(model, loading["model"])
         matrix.reshape_absorbing_boundaries_with_rose()
+        matrix.add_rose_damping(model, loading["model"])
 
     # generate C matrix with Rayleigh damping
     matrix.damping_Rayleigh(inp_settings["damping"])
-
-    # connect scatter and rose damping matrices
-    if loading["type"] == "rose":
-        matrix.add_rose_damping(model, loading["model"])
 
     # definition of time
     time = np.linspace(0, loading["time"], int(np.ceil(loading["time"] / time_step) + 1))
 
     # initialise solver
     if type_analysis == "dynamic":
-        numerical = newmark_solver.NewmarkExplicit()
+        numerical = newmark_solver.NewmarkImplicitForce()
     elif type_analysis == "static":
         numerical = static_solver.StaticSolver()
     else:

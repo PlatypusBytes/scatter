@@ -229,10 +229,7 @@ class RoseUtils:
 
         coupled_model.solver = solver
 
-        coupled_model.is_rayleigh_damping = True
-        coupled_model.damping_ratio = rose_data["track_info"]["materials"]["damping_ratio"]
-        coupled_model.radial_frequency_one = rose_data["track_info"]["materials"]["omega_one"]
-        coupled_model.radial_frequency_two = rose_data["track_info"]["materials"]["omega_two"]
+        coupled_model.is_rayleigh_damping = False # rayleigh is added via scatter
 
         return coupled_model
 
@@ -276,6 +273,7 @@ class RoseUtils:
         #todo check
         # rose_model.track_global_indices += scatter_model.number_eq-len(scatter_model.eq_nb_dof_rose_nodes)
         rose_model.track_global_indices = rose_model.track_global_indices + scatter_model.number_eq - len(scatter_model.eq_nb_dof_rose_nodes)
+        # rose_model.track_global_indices = rose_model.track_global_indices + scatter_model.number_eq
         # recalculate rose train numbers of degree of freedom
         #todo check if rose requires a list
         rose_model.train.contact_dofs = list(np.array(rose_model.train.contact_dofs) + scatter_model.number_eq -len(scatter_model.eq_nb_dof_rose_nodes))

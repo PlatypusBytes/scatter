@@ -150,7 +150,8 @@ class GenerateMatrix:
         combined_k[self.K.shape[0]:, self.K.shape[1]:] = masked_rose
 
         # add diagonal of rose connectivities
-        combined_k[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] += rose_K[data.rose_eq_nb, data.rose_eq_nb]
+        combined_k[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] = \
+            combined_k[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] + rose_K[data.rose_eq_nb, data.rose_eq_nb]
 
         self.K = combined_k
         rose_model.global_stiffness_matrix = combined_k
@@ -197,7 +198,8 @@ class GenerateMatrix:
         combined_M[self.M.shape[0]:, self.M.shape[1]:] = masked_rose
 
         # add diagonal of rose connectivities
-        combined_M[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] += rose_M[data.rose_eq_nb, data.rose_eq_nb]
+        combined_M[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] = \
+            combined_M[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] + rose_M[data.rose_eq_nb, data.rose_eq_nb]
 
         # update global mass matrix of rose
         self.M = combined_M
@@ -237,15 +239,49 @@ class GenerateMatrix:
         # solution
         coefs = np.linalg.solve(damp_mat, damp_qsi)
 
-        self.C = (self.M.tocsr() * coefs[0] + self.K.tocsr() * coefs[1]).tolil()
+        self.C = self.C + (self.M.tocsr() * coefs[0] + self.K.tocsr() * coefs[1]).tolil()
         
         return
 
     def add_rose_damping(self,data, rose_model):
 
-        rose_model.global_damping_matrix = self.C
-        rose_model.track.global_mass_matrix = self.C[:data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes),
-                                                   :data.number_eq + rose_model.track.total_n_dof - len(data.eq_nb_dof_rose_nodes)]
+        rose_C = rose_model.global_damping_matrix
+        combined_C = lil_matrix((self.C.shape[0] + rose_C.shape[0] - len(data.eq_nb_dof_rose_nodes), self.C.shape[1]
+                                 + rose_C.shape[1] - len(data.eq_nb_dof_rose_nodes)))
+
+        # mask rows and columns of rose damping matrix which coincide with scatter mass matrix
+        mask = np.ones(rose_C.shape[0], bool)
+        mask[np.array(data.rose_eq_nb)] = False
+        masked_rose = rose_C.toarray()[:, mask]
+        masked_rose = masked_rose[mask, :]
+
+        # add scatter damping matrix to combined damping matrix
+
+        # first transform data to coo matrices for efficient memory usage
+        combined_C = combined_C.tocoo()
+        coo_C = self.C.tocoo()
+        reshaped_coo = coo_matrix(((coo_C.data), (coo_C.row, coo_C.col)), shape=combined_C.shape)
+        combined_C = combined_C + reshaped_coo
+        combined_C = combined_C.tolil()
+
+        # add non-diagonal of rose connectivities
+        combined_C[self.C.shape[0]:, data.eq_nb_dof_rose_nodes] = rose_C.toarray()[mask, :][:, data.rose_eq_nb]
+        combined_C[data.eq_nb_dof_rose_nodes, self.C.shape[1]:] = rose_C.toarray()[:, mask][data.rose_eq_nb, :]
+
+        # add rose damping matrix
+        combined_C[self.C.shape[0]:, self.C.shape[1]:] = masked_rose
+
+        # add diagonal of rose connectivities
+        combined_C[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] = \
+            combined_C[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] + rose_C[data.rose_eq_nb, data.rose_eq_nb]
+
+        # update global damping matrix of rose
+        self.C = combined_C
+        rose_model.global_damping_matrix = combined_C
+        rose_model.track.global_damping_matrix = combined_C[:data.number_eq + rose_model.track.total_n_dof - len(
+            data.eq_nb_dof_rose_nodes),
+                                              :data.number_eq + rose_model.track.total_n_dof - len(
+                                                  data.eq_nb_dof_rose_nodes)]
 
     def absorbing_boundaries(self, data: classmethod, material: dict, parameters: list) -> None:
         """
