@@ -122,36 +122,21 @@ class GenerateMatrix:
         self.M = coo_matrix((values_m, (row_m, col_m))).tolil()
 
     def add_rose_stiffness(self,data, rose_model):
+        """
+        Adds rose stiffness matrix to scatter global stiffness matrix
 
-        # initialise combined scatter-rose mass matrix
-        rose_K = rose_model.global_stiffness_matrix
-        combined_k = lil_matrix((self.K.shape[0] + rose_K.shape[0] - len(data.eq_nb_dof_rose_nodes), self.K.shape[1]
-                                 + rose_K.shape[1] - len(data.eq_nb_dof_rose_nodes)))
+        Generates and assembles the global stiffness matrix for the structure.
 
-        # mask rows and columns of rose stiffness matrix which coincide with scatter stiffness matrix
-        mask = np.ones(rose_K.shape[0], bool)
-        mask[np.array(data.rose_eq_nb)] = False
-        masked_rose = rose_K.toarray()[:, mask]
-        masked_rose = masked_rose[mask,:]
+        Parameters
+        ----------
+        :param data:  mesh and geometry data class
+        :param rose_model: rose coupled train track system
 
-        # add scatter
-        # first transform data to coo matrices for efficient memory usage
-        combined_k = combined_k.tocoo()
-        coo_k = self.K.tocoo()
-        reshaped_coo = coo_matrix(((coo_k.data),(coo_k.row,coo_k.col)),shape=combined_k.shape)
-        combined_k = combined_k + reshaped_coo
-        combined_k = combined_k.tolil()
+        """
 
-        # add non-diagonal of rose connectivities
-        combined_k[self.K.shape[0]:,data.eq_nb_dof_rose_nodes] = rose_K.toarray()[mask, :][:,data.rose_eq_nb]
-        combined_k[data.eq_nb_dof_rose_nodes, self.K.shape[1]:] = rose_K.toarray()[:,mask][data.rose_eq_nb,:]
 
-        # add rose
-        combined_k[self.K.shape[0]:, self.K.shape[1]:] = masked_rose
-
-        # add diagonal of rose connectivities
-        combined_k[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] = \
-            combined_k[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] + rose_K[data.rose_eq_nb, data.rose_eq_nb]
+        combined_k = self.add_rose_matrix(self.K, rose_model.global_stiffness_matrix, data.eq_nb_dof_rose_nodes,
+                                          data.rose_eq_nb)
 
         self.K = combined_k
         rose_model.global_stiffness_matrix = combined_k
@@ -170,36 +155,8 @@ class GenerateMatrix:
         :param rose_model: rose coupled train track system
         """
 
-        # initialise combined scatter-rose mass matrix
-        rose_M = rose_model.global_mass_matrix
-        combined_M = lil_matrix((self.M.shape[0] + rose_M.shape[0] - len(data.eq_nb_dof_rose_nodes), self.M.shape[1]
-                                 + rose_M.shape[1] - len(data.eq_nb_dof_rose_nodes)))
-
-        # mask rows and columns of rose mass matrix which coincide with scatter mass matrix
-        mask = np.ones(rose_M.shape[0], bool)
-        mask[np.array(data.rose_eq_nb)] = False
-        masked_rose = rose_M.toarray()[:, mask]
-        masked_rose = masked_rose[mask,:]
-
-        # add scatter mass matrix to combined mass matrix
-
-        # first transform data to coo matrices for efficient memory usage
-        combined_M = combined_M.tocoo()
-        coo_m = self.M.tocoo()
-        reshaped_coo = coo_matrix(((coo_m.data),(coo_m.row,coo_m.col)),shape=combined_M.shape)
-        combined_M = combined_M + reshaped_coo
-        combined_M = combined_M.tolil()
-
-        # add non-diagonal of rose connectivities
-        combined_M[self.M.shape[0]:,data.eq_nb_dof_rose_nodes] = rose_M.toarray()[mask, :][:,data.rose_eq_nb]
-        combined_M[data.eq_nb_dof_rose_nodes, self.M.shape[1]:] = rose_M.toarray()[:,mask][data.rose_eq_nb,:]
-
-        # add rose mass matrix
-        combined_M[self.M.shape[0]:, self.M.shape[1]:] = masked_rose
-
-        # add diagonal of rose connectivities
-        combined_M[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] = \
-            combined_M[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] + rose_M[data.rose_eq_nb, data.rose_eq_nb]
+        combined_M = self.add_rose_matrix(self.M, rose_model.global_mass_matrix, data.eq_nb_dof_rose_nodes,
+                                          data.rose_eq_nb)
 
         # update global mass matrix of rose
         self.M = combined_M
@@ -245,35 +202,7 @@ class GenerateMatrix:
 
     def add_rose_damping(self,data, rose_model):
 
-        rose_C = rose_model.global_damping_matrix
-        combined_C = lil_matrix((self.C.shape[0] + rose_C.shape[0] - len(data.eq_nb_dof_rose_nodes), self.C.shape[1]
-                                 + rose_C.shape[1] - len(data.eq_nb_dof_rose_nodes)))
-
-        # mask rows and columns of rose damping matrix which coincide with scatter mass matrix
-        mask = np.ones(rose_C.shape[0], bool)
-        mask[np.array(data.rose_eq_nb)] = False
-        masked_rose = rose_C.toarray()[:, mask]
-        masked_rose = masked_rose[mask, :]
-
-        # add scatter damping matrix to combined damping matrix
-
-        # first transform data to coo matrices for efficient memory usage
-        combined_C = combined_C.tocoo()
-        coo_C = self.C.tocoo()
-        reshaped_coo = coo_matrix(((coo_C.data), (coo_C.row, coo_C.col)), shape=combined_C.shape)
-        combined_C = combined_C + reshaped_coo
-        combined_C = combined_C.tolil()
-
-        # add non-diagonal of rose connectivities
-        combined_C[self.C.shape[0]:, data.eq_nb_dof_rose_nodes] = rose_C.toarray()[mask, :][:, data.rose_eq_nb]
-        combined_C[data.eq_nb_dof_rose_nodes, self.C.shape[1]:] = rose_C.toarray()[:, mask][data.rose_eq_nb, :]
-
-        # add rose damping matrix
-        combined_C[self.C.shape[0]:, self.C.shape[1]:] = masked_rose
-
-        # add diagonal of rose connectivities
-        combined_C[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] = \
-            combined_C[data.eq_nb_dof_rose_nodes, data.eq_nb_dof_rose_nodes] + rose_C[data.rose_eq_nb, data.rose_eq_nb]
+        combined_C = self.add_rose_matrix(self.C, rose_model.global_damping_matrix, data.eq_nb_dof_rose_nodes, data.rose_eq_nb)
 
         # update global damping matrix of rose
         self.C = combined_C
@@ -282,6 +211,50 @@ class GenerateMatrix:
             data.eq_nb_dof_rose_nodes),
                                               :data.number_eq + rose_model.track.total_n_dof - len(
                                                   data.eq_nb_dof_rose_nodes)]
+
+    def add_rose_matrix(self, scatter_matrix, rose_matrix, contact_dofs_scatter, contact_dofs_rose):
+        """
+        Add rose matrix to scatter matrix
+
+        Parameters
+        ----------
+        :param scatter_matrix: scatter matrix
+        :param rose_matrix: rose matrix
+        :param scatter_data: scatter data
+        :return:
+        """
+
+        # rose_matrix
+        combined_matrix = lil_matrix((scatter_matrix.shape[0] + rose_matrix.shape[0] - len(contact_dofs_scatter), scatter_matrix.shape[1]
+                                 + rose_matrix.shape[1] - len(contact_dofs_scatter)))
+
+        # mask rows and columns of rose damping matrix which coincide with scatter mass matrix
+        mask = np.ones(rose_matrix.shape[0], bool)
+        mask[np.array(contact_dofs_rose)] = False
+        masked_rose = rose_matrix.toarray()[:, mask]
+        masked_rose = masked_rose[mask, :]
+
+        # add scatter damping matrix to combined damping matrix
+
+        # first transform data to coo matrices for efficient memory usage
+        combined_matrix = combined_matrix.tocoo()
+        coo_scatter = scatter_matrix.tocoo()
+        reshaped_coo = coo_matrix(((coo_scatter.data), (coo_scatter.row, coo_scatter.col)), shape=combined_matrix.shape)
+        combined_matrix = combined_matrix + reshaped_coo
+        combined_matrix = combined_matrix.tolil()
+
+        # add non-diagonal of rose connectivities
+        combined_matrix[scatter_matrix.shape[0]:, contact_dofs_scatter] = rose_matrix.toarray()[mask, :][:, contact_dofs_rose]
+        combined_matrix[contact_dofs_scatter, scatter_matrix.shape[1]:] = rose_matrix.toarray()[:, mask][contact_dofs_rose, :]
+
+        # add rose damping matrix
+        combined_matrix[scatter_matrix.shape[0]:, scatter_matrix.shape[1]:] = masked_rose
+
+        # add diagonal of rose connectivities
+        combined_matrix[contact_dofs_scatter, contact_dofs_scatter] = \
+            combined_matrix[contact_dofs_scatter, contact_dofs_scatter] + rose_matrix[contact_dofs_rose, contact_dofs_rose]
+
+        return combined_matrix
 
     def absorbing_boundaries(self, data: classmethod, material: dict, parameters: list) -> None:
         """

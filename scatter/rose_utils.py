@@ -54,8 +54,8 @@ class RoseUtils:
         solver.v[0, :rose_model.track.total_n_dof] = rose_model.track.solver.v[0, :]
 
         # add train displacement and velocity to global system
-        solver.u[0, rose_model.track.total_n_dof:] = rose_model.train.solver.u[0,:]
-        solver.v[0, rose_model.track.total_n_dof:] = rose_model.train.solver.v[0,:]
+        solver.u[0, rose_model.track.total_n_dof:] = rose_model.train.solver.u[0, :]
+        solver.v[0, rose_model.track.total_n_dof:] = rose_model.train.solver.v[0, :]
 
     @staticmethod
     def create_horizontal_rose_track(n_sleepers, sleeper_distance):
@@ -270,12 +270,13 @@ class RoseUtils:
         rose_model.track.total_n_dof = scatter_model.number_eq + rose_model.track.total_n_dof - len(scatter_model.eq_nb_dof_rose_nodes)
         rose_model.total_n_dof = scatter_model.number_eq +rose_model.total_n_dof -len(scatter_model.eq_nb_dof_rose_nodes)
 
-        #todo check
-        # rose_model.track_global_indices += scatter_model.number_eq-len(scatter_model.eq_nb_dof_rose_nodes)
-        rose_model.track_global_indices = rose_model.track_global_indices + scatter_model.number_eq - len(scatter_model.eq_nb_dof_rose_nodes)
-        # rose_model.track_global_indices = rose_model.track_global_indices + scatter_model.number_eq
+        # todo check
+        # rose_model.track_global_indices = rose_model.track_global_indices + scatter_model.number_eq - len(scatter_model.eq_nb_dof_rose_nodes)
+
+        # this works because rose contact nodes are placed after the rail nodes in the mesh
+        rose_model.track_global_indices = rose_model.track_global_indices + scatter_model.number_eq
+
         # recalculate rose train numbers of degree of freedom
-        #todo check if rose requires a list
         rose_model.train.contact_dofs = list(np.array(rose_model.train.contact_dofs) + scatter_model.number_eq -len(scatter_model.eq_nb_dof_rose_nodes))
 
         # reinitialise rose solvers with new number of degree of freedom
@@ -283,13 +284,17 @@ class RoseUtils:
         rose_model.track.solver.initialise(rose_model.track.total_n_dof, [0, 1])
 
         # recalculate indices of degree of freedom on rose track nodes
+
+        contact_nodes_found = 0
         for node in rose_model.track.mesh.nodes:
             for i, dof in enumerate(node.index_dof):
                 if dof is not None:
                     if node.index_dof[i] in scatter_model.rose_eq_nb:
-                        node.index_dof[i] = scatter_model.eq_nb_dof_rose_nodes[scatter_model.rose_eq_nb.index(node.index_dof[i])]
+                        node.index_dof[i] = scatter_model.eq_nb_dof_rose_nodes[scatter_model.rose_eq_nb.index(dof)]
+                        contact_nodes_found += 1
                     else:
-                        node.index_dof[i] = node.index_dof[i] + scatter_model.number_eq - len(scatter_model.eq_nb_dof_rose_nodes)
+                        # this works because rose contact nodes are placed after the rail nodes in the mesh
+                        node.index_dof[i] = node.index_dof[i] + scatter_model.number_eq - contact_nodes_found
                     #todo connect rose-scatter nodes, currently visualisation of the results on the rose nodes will not
                     # work properly on the bottom elements of the rose model
 
@@ -297,14 +302,10 @@ class RoseUtils:
         for node in rose_model.train.mesh.nodes:
             for i, dof in enumerate(node.index_dof):
                 if dof is not None:
-                    node.index_dof[i] = node.index_dof[i] + scatter_model.number_eq - len(scatter_model.eq_nb_dof_rose_nodes)
+                    node.index_dof[i] = node.index_dof[i] + scatter_model.number_eq - contact_nodes_found
 
         # add dof indices to model part
         for model_part in rose_model.track.model_parts:
-            aaa = model_part.dof_indices
             model_part.update_dof_indices()
-            bbb = model_part.dof_indices
-
-            print(aaa - bbb)
 
         scatter_model.number_eq = rose_model.total_n_dof
