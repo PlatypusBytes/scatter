@@ -44,7 +44,7 @@ class TestDamp(unittest.TestCase):
         settings = {"damping": [f1, d1, f2, d2]
                     }
 
-        matrix = system_matrix.GenerateMatrix(2, 2)
+        matrix = system_matrix.GenerateMatrix(1, 2)
         matrix.K = lil_matrix(np.zeros((1, 1)))
         matrix.M = lil_matrix(np.zeros((1, 1)))
         matrix.K[0, 0] = 0.5
