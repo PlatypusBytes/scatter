@@ -304,7 +304,7 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                 "type": "heaviside"}
 
         # run scatter
-        self.fold_results = os.path.join(self.root, "/_results_mean_2d")
+        self.fold_results = os.path.join(self.root, "./_results_mean_2d")
         scatter(os.path.join(self.root, r"./mesh/column_2D.msh"), self.fold_results, mat, BC, sett, load, time_step=5e-3)
 
         # compare results
@@ -428,9 +428,6 @@ class TestBenchmarkSet(unittest.TestCase):
     def setUp(self):
 
         self.root = "integration_tests"
-        self.root = "."
-        pass
-
 
     def test_moving_load(self):
         """
@@ -545,8 +542,8 @@ class TestBenchmarkSet(unittest.TestCase):
                     }
 
         # run scatter
-        input_file = os.path.join(self.root, r"mesh/cube.msh")
-        output_dir = os.path.join(self.root,"results_RF/cube_res")
+        input_file = os.path.join(self.root, r"./mesh/cube.msh")
+        output_dir = os.path.join(self.root,"./results_RF/cube_res")
         scatter(input_file, output_dir, mat, BC, sett, load, time_step=0.5e-2, random_props=RF_props)
 
         # open results and delete file
