@@ -1,27 +1,14 @@
-#  Template python-build
-
-#  This template allows you to validate your python code.
-#  The workflow allows running tests and code linting on the default branch.
-
-image: continuumio/miniconda3:latest
+image: python:3.10
 
 pipelines:
   default:
-    - step:
-        name: Install requirements.
-        caches:
-          - conda
-          - pip
-        script: # Modify the commands below to build your repository.
-          - conda env update -n scatter --file scatter_env.yml
     - parallel:
         - step: # Run tests
             name: Run unit tests and codecoverage.
             caches:
-                - conda
                 - pip
             script:
-                - conda activate scatter
+                - pip install .[testing]
                 - pytest -v --cov=scatter ./unit_test --cov-report html:test-reports/coverage unit_test -m "not workinprogress"
                 - apt-get update && apt-get --yes install zip
                 - zip -r test-reports/coverage.zip test-reports/coverage
@@ -33,23 +20,7 @@ pipelines:
         - step: # Run integration tests
             name: Run integration tests.
             caches:
-                - conda
                 - pip
             script:
-                - conda activate scatter
+                - pip install .[testing]
                 - pytest -v ./integration_tests
-        - step: # Test package
-            name: Test scatter package.
-            caches:
-                - conda
-                - pip
-            script:
-                - conda create -n scatter_pkg python=3.9
-                - pip install .
-                - pip install pytest==7.2.0
-                - pytest -v ./unit_test -m "not workinprogress"
-                - pytest -v ./integration_tests
-definitions:
-   caches:
-     conda: ~/.conda/envs/scatter
-     codatarballs: /opt/conda/pkgs
