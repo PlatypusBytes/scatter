@@ -86,7 +86,6 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     if loading["type"] == "rose":
         matrix.add_rose_stiffness(model, loading["model"])
         matrix.add_rose_mass(model, loading["model"])
-        matrix.reshape_absorbing_boundaries_with_rose()
         matrix.add_rose_damping(model, loading["model"])
 
     # generate C matrix with Rayleigh damping
