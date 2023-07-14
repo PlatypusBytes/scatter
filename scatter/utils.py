@@ -39,7 +39,7 @@ def define_plane(p1: list, p2: list, p3: list) -> [list, np.ndarray]:
     :param p1: coordinate point p1
     :param p2: coordinate point p2
     :param p3: coordinate point p3
-    :return: 4 nodes that are in the plane
+    :return: 4 nodes that are in the plane; normal vector
     """
     p1 = np.array(p1)
     p2 = np.array(p2)
@@ -91,7 +91,7 @@ def search_idx(data: list, string1: str, string2: str) -> [list, int]:
 
 
 def area_polygon(coords):
-    r"""
+    """
     Compute area of 3D planar polygon with one common axis (transforms it into a 2D)
     It sorts the points clockwise
 
@@ -136,3 +136,61 @@ def area_polygon(coords):
         area += np.dot(n, np.cross(coords[i], coords[i + 1]))
 
     return area / 2
+
+
+def clockwise_sort_2D_elements(points):
+    """
+    Sorts a list of 2D coordinates clockwise, following the gmsh node numbering convention
+
+    Parameters
+    ----------
+    :param points: list of 2D coordinates
+    :return: clockwise sorted list of 2D coordinates following gmsh node numbering convention
+    """
+    # find the reference point (the point with the lowest y-coordinate)
+    ref_point = min(points, key=lambda p: p[1])
+
+    # define a custom key function that computes the angle of each point with respect to the reference point
+    def angle_key(point):
+        x, y = point[0] - ref_point[0], point[1] - ref_point[1]
+        return np.arctan2(y, x)
+
+    # sort the points by angle
+    sorted_points = sorted(points, key=angle_key)
+
+    # after points being sorted, find corners of the element
+
+    corner = [sorted_points[0]]
+    basic_idx = 0
+    for i in range(len(sorted_points) - 1):
+        if not are_collinear(sorted_points[basic_idx:i + 2]):
+            corner.append(sorted_points[i])
+            basic_idx = i
+
+    set1 = set(map(tuple, sorted_points))
+    set2 = set(map(tuple, corner))
+    middle = list(map(list, set1.symmetric_difference(set2)))
+    corner.extend(middle)
+
+    return np.array(corner)
+
+
+def are_collinear(coords):
+    """
+    Check if a list of coordinates are collinear
+
+    Parameters
+    ----------
+    :param coords: list of coordinates
+    :return: True if collinear, False otherwise
+    """
+    x1, y1 = coords[0]
+    x2, y2 = coords[1]
+    slope = (y2 - y1) / (x2 - x1) if x2 != x1 else float('inf')
+    for i in range(2, len(coords)):
+        x1, y1 = coords[i-1]
+        x2, y2 = coords[i]
+        new_slope = (y2 - y1) / (x2 - x1) if x2 != x1 else float('inf')
+        if new_slope != slope:
+            return False
+    return True

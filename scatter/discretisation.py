@@ -188,7 +188,7 @@ class VolumeElement:
         BtD = np.einsum("ikj,kl-> ijl", self.B_matrix, D)
 
         #Ke = BtDB * det_jacobian * weight
-        Ke = np.einsum("ijk,ikl, i-> jl", BtD, self.B_matrix,self.d_jacob * self.W)
+        Ke = np.einsum("ijk,ikl, i-> jl", BtD, self.B_matrix, self.d_jacob * self.W)
 
 
         # above einstein summation is equivalent to the code as stated below
@@ -233,7 +233,7 @@ class VolumeElement:
 
         f_abs = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
         for i, N in enumerate(self.N_matrix):
-            f_abs += np.dot(np.dot(np.transpose(N), 1.), N) * self.d_jacob[i] * self.W[i]
+            f_abs = f_abs + np.dot(np.dot(np.transpose(N), 1), N) * self.d_jacob[i] * self.W[i]
 
         return f_abs
 
@@ -344,7 +344,7 @@ class SurfaceElement:
         """
 
         for deriv in self.dN:
-            jcb = np.transpose(deriv).dot(xy[:,:2])
+            jcb = np.transpose(deriv).dot(xy)
             self.d_jacob.append(np.linalg.det(jcb))
             self.dN_global.append(np.dot(deriv, np.linalg.inv(np.transpose(jcb))))
 
@@ -426,9 +426,9 @@ class SurfaceElement:
         :return: Force vector
         """
 
-        f_abs = np.zeros((self.N_matrix[0].shape[1]))
+        f_abs = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
         for i, N in enumerate(self.N_matrix):
-            f_abs = f_abs + np.dot(np.transpose(N), 1) * self.d_jacob[i] * self.W[i]
+            f_abs = f_abs + np.dot(np.dot(np.transpose(N), 1), N) * self.d_jacob[i] * self.W[i]
 
         return f_abs
 

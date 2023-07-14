@@ -11,6 +11,7 @@ if __name__ == "__main__":
             "int_order": 2,
             "damping": [1, 0.005, 20, 0.005],
             "absorbing_BC": [1, 1],
+            "absorbing_BC_stiff": 1e3,
             "pickle": True,
             "pickle_nodes": "all",
             "VTK": True,
@@ -21,9 +22,9 @@ if __name__ == "__main__":
     y_min, y_max = -5, 0.5
     z = -78
 
-    BC = {"bottom": ["010", [[0, y_min, 0], [x, y_min, 0], [0, y_min, z], [x, y_min, z]]],
+    BC = {"bottom": ["020", [[0, y_min, 0], [x, y_min, 0], [0, y_min, z], [x, y_min, z]]],
           "left": ["100", [[0, y_min, 0], [0, y_min, z], [0, y_max, 0], [0, y_max, z]]],
-          "right": ["100", [[x, y_min, 0], [x, y_min, z], [x, y_max, 0], [x, y_max, z]]],
+          "right": ["200", [[x, y_min, 0], [x, y_min, z], [x, y_max, 0], [x, y_max, z]]],
           "front": ["001", [[0, y_min, 0], [x, y_min, 0], [0, y_max, 0], [x, y_max, 0]]],
           "back": ["001", [[0, y_min, z], [x, y_min, z], [0, y_max, z], [x, y_max, z]]],
           }
@@ -73,4 +74,4 @@ if __name__ == "__main__":
                 }
 
     # run scatter
-    scatter(r"./mesh/embankment_rose.msh", "./results_rose_embankment_3d_rf3", mat, BC, sett, load, time_step=time_step, random_props=RF_props)
+    scatter(r"./mesh/embankment_rose.msh", "./results_rose_embankment_3d_rf3", mat, BC, sett, load, time_step=time_step, random_props=False)

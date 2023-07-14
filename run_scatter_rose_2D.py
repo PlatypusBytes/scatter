@@ -11,6 +11,7 @@ if __name__ == "__main__":
             "int_order": 2,
             "damping": [1, 0.005, 20, 0.005],
             "absorbing_BC": [1, 1],
+            "absorbing_BC_stiff": 1e3,
             "pickle": True,
             "pickle_nodes": "all",
             "VTK": True,

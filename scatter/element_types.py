@@ -314,10 +314,10 @@ class QuadFour:
         v = xy[1]
 
         # shape functions
-        self.N[0] = 1. / 4. * (1 - u) * (1 - v)
-        self.N[1] = 1. / 4. * (1 + u) * (1 - v)
-        self.N[2] = 1. / 4. * (1 + u) * (1 + v)
-        self.N[3] = 1. / 4. * (1 - u) * (1 + v)
+        self.N[0] = 1 / 4. * (1 - u) * (1 - v)
+        self.N[1] = 1 / 4. * (1 + u) * (1 - v)
+        self.N[2] = 1 / 4. * (1 + u) * (1 + v)
+        self.N[3] = 1 / 4. * (1 - u) * (1 + v)
 
         # derivative in u
         self.dN[0, 0] = -(1 - v) / 4

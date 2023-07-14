@@ -40,13 +40,14 @@ class ReadMesh:
         self.BC_dir = []  # Perpendicular direction of the BC for each node
         self.number_eq = []  # number of equations
         self.type_BC = []  # type of BC for each dof in node list
-        self.type_BC_dir = []  # perpendicular direction of BC for each dof in node list
         self.eq_nb_dof = []  # number of equation for each dof in node list
         self.eq_nb_elem = []  # list containing equation number for the dof's per element
         self.eq_nb_dof_rose_nodes = []  # array containing all equation numbers which are connected to the rose model
         self.rose_eq_nb = []  # array containing all equation numbers of rose which are connected to the scatter model
         self.type_BC_elem = []  # list containing type of BC for the dof's per element
         self.element_type = []  # element type
+        self.lower_element_type = []  # element type for the absorbing boundary conditions
+        self.nb_nodes_lower_elem = []  # number of nodes for element type for the absorbing boundary conditions
         self.materials_index = []  # list containing material index for each element
         self.dimension = 3  # Dimension of the problem
         return
@@ -178,24 +179,38 @@ class ReadMesh:
         # add element type to self
         if all(x == 2 for x in element_type):
             self.element_type = 'tri3'
+            self.lower_element_type = []
+            self.nb_nodes_lower_elem = []
             self.dimension = 2
         if all(x == 9 for x in element_type):
             self.element_type = 'tri6'
+            self.lower_element_type = []
+            self.nb_nodes_lower_elem = []
             self.dimension = 2
         elif all(x == 3 for x in element_type):
             self.element_type = 'quad4'
+            self.lower_element_type = []
+            self.nb_nodes_lower_elem = []
             self.dimension = 2
         elif all(x == 5 for x in element_type):
             self.element_type = 'hexa8'
+            self.lower_element_type = 'quad4'
+            self.nb_nodes_lower_elem = 4
             self.dimension = 3
         elif all(x == 17 for x in element_type):
             self.element_type = 'hexa20'
+            self.lower_element_type = 'quad8'
+            self.nb_nodes_lower_elem = 8
             self.dimension = 3
         elif all(x == 4 for x in element_type):
             self.element_type = 'tetra4'
+            self.lower_element_type = 'tri3'
+            self.nb_nodes_lower_elem = 3
             self.dimension = 3
         elif all(x == 11 for x in element_type):
             self.element_type = 'tetra10'
+            self.lower_element_type = "tri6"
+            self.nb_nodes_lower_elem = 6
             self.dimension = 3
 
         # add variables to self
@@ -223,7 +238,7 @@ class ReadMesh:
 
         # for each boundary plane
         for boundary in bc:
-            type = bc[boundary][0]
+            typ = bc[boundary][0]
             nodes = bc[boundary][1]
 
             # find all the nodes that are within this plane
@@ -247,7 +262,7 @@ class ReadMesh:
 
             # assign BC type and perpendicular direction
             for idx in indices:
-                for j, val in enumerate(type):
+                for j, val in enumerate(typ):
                     # chooses the maximum type of BC
                     self.BC[idx, j] = max(self.BC[idx, j], int(val))
                     self.BC_dir[idx, j] = max(self.BC_dir[idx, j], abs(int(direction[j])))
@@ -261,7 +276,6 @@ class ReadMesh:
         # initialise variables
         self.eq_nb_dof = np.zeros((len(self.nodes), self.dimension))
         self.type_BC = np.full((len(self.nodes), self.dimension), "Normal")
-        self.type_BC_dir = np.zeros((len(self.nodes), self.dimension))
 
         # equation number:
         equation_nb = 0
@@ -274,7 +288,7 @@ class ReadMesh:
                 if self.BC[i][j] == 0:
                     self.eq_nb_dof[i, j] = equation_nb
                     self.type_BC[i, j] = "Normal"
-                    equation_nb += int(1)
+                    equation_nb += 1
                 # if it is a fixed boundary
                 elif self.BC[i][j] == 1:
                     self.eq_nb_dof[i, j] = np.nan
@@ -283,13 +297,10 @@ class ReadMesh:
                 elif self.BC[i][j] == 2:
                     self.eq_nb_dof[i, j] = equation_nb
                     self.type_BC[i, j] = "Absorb"
-                    equation_nb += int(1)
+                    equation_nb += 1
                 else:
                     sys.exit("Error in the boundary condition definition. \n"
                              f"{self.BC[i][j]} is not a valid boundary condition.")
-
-                # add perpendicular direction
-                self.type_BC_dir[i, j] = self.BC_dir[i][j]
         self.number_eq = equation_nb
         return
 

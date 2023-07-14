@@ -1,11 +1,11 @@
+from collections import defaultdict
 import numpy as np
 from scipy.sparse import lil_matrix, coo_matrix
 
 # import scatter packages
-from scatter import discretisation
-from scatter import material_models
+from scatter import discretisation, material_models
+from scatter.utils import clockwise_sort_2D_elements
 
-from collections import defaultdict
 
 class GenerateMatrix:
     r"""
@@ -26,7 +26,6 @@ class GenerateMatrix:
         self.M = lil_matrix((nb_equations, nb_equations))
         self.C = lil_matrix((nb_equations, nb_equations))
         self.K = lil_matrix((nb_equations, nb_equations))
-        self.absorbing_bc = lil_matrix((nb_equations, nb_equations))
 
         # order of the Gauss integration
         self.order = order
@@ -197,10 +196,8 @@ class GenerateMatrix:
         coefs = np.linalg.solve(damp_mat, damp_qsi)
 
         self.C = self.C + (self.M.tocsr() * coefs[0] + self.K.tocsr() * coefs[1]).tolil()
-        
-        return
 
-    def add_rose_damping(self,data, rose_model):
+    def add_rose_damping(self, data, rose_model):
 
         combined_C = self.add_rose_matrix(self.C, rose_model.global_damping_matrix, data.eq_nb_dof_rose_nodes, data.rose_eq_nb)
 
@@ -256,7 +253,97 @@ class GenerateMatrix:
 
         return combined_matrix
 
-    def absorbing_boundaries(self, data: classmethod, material: dict, parameters: list) -> None:
+    # def absorbing_boundaries__(self, data: classmethod, material: dict, parameters: list) -> None:
+    #     """
+    #     Compute absorbing boundary force
+
+    #     Parameters
+    #     ----------
+    #     :param data:  mesh and geometry data class
+    #     :param material: material dictionary
+    #     :param parameters: absorbing boundary parameters
+    #     :return:
+    #     """
+
+    #     absorbing_bc = lil_matrix(self.C.shape)
+    #     absorbing_bc_stiff = lil_matrix(self.C.shape)
+
+    #     # create dictionaries of materials and nodes for quicker look-up
+    #     dict_materials = dict(np.array(data.materials)[:, 1:])
+    #     dict_nodes = dict([(node[0], node[1:]) for node in data.nodes])
+    #     # compute material matrix for isotropic elasticity
+    #     for idx, elem in enumerate(data.elem):
+    #         # call shape functions
+    #         if data.dimension == 3:
+    #             shape_fct = discretisation.VolumeElement(data.element_type, self.order)
+    #         if data.dimension == 2:
+    #             # TODO: implement
+    #             exit("Absorbing boundaries not implemented for 2D yet")
+    #             # shape_fct = discretisation.SurfaceElement(data.element_type, self.order)
+
+    #         # material index
+    #         mat_idx = data.materials_index[idx]
+    #         # find material name
+    #         name_material = dict_materials[str(mat_idx)]
+
+    #         # solid elastic properties
+    #         rho = material[name_material]["density"]
+    #         E = material[name_material]["Young"]
+    #         v = material[name_material]["poisson"]
+
+    #         # computation of velocities
+    #         Ec = E * (1 - v) / ((1 + v) * (1 - 2 * v))
+    #         G = E / (2 * (1 + v))
+    #         vp = np.sqrt(Ec / rho)
+    #         vs = np.sqrt(G / rho)
+
+    #         # check if abs boundary exist
+    #         xyz_ = []
+    #         for node in elem:
+    #             # get global coordinates of the node
+    #             idx_node = np.where(data.nodes[:, 0] == node)[0][0]
+    #             if "Absorb" in data.type_BC[idx_node]:
+    #                 xyz_.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
+
+    #         # if there are no absorbing boundaries goes to next element
+    #         if len(xyz_) == 0:
+    #             continue
+
+    #         # coordinates for all the nodes in one element
+    #         xyz = np.array([dict_nodes[node] for node in elem])
+
+    #         # generate shape functions B and H matrix
+    #         shape_fct.generate(xyz)
+
+    #         # compute unitary absorbing boundary force
+    #         abs_bound = shape_fct.compute_abs_bound()
+
+    #         # assemble absorbing boundary matrix
+    #         # equation number where the absorbing matrix exists
+    #         i1 = data.eq_nb_elem[idx][(~np.isnan(data.eq_nb_elem[idx])) & (data.type_BC_elem[idx] == "Absorb")]
+    #         id1 = np.argsort(i1)
+    #         i1 = np.sort(i1)
+    #         i2 = np.where((~np.isnan(data.eq_nb_elem[idx])) & (data.type_BC_elem[idx] == "Absorb"))[0]
+    #         i2 = i2[id1]
+
+    #         # assign the absorbing boundary coefficients: vp for perpendicular vs otherwise
+    #         fct = np.ones(len(i1)) * parameters[1] * rho * vs
+    #         fct2 = np.ones(len(i1)) * G
+    #         for i, val in enumerate(i1):
+    #             j = np.where(data.eq_nb_dof == val)
+    #             direct = data.BC_dir[j[0], j[1]]
+    #             if direct == int(1):
+    #                 fct[i] = abs(parameters[0] * rho * vp)
+    #                 fct2[i] = Ec
+
+    #         # assign to the global absorbing boundary force
+    #         absorbing_bc[i1.reshape(len(i1), 1), i1] = absorbing_bc[i1.reshape(len(i1), 1), i1] + \
+    #                                                     abs_bound[i2.reshape(len(i2), 1), i2] * fct * 0.2 *0.2
+
+    #     self.C = self.C + absorbing_bc
+    #     # self.K = self.K + absorbing_bc_stiff / 10000
+
+    def absorbing_boundaries(self, data: classmethod, material: dict, parameters_viscous: list, parameters_stiff: float) -> None:
         """
         Compute absorbing boundary force
 
@@ -264,23 +351,17 @@ class GenerateMatrix:
         ----------
         :param data:  mesh and geometry data class
         :param material: material dictionary
-        :param parameters: absorbing boundary parameters
-        :return:
+        :param parameters: viscous absorbing boundary parameters
+        :param parameters_stiff: stiffness absorbing boundary parameters
         """
-        # ToDo: improve this with surface elements. this is not very well done at the moment
+
+        absorbing_bc = lil_matrix(self.C.shape)
+        absorbing_bc_stiff = lil_matrix(self.C.shape)
 
         # create dictionaries of materials and nodes for quicker look-up
         dict_materials = dict(np.array(data.materials)[:, 1:])
-        dict_nodes = dict([(node[0], node[1:]) for node in data.nodes])
         # compute material matrix for isotropic elasticity
         for idx, elem in enumerate(data.elem):
-            # call shape functions
-            if data.dimension == 3:
-                shape_fct = discretisation.VolumeElement(data.element_type, self.order)
-            if data.dimension == 2:
-                # ToDo: implement
-                shape_fct = discretisation.SurfaceElement(data.element_type, self.order)
-
             # material index
             mat_idx = data.materials_index[idx]
             # find material name
@@ -298,48 +379,88 @@ class GenerateMatrix:
             vs = np.sqrt(G / rho)
 
             # check if abs boundary exist
-            xyz_ = []
+            index_nodes = []
+            xyz = []  # coordinates of the nodes in the element
+            xyz_abs = []  # coordinates of the nodes in the element where abs boundary exists
+            eq_nb = []  # equation number of the nodes in the element where abs boundary exists
+            # bc_dir = []  # perpendicular direction of the nodes in the element where abs boundary exists
+            bc_type = []
             for node in elem:
                 # get global coordinates of the node
                 idx_node = np.where(data.nodes[:, 0] == node)[0][0]
+                index_nodes.append(idx_node)
+                xyz.append(data.nodes[idx_node, 1:])
                 if "Absorb" in data.type_BC[idx_node]:
-                    xyz_.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
+                    bc_type.append(data.type_BC[idx_node])
+                    xyz_abs.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
+                    eq_nb.append(data.eq_nb_dof[idx_node])
+                    # bc_dir.append(data.BC_dir[idx_node])
 
             # if there are no absorbing boundaries goes to next element
-            if len(xyz_) == 0:
+            if not bc_type:
                 continue
-            else:
+
+            # find indices of surfaces that have absorbing boundaries
+            idx_surfaces = [i for i in range(data.dimension) if len(np.where(np.array(bc_type)[:, i] == "Absorb")[0]) == data.nb_nodes_lower_elem]
+
+            # apply abs boundary to each surface
+            for idx_bc in idx_surfaces:
+                # get the coordinates of the surface without the common coordinate
+                idx_col = np.where(np.array(bc_type)[:, idx_bc] == "Absorb")[0]
+                xy_abs = np.delete(np.array(xyz_abs)[idx_col, :], idx_bc, axis=1)
+
+                if data.dimension == 3:
+                    shape_fct_surf = discretisation.SurfaceElement(data.lower_element_type, self.order)
                 if data.dimension == 2:
-                    exit("ERROR: BC not supported in 2D")
+                    # TODO: implement
+                    exit("Absorbing boundaries not implemented for 2D yet")
+                    # shape_fct = discretisation.SurfaceElement(data.lower_element_type, self.order)
 
-            # coordinates for all the nodes in one element
-            xyz = np.array([dict_nodes[node] for node in elem])
+                # sort the nodes in clockwise order following gmsh order
+                xy_abs = clockwise_sort_2D_elements(xy_abs)
 
-            # generate shape functions B and H matrix
-            shape_fct.generate(xyz)
+                # generate shape functions B and H matrix
+                shape_fct_surf.generate(xy_abs)
 
-            # compute unitary absorbing boundary force
-            abs_bound = shape_fct.compute_abs_bound()
+                # compute unitary absorbing boundary force
+                abs_bound = shape_fct_surf.compute_abs_bound()
 
-            # assemble absorbing boundary matrix
-            # equation number where the absorbing matrix exists
-            i1 = data.eq_nb_elem[idx][(~np.isnan(data.eq_nb_elem[idx])) & (data.type_BC_elem[idx] == "Absorb")]
-            id1 = np.argsort(i1)
-            i1 = np.sort(i1)
-            i2 = np.where((~np.isnan(data.eq_nb_elem[idx])) & (data.type_BC_elem[idx] == "Absorb"))[0]
-            i2 = i2[id1]
+                # extend abs_bound to 3D
+                abs_extended = np.copy(abs_bound)
 
-            # assign the absorbing boundary coefficients: vp for perpendicular vs otherwise
-            fct = np.ones(len(i1)) * parameters[1] * rho * vs
-            for i, val in enumerate(i1):
-                j = np.where(data.eq_nb_dof == val)
-                direct = data.type_BC_dir[j[0], j[1]]
-                if direct == int(1):
-                    fct[i] = parameters[0] * rho * vp
+                # increase the columns
+                new_column = np.zeros(abs_bound.shape[0])
+                for i in range(data.nb_nodes_lower_elem):
+                    abs_extended = np.insert(abs_extended, 2 + (i * data.dimension), new_column, axis=1)
 
-            # assign to the global absorbing boundary force
-            self.absorbing_bc[i1.reshape(len(i1), 1), i1] += abs_bound[i2.reshape(len(i2), 1), i2] * fct
+                # increase the rows
+                new_row = np.zeros(abs_extended.shape[1])
+                for i in range(data.nb_nodes_lower_elem):
+                    new_row = np.copy(abs_extended[2 + (i * data.dimension)-1, :])
+                    new_row = np.concatenate(([new_row[-1]], new_row[:-1]))
+                    abs_extended = np.insert(abs_extended, 2 + (i * data.dimension), new_row, axis=0)
 
-        self.C = self.C + self.absorbing_bc
+                # assemble absorbing boundary matrix
+                # equation number where the absorbing matrix exists
+                aux = np.array(eq_nb)[idx_col, idx_bc]
+                i1 = np.sort(aux).astype(int)
+                i2 = np.linspace(idx_bc, idx_bc + (data.nb_nodes_lower_elem - 1) * (data.dimension), data.nb_nodes_lower_elem, dtype=int)
 
+                # assign the absorbing boundary coefficients: vp for perpendicular vs otherwise
+                fct = np.ones(len(i1)) * parameters_viscous[1] * rho * vs
+                fct2 = np.ones(len(i1)) * G
+                for i, val in enumerate(i1):
+                    j = np.where(data.eq_nb_dof == val)
+                    direct = data.BC_dir[j[0], j[1]]
+                    if direct == 1:
+                        fct[i] = parameters_viscous[0] * rho * vp
+                        fct2[i] = Ec
 
+                # # assign to the global damping matrix dictionary
+                absorbing_bc[i1.reshape(len(i1), 1), i1] = absorbing_bc[i1.reshape(len(i1), 1), i1] +\
+                                                              abs_extended[i2.reshape(len(i2), 1), i2] * fct
+
+                absorbing_bc_stiff[i1.reshape(len(i1), 1), i1] += np.abs(abs_extended[i2.reshape(len(i2), 1), i2]) * fct2
+
+        self.C = self.C + absorbing_bc
+        self.K = self.K + absorbing_bc_stiff / parameters_stiff
