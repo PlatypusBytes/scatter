@@ -326,7 +326,7 @@ class SurfaceElement:
             self.tri_integration()
 
         # compute jacobian
-        self.jacob(coordinates)
+        self.jacob(coordinates[:, :2])
         # compute B matrix
         self.matrix_B()
         # compute N matrix
