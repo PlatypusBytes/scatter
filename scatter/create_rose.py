@@ -81,8 +81,6 @@ def create_input_dict(speed, initial_time, travelling_time,
     :param speed: travelling speed [km/h]
     :param initial_time: Initialisation time
     :param travelling_time: Running time
-    :param stiffness: Soil stiffness
-    :param damping: Soil damping
     :param start_coordinate: starting y coordinate of the train
     :param mesh: file for the mesh
     :param train_type: Train type

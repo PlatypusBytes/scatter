@@ -42,7 +42,6 @@ if __name__ == "__main__":
            }
 
     rose_data = create_rose.create_input_dict(100, 0.01, 1.2,
-                                              200e6, 20e6,
                                               15,
                                               r"./mesh/embankment_rose.msh",
                                               TrainType.DOUBLEDEKKER)
