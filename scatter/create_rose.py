@@ -74,7 +74,6 @@ def time_integration(t_ini, t_calc):
 
 
 def create_input_dict(speed, initial_time, travelling_time,
-                      stiffness, damping,
                       start_coordinate, mesh, train_type):
     """
     Creates ROSE input dictionary
@@ -108,13 +107,8 @@ def create_input_dict(speed, initial_time, travelling_time,
                   "type": train_type.name,
                   "model": train_model}
 
-    # set soil data
-    soil_dict = {"stiffness": stiffness,
-                 "damping": damping}
-
     input_dict = {"traffic_data": train_dict,
                   "track_info": track_info,
-                  "soil_data": soil_dict,
                   "time_integration": time_data}
 
     return input_dict

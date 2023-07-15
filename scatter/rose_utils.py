@@ -133,12 +133,12 @@ class RoseUtils:
         )
 
     @staticmethod
-    def assign_data_to_coupled_model(rose_data: dict) -> CoupledTrainTrack:
+    def assign_data_to_coupled_model(rose_data: dict, seed=14) -> CoupledTrainTrack:
         """
         assigns rose data from dictionary to rose coupled model
 
         :param rose_data: Dictionary containing rose train_info, track_info, time_int and soil data
-
+        :param seed: seed for irregularities (default = 14)
         :return: Coupled train track model
         """
         # choose solver
@@ -213,7 +213,10 @@ class RoseUtils:
         train = rose_data["traffic_data"]["model"]
         train.time = time
         train.velocities = velocities
-        train.use_irregularities = False
+        train.use_irregularities = True
+        train.irregularity_parameters = {"Av": 0.00002095,
+                                         "seed": seed}
+
 
         # setup coupled train track system
         coupled_model = CoupledTrainTrack()
