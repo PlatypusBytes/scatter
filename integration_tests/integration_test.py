@@ -1,9 +1,9 @@
 import os
-import numpy as np
 import unittest
+from pathlib import Path
 import shutil
 import pickle
-from pathlib import Path
+import numpy as np
 from scatter.scatter import scatter
 
 
@@ -54,17 +54,22 @@ class Test1DWavePropagation_3D(unittest.TestCase):
         self.mean_data_high = read_pickle(file)
         file = os.path.join(self.root, r"./results_rf/data.pickle")
         self.random_data = read_pickle(file)
+        file = os.path.join(self.root, r"./results_mean_abs/data.pickle")
+        self.mean_data_abs = read_pickle(file)
 
         self.fold_results = []
-        return
 
     def test_1(self):
+        """
+        Test 1D wave propagation with 3D mesh
+        """
         # computational settings
         sett = {"gamma": 0.5,
                 "beta": 0.25,
                 "int_order": 2,
                 "damping": [1, 0.001, 30, 0.001],
                 "absorbing_BC": [1, 1],
+                "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False}
@@ -99,15 +104,18 @@ class Test1DWavePropagation_3D(unittest.TestCase):
         data = read_pickle(os.path.join(self.fold_results, "data.pickle"))
 
         assert_dict_almost_equal(data, self.mean_data)
-        return
 
     def test_2(self):
+        """
+        Test 1D wave propagation with 3D mesh and random fields
+        """
         # computational settings
         sett = {"gamma": 0.5,
                 "beta": 0.25,
                 "int_order": 2,
                 "damping": [1, 0.001, 30, 0.001],
                 "absorbing_BC": [1, 1],
+                "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False}
@@ -159,12 +167,59 @@ class Test1DWavePropagation_3D(unittest.TestCase):
         return
 
     def test_3(self):
+        """
+        Test 1D wave propagation with 3D mesh and absorbing BC
+        """
         # computational settings
         sett = {"gamma": 0.5,
                 "beta": 0.25,
                 "int_order": 2,
                 "damping": [1, 0.001, 30, 0.001],
                 "absorbing_BC": [1, 1],
+                "absorbing_BC_stiff": 1e3,
+                "pickle": True,
+                "pickle_nodes": "all",
+                "VTK": False}
+
+        x = 0.1
+        y = 20
+        z = -0.1
+        BC = {"bottom": ["020", [[0, 0, 0], [x, 0, 0], [0, 0, z], [x, 0, z]]],
+              "left": ["100", [[0, 0, 0], [0, 0, z], [0, y, 0], [0, y, z]]],
+              "right": ["100", [[x, 0, 0], [x, 0, z], [x, y, 0], [x, y, z]]],
+              "front": ["001", [[0, 0, 0], [z, 0, 0], [0, y, 0], [x, y, 0]]],
+              "back": ["001", [[0, 0, z], [x, 0, z], [0, y, z], [x, y, z]]],
+              }
+
+        # material dictionary: rho, E, v
+        mat = {"solid": {"density": 1500,
+                         "Young": 30e6,
+                         "poisson": 0.2},
+               "bottom": {"density": 1200,
+                          "Young": 300e6,
+                          "poisson": 0.25}}
+        load = {"force": [0, -1000, 0],
+                "node": [3, 4, 7, 8],
+                "time": 0.5,
+                "type": "heaviside"}  # pulse or heaviside
+
+        # run scatter
+        self.fold_results = os.path.join(self.root, "./_results_mean_abs")
+        scatter(os.path.join(self.root, r"./mesh/column.msh"), self.fold_results, mat, BC, sett, load, time_step=0.5e-3)
+
+        # compare results
+        data = read_pickle(os.path.join(self.fold_results, "data.pickle"))
+
+        assert_dict_almost_equal(data, self.mean_data_abs)
+
+    def test_4(self):
+        # computational settings
+        sett = {"gamma": 0.5,
+                "beta": 0.25,
+                "int_order": 2,
+                "damping": [1, 0.001, 30, 0.001],
+                "absorbing_BC": [1, 1],
+                "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False}
@@ -208,6 +263,7 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "int_order": 2,
                 "damping": [1, 0.001, 30, 0.001],
                 "absorbing_BC": [1, 1],
+                "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": True}
@@ -252,11 +308,9 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                         self.assertAlmostEqual(float(n[0]), float(n[1]), dec_places)
                 else:
                     self.assertTrue(correct[i], computed[i])
-        return
 
     def tearDown(self):
         shutil.rmtree(self.fold_results)
-        return
 
 
 class Test1DWavePropagation_2D(unittest.TestCase):
@@ -279,6 +333,7 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                 "int_order": 2,
                 "damping": [1, 0.005, 20, 0.005],
                 "absorbing_BC": [1, 1],
+                "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False}
@@ -311,7 +366,6 @@ class Test1DWavePropagation_2D(unittest.TestCase):
         data = read_pickle(os.path.join(self.fold_results, "data.pickle"))
 
         assert_dict_almost_equal(data, self.mean_data)
-        return
 
     def test_2(self):
         # computational settings
@@ -320,6 +374,7 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                 "int_order": 2,
                 "damping": [1, 0.005, 20, 0.005],
                 "absorbing_BC": [1, 1],
+                "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False}
@@ -365,7 +420,6 @@ class Test1DWavePropagation_2D(unittest.TestCase):
         data = read_pickle(os.path.join(self.fold_results, "data.pickle"))
 
         assert_dict_almost_equal(data, self.random_data)
-        return
 
     def test_vtk(self):
         # computational settings
@@ -374,6 +428,7 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                 "int_order": 2,
                 "damping": [1, 0.005, 20, 0.005],
                 "absorbing_BC": [1, 1],
+                "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": True}
@@ -416,11 +471,9 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                         self.assertAlmostEqual(float(n[0]), float(n[1]), dec_places)
                 else:
                     self.assertTrue(correct[i], computed[i])
-        return
 
     def tearDown(self):
         shutil.rmtree(self.fold_results)
-        return
 
 
 class TestBenchmarkSet(unittest.TestCase):
@@ -439,8 +492,8 @@ class TestBenchmarkSet(unittest.TestCase):
                 "beta": 0.25,
                 "int_order": 2,
                 "damping": [1, 0.00, 30, 0.00],
-                # "damping": [1, 0.01, 30, 0.01],
                 "absorbing_BC": [1, 1],
+                "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": True}
@@ -496,8 +549,8 @@ class TestBenchmarkSet(unittest.TestCase):
                 "beta": 0.25,
                 "int_order": 2,
                 "damping": [1, 0.00, 30, 0.00],
-                # "damping": [1, 0.01, 30, 0.01],
                 "absorbing_BC": [1, 1],
+                "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False}

@@ -34,6 +34,7 @@ class TestBenchmarkSet2:
                 "int_order": 2,
                 "damping": [1, 0.001, 30, 0.001],
                 "absorbing_BC": [1, 1],
+                "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": [3],
                 "VTK": False,
