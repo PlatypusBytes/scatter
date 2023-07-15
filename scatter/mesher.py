@@ -153,27 +153,32 @@ class ReadMesh:
 
         # retrieve rose elements
         rose_elements = []
+        rose_exists = False
         for name in names:
             if name[2] == "rose":
+                rose_exists = True
                 rose_idx = name[1]
                 rose_elements = np.array([el for el in elem if el[3] == rose_idx])
                 self.rose_elem = rose_elements[:, 5:]
                 break
 
-        # get rose nodes
-        for elem_ in self.rose_elem:
-            idx_nodes = [np.where(nodes[:, 0] == j)[0][0] for j in elem_]
-            self.rose_nodes.append(nodes[idx_nodes][:, 1:])
+        if rose_exists:
+            # get rose nodes
+            for elem_ in self.rose_elem:
+                idx_nodes = [np.where(nodes[:, 0] == j)[0][0] for j in elem_]
+                self.rose_nodes.append(nodes[idx_nodes][:, 1:])
 
-        rose_nodes = np.array([el[5:] for el in elem if el in rose_elements])
-        self.rose_nodes = np.unique(rose_nodes)
+            rose_nodes = np.array([el[5:] for el in elem if len(el) == len(rose_elements[0]) and el in rose_elements])
+            self.rose_nodes = np.unique(rose_nodes)
 
-        # get all geometry elements which are not part of ROSE
-        geometry_elem = np.array([el for el in elem if el not in rose_elements])
+            # get all geometry elements which are not part of ROSE
+            geometry_elem = np.array([el for el in elem if el[3] != rose_idx])
+        else:
+            geometry_elem = np.array(elem)
 
         # check if element type is 3, 5 or 17
         element_type = set(geometry_elem[:, 1])
-        if not all(x in [2,9, 3, 5, 17, 4, 11] for x in element_type):
+        if not all(x in [2, 9, 3, 5, 17, 4, 11] for x in element_type):
             sys.exit("ERROR: Element type not supported")
 
         # add element type to self
