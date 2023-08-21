@@ -1,0 +1,2 @@
+gmsh column.geo -format msh2 -3 -o column.msh
+gmsh column_2D.geo -format msh2 -2 -o column_2D.msh
