@@ -115,7 +115,7 @@ class Write:
 
         # if list of nodes exists -> dump results only for nodes
         if nodes != "all":
-            idx = [self.data["nodes"].index(i) for i in nodes]
+            idx = [self.data["nodes"].index(int(i)) for i in nodes]
 
             data = {"time": self.data["time"],
                     "nodes": nodes,
