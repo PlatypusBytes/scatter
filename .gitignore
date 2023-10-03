@@ -3,3 +3,5 @@ __*/
 venv/
 .vscode/
 results*/
+*egg-info/
+build/
