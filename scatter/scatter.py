@@ -16,9 +16,10 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
             type_analysis="dynamic_implicit") -> export_results.Write:
     r"""
     3D finite element code.
-                                                          y ^
-    Mesh is generated with gmsh https://gmsh.info/          | /z
-    The coordinate system is the same as defined in gmsh    --> x
+                                                            ^  _
+                                                          y |  /| z
+    Mesh is generated with gmsh https://gmsh.info/          | /
+    The coordinate system is the same as defined in gmsh    -----> x
 
     Consistent Mass matrix
 
