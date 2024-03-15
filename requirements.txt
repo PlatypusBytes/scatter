@@ -10,4 +10,4 @@ gstools==1.5.0
 tox==4.11.3
 rose@git+https://github.com/PlatypusBytes/ROSE.git
 solvers@git+https://github.com/PlatypusBytes/solvers.git
-VTK-tools@git+https://bitbucket.org/zuada/vtk_tools.git
+VTK-tools@git+https://github.com/PlatypusBytes/vtk_tools.git
