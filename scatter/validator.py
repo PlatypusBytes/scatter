@@ -40,18 +40,18 @@ class ValidateLoad:
 
         assert "type" in loading
 
-        if "type" == "pulse":
+        if loading["type"] == "pulse":
             ValidateLoad.__validate_pulse_load(loading)
-        elif "type" == "heaviside":
+        elif loading["type"] == "heaviside":
             ValidateLoad.__validate_heaviside_load(loading)
-        elif "type" == "moving":
+        elif loading["type"] == "moving":
             ValidateLoad.__validate_moving_load(loading)
-        elif "type" == "moving_at_plane":
+        elif loading["type"] == "moving_at_plane":
             ValidateLoad.__validate_moving_at_plane_load(loading)
-        elif "type" == "rose":
+        elif loading["type"] == "rose":
             ValidateLoad.__validate_rose_load(loading)
         else:
-            Exception(f'Error: Load type {loading["type"]} not supported')
+            raise Exception(f'Error: Load type {loading["type"]} not supported')
 
         # fill in default values
         loading.setdefault("ini_steps", 5)
