@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Union
 import numpy as np
 
 
@@ -29,7 +29,7 @@ def calculate_centroid(coordinates: np.ndarray) -> Tuple[np.ndarray, np.ndarray,
     return sum_x / length, sum_y / length, sum_z / length
 
 
-def define_plane(p1: list, p2: list, p3: list) -> [list, np.ndarray]:
+def define_plane(p1: list, p2: list, p3: list) -> Union[list, np.ndarray]:
     r"""
     Finds all the nodes that are within the plane containing the points p1, p2 and p3.
     Assumes that the three points are non-collinear
@@ -59,7 +59,7 @@ def define_plane(p1: list, p2: list, p3: list) -> [list, np.ndarray]:
     return [a, b, c, d], np.abs(cp / np.linalg.norm(cp))
 
 
-def search_idx(data: list, string1: str, string2: str) -> [list, int]:
+def search_idx(data: list, string1: str, string2: str) -> Union[list, int]:
     """
     Search data for the text in between string1 and string2
 
@@ -90,7 +90,7 @@ def search_idx(data: list, string1: str, string2: str) -> [list, int]:
     return res, nb
 
 
-def area_polygon(coords):
+def area_polygon(coords: list) -> float:
     """
     Compute area of 3D planar polygon with one common axis (transforms it into a 2D)
     It sorts the points clockwise
@@ -138,7 +138,7 @@ def area_polygon(coords):
     return area / 2
 
 
-def clockwise_sort_2D_elements(points):
+def clockwise_sort_2D_elements(points: np.ndarray) -> np.ndarray:
     """
     Sorts a list of 2D coordinates clockwise, following the gmsh node numbering convention
 
@@ -175,7 +175,7 @@ def clockwise_sort_2D_elements(points):
     return np.array(corner)
 
 
-def are_collinear(coords):
+def are_collinear(coords: np.ndarray) -> bool:
     """
     Check if a list of coordinates are collinear
 
