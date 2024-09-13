@@ -6,18 +6,18 @@ emb_h = 0.5;
 emb_bot_w = 2.5;
 
 
-x_size = 10;
-z_size = 78;
+x_size = 20;
+z_size = 90;
 y_size_1 = 1;
 y_size_2 = 4;
 
-grid_size_z_emb = 0.6;
+grid_size_z_emb = 0.5;
 grid_size_x_emb = 0.75;
-grid_size_y_emb = 1.0;
+grid_size_y_emb = 0.5;
 
-grid_size_z_soil = 1.0;
+grid_size_z_soil = 0.5;
 
-// create 2D embankement
+// create 2D embankment
 Point(1) = {0.0, emb_h, 0, grid_size_x_emb};
 Point(2) = {emb_top_w_1, emb_h, 0, grid_size_x_emb};
 Point(3) = {emb_top_w_1 + emb_top_w_2, emb_h, 0, grid_size_x_emb};
@@ -73,15 +73,15 @@ Plane Surface(28) = {27};
 newRail[] = Extrude {0, 0, -z_size}{Point{2};
                                         Layers{z_size / grid_size_z_emb};
                                         };
-										
+
 newEmbankment[] = Extrude {0, 0, -z_size}{Surface{24};
                                         Layers{z_size / grid_size_z_emb};
                                         };
-										
+
 newSoil1[] = Extrude {0, 0, -z_size}{Surface{26};
                                         Layers{z_size / grid_size_z_emb};
                                         };
-										
+
 newSoil2[] = Extrude {0, 0, -z_size}{Surface{28};
                                         Layers{z_size / grid_size_z_emb};
                                         };
