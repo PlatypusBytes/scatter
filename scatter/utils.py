@@ -1,3 +1,5 @@
+import os
+import pickle
 from typing import Tuple, Union
 import numpy as np
 
@@ -194,3 +196,139 @@ def are_collinear(coords: np.ndarray) -> bool:
         if new_slope != slope:
             return False
     return True
+
+
+def generate_gnn_files(model: object, matrix: object, F: object, results, output_folder: str):
+    """
+    Generate files for Graph Neural Networks
+
+
+    Node features:
+    - coordinates
+    - BC
+    - matrix properties (M, C, K) (diagonal terms)
+    - time
+    - force
+
+    Edge features:
+    - distance
+    - matrix properties (M, C, K) (non-diagonal terms)
+
+
+
+    Parameters
+    ----------
+    :param model: model object
+    :param materials: dictionary with material properties
+    :param matrix: matrix object
+    :param inp_settings: dictionary with numerical settings
+    :param loading: dictionary with loading conditions
+    :param output_folder: location of the output folder
+    """
+
+    # ToDo: only works for hexa8 elements
+    if model.element_type != "hexa8":
+        raise ValueError("Only hexa8 elements are supported for GNNs")
+
+    os.makedirs(output_folder, exist_ok=True)
+
+    # connectivity list only valid for hex8 ToDo: add this as a property of element types
+    connectivities_nodes = {0: [1, 3, 4],
+                            1: [0, 2, 5],
+                            2: [1, 3, 6],
+                            3: [0, 2, 7],
+                            4: [0, 5, 7],
+                            5: [1, 4, 6],
+                            6: [2, 5, 7],
+                            7: [3, 4, 6]
+                            }
+
+    data = {}
+    data["nb_nodes"] = len(model.nodes)
+    data["nodes"] = model.nodes[:, 0]
+    data["nodes_coordinates"] = model.nodes[:, 1:]
+    data["nb_elements"] = len(model.elem)
+    data["element_type"] = model.element_type
+    data["BC"] = model.BC
+    data["connectivities"] = []
+
+    data["node_features"] = []
+    data["edge_features"] = []
+    data["results"] = []
+
+    # find connectivities for each node
+    for n in data["nodes"]:
+        aux = []
+        for i, k in enumerate(model.elem):
+            idx = np.where(k == n)[0]
+            if len(idx) > 0:
+                aux.extend(k[connectivities_nodes[int(idx)]])
+        data["connectivities"].append(sorted(set(aux)))
+
+
+    # generate the node and edge features (for the mesh and matrices)
+    for idx_n, _ in enumerate(data["nodes"]):
+
+        idx_dofs = [i.astype(int) for i in model.eq_nb_dof[idx_n] if not np.isnan(i)]
+
+        if len(idx_dofs) == 0:
+            continue
+
+        for idx_dof in idx_dofs:
+            # node features: coordinates, BC, matrix
+            node_features = [model.nodes[idx_dof, 1:],
+                             model.BC[idx_dof]]
+            node_features = np.array(node_features).flatten().tolist()
+
+            node_features.append(matrix.M[idx_dof.astype(int), idx_dof.astype(int)])
+            node_features.append(matrix.C[idx_dof.astype(int), idx_dof.astype(int)])
+            node_features.append(matrix.K[idx_dof.astype(int), idx_dof.astype(int)])
+
+            data["node_features"].append(node_features)
+
+        # find connectivities for each node
+        node_connect = data["connectivities"][idx_n]
+        idx_connect = [model.nodes[:,0].tolist().index(c) for c in node_connect]
+        idx_connections = []
+        for i in idx_connect:
+            for j in model.eq_nb_dof[i]:
+                if not np.isnan(j):
+                    idx_connections.append(j.astype(int))
+
+        # distance, matrix
+        aux_edge_features = []
+        for i in idx_connections:
+            distance = np.linalg.norm(model.nodes[idx_n, 1:] - model.nodes[i, 1:])
+            edge_features = [distance]
+
+            # for each node dof
+            for j in idx_dofs:
+                edge_features.append(matrix.M[i, j.astype(int)])
+                edge_features.append(matrix.C[i, j.astype(int)])
+                edge_features.append(matrix.K[i, j.astype(int)])
+            aux_edge_features.append(edge_features)
+        data["edge_features"].append(aux_edge_features)
+
+
+    # update the node features with the force
+    for t in range(0, len(F.time), results.output_interval):
+        force = F.update_load_at_t(t)
+
+        if t == 0:
+            for i, f in enumerate(force):
+                data["node_features"][i].append(F.time[t])
+                data["node_features"][i].append(f)
+                data["results"].append([results.u[t, :], results.v[t, :], results.a[t, :]])
+        else:
+            for i, f in enumerate(force):
+                data["node_features"][i][-1] = F.time[t]
+                data["node_features"][i][-1] = f
+                data["results"][i][-1] = [results.u[t, :], results.v[t, :], results.a[t, :]]
+
+        # save the data for each time step
+        with open(f"{output_folder}/data_{t}.pickle", "wb") as f:
+            pickle.dump({"node_features": data["node_features"],
+                         "edge_features": data["edge_features"],
+                         "results": data["results"]},
+                         f)
+

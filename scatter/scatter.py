@@ -6,6 +6,7 @@ from scatter import system_matrix
 from scatter import force_external
 from scatter import random_fields
 from scatter import export_results
+from scatter import utils
 from scatter import validator
 from scatter.rose_utils import RoseUtils
 from solvers import newmark_solver, static_solver
@@ -13,7 +14,7 @@ from solvers import newmark_solver, static_solver
 
 def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,
             inp_settings: dict, loading: dict, time_step: float = 0.1, random_props: bool = False,
-            type_analysis="dynamic_implicit") -> export_results.Write:
+            type_analysis="dynamic_implicit", gnn=False) -> export_results.Write:
     r"""
     3D finite element code.
                                                             ^  _
@@ -34,6 +35,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     :param time_step: time step for the analysis (optional: default 0.1 s)
     :param random_props: bool with random fields analysis
     :param type_analysis: 'dynamic' or 'static' (default 'dynamic')
+    :param gnn: bool for exporting results for GNN analysis (default False)
     """
 
     # print message
@@ -138,6 +140,10 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
     # export results to VTK
     results.vtk(write=inp_settings["VTK"], output_interval=1)
+
+    # generate inputs for GNN
+    if gnn:
+        utils.generate_gnn_files(model, matrix, F, numerical, os.path.join(outfile_folder, "GNN"))
 
     # print end statement
     print("\n\n\n\x1B[3m" + "  Never tell me the odds. " + "\x1B[0m")
