@@ -1,6 +1,8 @@
 import os
 import sys
+from enum import Enum
 import numpy as np
+
 from scatter import mesher
 from scatter import system_matrix
 from scatter import force_external
@@ -8,12 +10,32 @@ from scatter import random_fields
 from scatter import export_results
 from scatter import validator
 from scatter.rose_utils import RoseUtils
-from solvers import newmark_solver, static_solver
+from solvers import newmark_solver, static_solver, bathe_solver, central_difference_solver
+
+
+class Solver(Enum):
+    """
+    Enum for the solver types.
+    See solvers module for more information.
+
+    Attributes
+    ----------
+    STATIC: Static solver.
+    NEWMARK_EXPLICIT: Newmark explicit solver.
+    NEWMARK_IMPLICIT: Newmark implicit solver.
+    CENTRAL_DIFFERENCE: Central difference solver.
+    BATHE: Bathe solver.
+    """
+    STATIC = "StaticSolver"
+    NEWMARK_EXPLICIT = "NewmarkExplicit"
+    NEWMARK_IMPLICIT = "NewmarkImplicitForce"
+    CENTRAL_DIFFERENCE = "CentralDifferenceSolver"
+    BATHE = "BatheSolver"
 
 
 def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,
-            inp_settings: dict, loading: dict, time_step: float = 0.1, random_props: bool = False,
-            type_analysis="dynamic_implicit") -> export_results.Write:
+            inp_settings: dict, loading: dict, time_step: float = 0.1, solver: Solver=Solver.NEWMARK_EXPLICIT,
+            random_props: bool = False) -> export_results.Write:
     r"""
     3D finite element code.
                                                             ^  _
@@ -32,8 +54,8 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     :param inp_settings: dictionary with numerical settings
     :param loading: dictionary with loading conditions
     :param time_step: time step for the analysis (optional: default 0.1 s)
-    :param random_props: bool with random fields analysis
-    :param type_analysis: 'dynamic' or 'static' (default 'dynamic')
+    :param solver: solver to use for the analysis, see `Solver` enum (optional: default Newmark explicit)
+    :param random_props: bool with random fields analysis (optional: default False)
     """
 
     # print message
@@ -95,14 +117,18 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     time = np.linspace(0, loading["time"], int(np.ceil(loading["time"] / time_step) + 1))
 
     # initialise solver
-    if type_analysis == "dynamic_explicit":
+    if solver == Solver.NEWMARK_EXPLICIT:
         numerical = newmark_solver.NewmarkExplicit()
-    elif type_analysis == "dynamic_implicit":
+    elif solver == Solver.NEWMARK_IMPLICIT:
         numerical = newmark_solver.NewmarkImplicitForce()
-    elif type_analysis == "static":
+    elif solver == Solver.CENTRAL_DIFFERENCE:
+        numerical = central_difference_solver.CentralDifferenceSolver()
+    elif solver == Solver.BATHE:
+        numerical = bathe_solver.BatheSolver()
+    elif solver == Solver.STATIC:
         numerical = static_solver.StaticSolver()
     else:
-        sys.exit(f"Error: {type_analysis} not supported")
+        sys.exit(f"Error: {solver} not supported")
 
     if "output_interval" in inp_settings.keys():
         output_interval = inp_settings["output_interval"]
@@ -126,11 +152,11 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
 
     print("solver started")
     # start solver
-    if type_analysis.startswith("dynamic"):
+    if solver == Solver.STATIC:
+        numerical.calculate(matrix.K, F.force_vector, 0, len(F.time) -1)
+    else:
         numerical.update(0)
         numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time) - 1)
-    elif type_analysis == "static":
-        numerical.calculate(matrix.K, F.force_vector, 0, len(F.time) -1)
 
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)
