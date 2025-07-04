@@ -15,33 +15,34 @@ if __name__ == "__main__":
             "pickle": True,
             "pickle_nodes": "all",
             "VTK": True,
+            "VTK_binary": True,
             "output_interval": 100}
 
     # boundary conditions
-    x = 120
-    y = 1.8
-    #z = -20
-    BC = {"bottom": ["01", [[0, 0, 0], [x, 0, 0]]],
-          "left": ["10", [[0, 0, 0], [0, y, 0]]],
-          "right": ["10", [[x, 0, 0], [x, y, 0]]],
+    x = 90
 
+    y_top = 0.5
+    y_bot = -3
+
+    BC = {"bottom": ["11", [[0, y_bot, 0], [x, y_bot, 0]]],
+          "left": ["10", [[0, y_bot, 0], [0, y_top, 0]]],
+          "right": ["10", [[x, y_bot, 0], [x, y_top, 0]]],
           }
 
     mat = {"embankment": {"density": 2000,
                           "Young": 100e6,
                           "poisson": 0.2},
            "soil1": {"density": 1700,
-                     "Young": 40e6,
+                     "Young": 500e5,
                      "poisson": 0.2},
            "soil2": {"density": 2000,
-                     "Young": 10e6,
+                     "Young": 200e5,
                      "poisson": 0.2},
            }
 
-    rose_data = create_rose.create_input_dict(100, 0.4, 1.2,
-                                              200e6, 20e6,
+    rose_data = create_rose.create_input_dict(100, 0.1, 1.2,
                                               15,
-                                              r"./mesh/embankment_rose2D.msh",
+                                              r"./mesh/rose_2D_side.msh",
                                               TrainType.DOUBLEDEKKER)
 
 
@@ -63,7 +64,7 @@ if __name__ == "__main__":
                 "element_size": 1,
                 "theta": 1,
                 "seed_number": -26021981,
-                "material": "soil2",
+                "material": "soil1",
                 "key_material": "Young",
                 "std_value": 3e6,
                 "aniso_x": 10,
@@ -72,4 +73,4 @@ if __name__ == "__main__":
                 }
 
     # run scatter
-    scatter(r"./mesh/embankment_rose2D.msh", "./results_emb_rose_2d", mat, BC, sett, load, time_step=time_step, random_props=RF_props)
+    scatter(r"./mesh/rose_2D_side.msh", "./results_rose_2D_side", mat, BC, sett, load, time_step=time_step, random_props=RF_props)
