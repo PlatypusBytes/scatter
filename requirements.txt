@@ -8,6 +8,6 @@ shapely==2.0.3
 pytest==8.1.1
 pytest-cov==4.1.0
 tox==4.14.1
+PuggleSolvers==1.0.1
 rose@git+https://github.com/PlatypusBytes/ROSE.git
-solvers@git+https://github.com/PlatypusBytes/solvers.git
 VTK-tools@git+https://github.com/PlatypusBytes/vtk_tools.git
