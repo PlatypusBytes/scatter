@@ -143,10 +143,7 @@ class Force:
 
         # calculate load distances at each time step
         self.load_distances = speed_array * (self.time - self.time[self.steps])
-
-
         self.update_moving_load(0)
-        pass
 
     def initialise_moving_load_at_plane(self, xz_plane_elements, load_speed, load_direction, start_coord):
 

@@ -9,12 +9,12 @@ from scatter import export_results
 from scatter import utils
 from scatter import validator
 from scatter.rose_utils import RoseUtils
-from solvers import newmark_solver, static_solver
-
+from solvers import newmark_solver, static_solver, central_difference_solver, bathe_solver
+from solvers.utils import LumpingMethod
 
 def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,
             inp_settings: dict, loading: dict, time_step: float = 0.1, random_props: bool = False,
-            type_analysis="dynamic_implicit", gnn=False) -> export_results.Write:
+            type_analysis="dynamic_implicit", solver=newmark_solver.NewmarkExplicit, gnn=False) -> export_results.Write:
     r"""
     3D finite element code.
                                                             ^  _
@@ -96,13 +96,27 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # definition of time
     time = np.linspace(0, loading["time"], int(np.ceil(loading["time"] / time_step) + 1))
 
+    # matrix.C *= 0
     # initialise solver
     if type_analysis == "dynamic_explicit":
-        numerical = newmark_solver.NewmarkExplicit()
+        if solver == central_difference_solver.CentralDifferenceSolver:
+            lumped = False
+            method = LumpingMethod.RowSum
+            # matrix.C = matrix.M * 0.12161003820347586
+            numerical = central_difference_solver.CentralDifferenceSolver(lumped, method)
+        elif solver == bathe_solver.BatheSolver:
+            lumped = False
+            method = LumpingMethod.RowSum
+            numerical = bathe_solver.BatheSolver(lumped, method)
+        else:
+            numerical = newmark_solver.NewmarkExplicit()
     elif type_analysis == "dynamic_implicit":
         numerical = newmark_solver.NewmarkImplicitForce()
     elif type_analysis == "static":
         numerical = static_solver.StaticSolver()
+    elif type_analysis == "harmonic_response":
+        from scatter.harmonic_response import HarmonicResponse
+        numerical = HarmonicResponse()
     else:
         sys.exit(f"Error: {type_analysis} not supported")
 
@@ -129,10 +143,36 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     print("solver started")
     # start solver
     if type_analysis.startswith("dynamic"):
+
+        force = np.array([F.update_load_at_t(i) for i, t in enumerate(F.time)])
+        import pickle
+        with open("data.pickle", "wb") as fo:
+            pickle.dump([matrix.M, matrix.C, matrix.K, force.T, 0, model.number_eq, F.time], fo)
+        sys.exit()
         numerical.update(0)
         numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time) - 1)
     elif type_analysis == "static":
         numerical.calculate(matrix.K, F.force_vector, 0, len(F.time) -1)
+    elif type_analysis == "harmonic_response":
+        omega, results = numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, inp_settings["damping"])
+        # get the index
+        import matplotlib.pyplot as plt
+
+
+        # find index:
+        node_nb = [int(node) for node in loading["node"]][0]
+        idx_hr = model.eq_nb_dof[node_nb - 1][1]
+        res = results[:, idx_hr]
+        real_part = np.real(res)
+        imag_part = np.imag(res)
+        # amp = np.abs(real_part + imag_part)
+        # plt.plot(omega, amp)
+        # plt.grid()
+        # plt.show()
+        # make the plot
+        import json
+        with open(os.path.join(outfile_folder, "harmonic_loading.json"), "w") as fo:
+            json.dump({"omega": omega.tolist(), "real_part": real_part.tolist(), "imag_part": imag_part.tolist()}, fo, indent=2)
 
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)

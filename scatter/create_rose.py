@@ -100,7 +100,7 @@ def create_input_dict(speed, initial_time, travelling_time,
 
     # get default trains
     train_velocity = speed / 3.6
-    train_model = set_train(np.nan, np.nan, start_coordinate, train_type)
+    train_model = set_train(np.nan, np.nan, start_coordinate, train_type, nb_carts=1)
     train_dict = {"velocity": train_velocity,
                   "type": train_type.name,
                   "model": train_model}
