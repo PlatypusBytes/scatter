@@ -72,7 +72,8 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
-                "VTK": False}
+                "VTK": False,
+                "VTK_binary": True}
 
         x = 0.1
         y = 20
@@ -118,7 +119,8 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
-                "VTK": False}
+                "VTK": False,
+                "VTK_binary": True}
 
         x = 0.1
         y = 20
@@ -179,7 +181,8 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
-                "VTK": False}
+                "VTK": False,
+                "VTK_binary": True}
 
         x = 0.1
         y = 20
@@ -222,7 +225,8 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
-                "VTK": False}
+                "VTK": False,
+                "VTK_binary": True}
 
         x = 0.1
         y = 20
@@ -266,7 +270,8 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
-                "VTK": True}
+                "VTK": True,
+                "VTK_binary": False}
 
         x = 0.1
         y = 20
@@ -336,7 +341,8 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                 "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
-                "VTK": False}
+                "VTK": False,
+                "VTK_binary": True}
 
         # boundary conditions
         x = 1
@@ -377,7 +383,8 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                 "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
-                "VTK": False}
+                "VTK": False,
+                "VTK_binary": True}
 
         # boundary conditions
         x = 1
@@ -431,7 +438,8 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                 "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
-                "VTK": True}
+                "VTK": True,
+                "VTK_binary": False}
 
         # boundary conditions
         x = 1
@@ -496,7 +504,8 @@ class TestBenchmarkSet(unittest.TestCase):
                 "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
-                "VTK": True}
+                "VTK": True,
+                "VTK_binary": True}
 
         x = 10
         y = 10
@@ -553,7 +562,8 @@ class TestBenchmarkSet(unittest.TestCase):
                 "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
-                "VTK": False}
+                "VTK": False,
+                "VTK_binary": True}
 
         x = 10
         y = 10

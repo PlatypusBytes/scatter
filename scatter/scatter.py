@@ -163,7 +163,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # export results to pickle
     results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
     # export results to VTK
-    results.vtk(write=inp_settings["VTK"], output_interval=1)
+    results.vtk(write=inp_settings["VTK"], binary=inp_settings["VTK_binary"], output_interval=1)
 
     # print end statement
     print("\n\n\n\x1B[3m" + "  Never tell me the odds. " + "\x1B[0m")

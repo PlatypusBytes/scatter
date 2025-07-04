@@ -15,6 +15,7 @@ if __name__ == "__main__":
             "pickle": True,
             "pickle_nodes": "all",
             "VTK": True,
+            "VTK_binary": True,
             "output_interval": 100}
 
     # boundary conditions

@@ -12,6 +12,7 @@ if __name__ == "__main__":
             "pickle": True,
             "pickle_nodes": "all",
             "VTK": False,
+            "VTK_binary": True,
             }
 
     x = 1

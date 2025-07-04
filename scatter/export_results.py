@@ -140,13 +140,15 @@ class Write:
                 pickle.dump(self.data, f)
         return
 
-    def vtk(self, name="data", write=True, output_interval=1) -> None:
+    def vtk(self, name="data", binary=True, write=True, output_interval=1) -> None:
         """
         Writes VTK file
 
         :param name: (optional, default data) basename of the VTK file
         :param write: (optional, default True) checks if file needs to be written
+        :param binary: (optional, default True) writes VTK in binary format
         :param output_interval: (optional, default 1) interval in timesteps which are written to vtk
+
         """
         if not write:
             return
@@ -199,7 +201,7 @@ class Write:
                                                self.data["velocity"][str(int(self.nodes[i]))]["y"][t]])
 
             # write VTK at time t
-            vtk = VTK_writer.Write(os.path.join(self.output_folder, "VTK"), file_name=f"{name}_{output_t}")
+            vtk = VTK_writer.Write(os.path.join(self.output_folder, "VTK"), file_name=f"{name}_{output_t}", write_binary=binary)
             vtk.add_mesh(self.coordinates, self.elements, self.element_type)
             vtk.add_vector("displacement", displacement)
             vtk.add_vector("velocity", velocity, header=False)

@@ -38,6 +38,7 @@ class TestBenchmarkSet2:
                 "pickle": True,
                 "pickle_nodes": [3],
                 "VTK": False,
+                "VTK_binary": True,
                 "output_interval": 10
                 }
 
