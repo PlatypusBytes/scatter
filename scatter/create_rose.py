@@ -1,10 +1,10 @@
 import numpy as np
 # rose packages
-from rose.pre_process.default_trains import set_train
+from rose.pre_process.default_trains import set_train, TrainType
 from scatter.mesher import ReadMesh
 
 
-def geometry(nb_sleeper, fact=1):
+def geometry(nb_sleeper: int, fact: int = 1):
     """
     Sets track geometry parameters
 
@@ -58,7 +58,7 @@ def materials():
     return material
 
 
-def time_integration(t_ini, t_calc):
+def time_integration(t_ini: float, t_calc: float):
     """
     Sets time integration data
 
@@ -73,8 +73,8 @@ def time_integration(t_ini, t_calc):
     return time
 
 
-def create_input_dict(speed, initial_time, travelling_time,
-                      start_coordinate, mesh, train_type):
+def create_input_dict(speed: float, initial_time: float, travelling_time: float,
+                      start_coordinate: float, mesh: str, train_type: TrainType, nb_carts: int = 1):
     """
     Creates ROSE input dictionary
 
@@ -84,6 +84,7 @@ def create_input_dict(speed, initial_time, travelling_time,
     :param start_coordinate: starting y coordinate of the train
     :param mesh: file for the mesh
     :param train_type: Train type
+    :param nb_carts: Number of train carts (default: 1)
     :return: ROSE input dictionary
     """
     # set time integration and track information
@@ -100,7 +101,7 @@ def create_input_dict(speed, initial_time, travelling_time,
 
     # get default trains
     train_velocity = speed / 3.6
-    train_model = set_train(np.nan, np.nan, start_coordinate, train_type)
+    train_model = set_train(np.nan, np.nan, start_coordinate, train_type, nb_carts=nb_carts)
     train_dict = {"velocity": train_velocity,
                   "type": train_type.name,
                   "model": train_model}
