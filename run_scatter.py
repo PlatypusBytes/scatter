@@ -1,4 +1,4 @@
-from scatter.scatter import scatter
+from scatter.scatter import scatter, Solver
 
 
 if __name__ == "__main__":
@@ -12,6 +12,7 @@ if __name__ == "__main__":
             "pickle": True,
             "pickle_nodes": ["28"],
             "VTK": False,
+            "VTK_binary": True,
             }
 
     x = 1
@@ -51,6 +52,5 @@ if __name__ == "__main__":
 
     from solvers import newmark_solver, central_difference_solver, bathe_solver
     # run scatter
-    scatter(r"./mesh/column.msh", "./results", mat, BC, sett, load, time_step=0.01e-4, type_analysis="dynamic_explicit", solver=newmark_solver.NewmarkExplicit)
-#     scatter(r"./mesh/column.msh", "./results_lump_true_rowsum", mat, BC, sett, load, time_step=0.01e-4, type_analysis="dynamic_explicit", solver=central_difference_solver.CentralDifferenceSolver)
-#     scatter(r"./mesh/column.msh", "./results_bathe_lump_true_rowsum", mat, BC, sett, load, time_step=0.01e-4, type_analysis="dynamic_explicit", solver=bathe_solver.BatheSolver)
+    scatter(r"./mesh/column.msh", "./results_abs_newmark", mat, BC, sett, load, time_step=0.05e-4, solver=Solver.NEWMARK_EXPLICIT)
+    scatter(r"./mesh/column.msh", "./results_abs_bathe", mat, BC, sett, load, time_step=0.05e-4, solver=Solver.BATHE)

@@ -1,6 +1,8 @@
 import os
 import sys
+from enum import Enum
 import numpy as np
+
 from scatter import mesher
 from scatter import system_matrix
 from scatter import force_external
@@ -9,12 +11,32 @@ from scatter import export_results
 from scatter import utils
 from scatter import validator
 from scatter.rose_utils import RoseUtils
-from solvers import newmark_solver, static_solver, central_difference_solver, bathe_solver
-from solvers.utils import LumpingMethod
+from solvers import newmark_solver, static_solver, bathe_solver, central_difference_solver
+
+
+class Solver(Enum):
+    """
+    Enum for the solver types.
+    See solvers module for more information.
+
+    Attributes
+    ----------
+    STATIC: Static solver.
+    NEWMARK_EXPLICIT: Newmark explicit solver.
+    NEWMARK_IMPLICIT: Newmark implicit solver.
+    CENTRAL_DIFFERENCE: Central difference solver.
+    BATHE: Bathe solver.
+    """
+    STATIC = "StaticSolver"
+    NEWMARK_EXPLICIT = "NewmarkExplicit"
+    NEWMARK_IMPLICIT = "NewmarkImplicitForce"
+    CENTRAL_DIFFERENCE = "CentralDifferenceSolver"
+    BATHE = "BatheSolver"
+
 
 def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,
-            inp_settings: dict, loading: dict, time_step: float = 0.1, random_props: bool = False,
-            type_analysis="dynamic_implicit", solver=newmark_solver.NewmarkExplicit, gnn=False) -> export_results.Write:
+            inp_settings: dict, loading: dict, time_step: float = 0.1, solver: Solver=Solver.NEWMARK_EXPLICIT,
+            random_props: bool = False) -> export_results.Write:
     r"""
     3D finite element code.
                                                             ^  _
@@ -33,9 +55,8 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     :param inp_settings: dictionary with numerical settings
     :param loading: dictionary with loading conditions
     :param time_step: time step for the analysis (optional: default 0.1 s)
-    :param random_props: bool with random fields analysis
-    :param type_analysis: 'dynamic' or 'static' (default 'dynamic')
-    :param gnn: bool for exporting results for GNN analysis (default False)
+    :param solver: solver to use for the analysis, see `Solver` enum (optional: default Newmark explicit)
+    :param random_props: bool with random fields analysis (optional: default False)
     """
 
     # print message
@@ -98,27 +119,21 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
 
     # matrix.C *= 0
     # initialise solver
-    if type_analysis == "dynamic_explicit":
-        if solver == central_difference_solver.CentralDifferenceSolver:
-            lumped = False
-            method = LumpingMethod.RowSum
-            # matrix.C = matrix.M * 0.12161003820347586
-            numerical = central_difference_solver.CentralDifferenceSolver(lumped, method)
-        elif solver == bathe_solver.BatheSolver:
-            lumped = False
-            method = LumpingMethod.RowSum
-            numerical = bathe_solver.BatheSolver(lumped, method)
-        else:
-            numerical = newmark_solver.NewmarkExplicit()
-    elif type_analysis == "dynamic_implicit":
+    if solver == Solver.NEWMARK_EXPLICIT:
+        numerical = newmark_solver.NewmarkExplicit()
+    elif solver == Solver.NEWMARK_IMPLICIT:
         numerical = newmark_solver.NewmarkImplicitForce()
-    elif type_analysis == "static":
+    elif solver == Solver.CENTRAL_DIFFERENCE:
+        numerical = central_difference_solver.CentralDifferenceSolver()
+    elif solver == Solver.BATHE:
+        numerical = bathe_solver.BatheSolver()
+    elif solver == Solver.STATIC:
         numerical = static_solver.StaticSolver()
     elif type_analysis == "harmonic_response":
         from scatter.harmonic_response import HarmonicResponse
         numerical = HarmonicResponse()
     else:
-        sys.exit(f"Error: {type_analysis} not supported")
+        sys.exit(f"Error: {solver} not supported")
 
     if "output_interval" in inp_settings.keys():
         output_interval = inp_settings["output_interval"]
@@ -142,48 +157,18 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
 
     print("solver started")
     # start solver
-    if type_analysis.startswith("dynamic"):
-
-        force = np.array([F.update_load_at_t(i) for i, t in enumerate(F.time)])
-        import pickle
-        with open("data.pickle", "wb") as fo:
-            pickle.dump([matrix.M, matrix.C, matrix.K, force.T, 0, model.number_eq, F.time], fo)
-        sys.exit()
+    if solver == Solver.STATIC:
+        numerical.calculate(matrix.K, F.force_vector, 0, len(F.time) -1)
+    else:
         numerical.update(0)
         numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time) - 1)
-    elif type_analysis == "static":
-        numerical.calculate(matrix.K, F.force_vector, 0, len(F.time) -1)
-    elif type_analysis == "harmonic_response":
-        omega, results = numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, inp_settings["damping"])
-        # get the index
-        import matplotlib.pyplot as plt
-
-
-        # find index:
-        node_nb = [int(node) for node in loading["node"]][0]
-        idx_hr = model.eq_nb_dof[node_nb - 1][1]
-        res = results[:, idx_hr]
-        real_part = np.real(res)
-        imag_part = np.imag(res)
-        # amp = np.abs(real_part + imag_part)
-        # plt.plot(omega, amp)
-        # plt.grid()
-        # plt.show()
-        # make the plot
-        import json
-        with open(os.path.join(outfile_folder, "harmonic_loading.json"), "w") as fo:
-            json.dump({"omega": omega.tolist(), "real_part": real_part.tolist(), "imag_part": imag_part.tolist()}, fo, indent=2)
 
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)
     # export results to pickle
     results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
     # export results to VTK
-    results.vtk(write=inp_settings["VTK"], output_interval=1)
-
-    # generate inputs for GNN
-    if gnn:
-        utils.generate_gnn_files(model, matrix, F, numerical, os.path.join(outfile_folder, "GNN"))
+    results.vtk(write=inp_settings["VTK"], binary=inp_settings["VTK_binary"], output_interval=1)
 
     # print end statement
     print("\n\n\n\x1B[3m" + "  Never tell me the odds. " + "\x1B[0m")
