@@ -15,6 +15,8 @@ if __name__ == "__main__":
             "pickle": True,
             "pickle_nodes": "4",
             "VTK": False,
+            "VTK_binary": True,
+            "output_interval": 1,
             }
 
     for i in range(50):
