@@ -274,7 +274,7 @@ class QuadFour:
 
     def __init__(self):
         self.__surfaces = None
-        self.N = np.zeros((4, 1))
+        self.N = np.zeros(4)
         self.dN = np.zeros((4, 2))
         return
 
@@ -353,7 +353,7 @@ class QuadEight:
 
     def __init__(self):
         self.__surfaces = None
-        self.N = np.zeros((8, 1))
+        self.N = np.zeros(8)
         self.dN = np.zeros((8, 2))
         return
 
@@ -446,7 +446,7 @@ class TriThree:
 
     def __init__(self):
         self.__surfaces = None
-        self.N = np.zeros((3, 1))
+        self.N = np.zeros(3)
         self.dN = np.zeros((3, 2))
         return
 
@@ -523,7 +523,7 @@ class TriSix:
 
     def __init__(self):
         self.__surfaces = None
-        self.N = np.zeros((6, 1))
+        self.N = np.zeros(6)
         self.dN = np.zeros((6, 2))
         return
 
