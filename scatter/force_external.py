@@ -1,6 +1,6 @@
 import sys
 import numpy as np
-import scipy.spatial.kdtree
+from scipy.spatial import KDTree
 from scipy.sparse import lil_matrix
 
 from shapely.geometry.polygon import Polygon
@@ -182,7 +182,7 @@ class Force:
 
         # define kdtree of centroids of all surface polygons, to speed up search of active elements
         centroids = np.array([np.array(polygon.centroid.xy)[:, 0] for polygon in polygons])
-        tree = scipy.spatial.kdtree.KDTree(centroids)
+        tree = KDTree(centroids)
 
         # todo, make nbr_nearest_neightbours more general
         nbr_nearest_neighbours = 10
