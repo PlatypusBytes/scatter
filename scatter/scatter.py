@@ -154,21 +154,6 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     F.initialise_load(loading, time, model, numerical, top_surface_elements=top_surface_elements)
     numerical.update_rhs_at_time_step_func = F.update_load_at_t
 
-    # # print(np.linalg.cond(matrix.K.toarray()))
-    # print("Condition number of K matrix: ", np.linalg.cond(matrix.K.toarray()))
-    # sys.exit()
-
-    # # create force
-    # fff = []
-    # for t in range(len(F.time)):
-    #     fff.append(F.update_load_at_t(t))
-    # # save the structure
-    # import pickle
-    # with open("data_aron_2.pickle", "wb") as f:
-    #     # pickle.dump([matrix.M, matrix.C, matrix.K, np.array(fff).T, model.number_eq, time], f)
-    #     pickle.dump([matrix.M, matrix.C, matrix.K, np.array(fff).T, time], f)
-    # sys.exit("Data saved to data.pickle")
-
 
 
     print("solver started")
@@ -180,7 +165,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time) - 1)
 
     if write_gnn:
-        utils.generate_gnn_files(model, matrix, F.force_vector, numerical, outfile_folder)
+        utils.generate_gnn_files(model, matrix, F, numerical, outfile_folder)
 
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)
