@@ -1,7 +1,7 @@
 import os
 import subprocess
 import numpy as np
-from scatter.scatter import scatter
+from scatter.scatter import scatter, Solver
 
 
 if __name__ == "__main__":
@@ -78,4 +78,5 @@ if __name__ == "__main__":
         # generate mesh
         subprocess.run(["/opt/gmsh-4.13.1-Linux64/bin/./gmsh", os.path.join(output_folder, "column.geo"), "-format", "msh2", "-3", "-o",  os.path.join(output_folder, "column.msh")])
         # run scatter
-        scatter(os.path.join(output_folder, "column.msh"), output_folder, mat, BC, sett, load, time_step=1e-4, type_analysis="dynamic_explicit", random_props=RF_props, gnn=True)
+        scatter(os.path.join(output_folder, "column.msh"), output_folder, mat, BC, sett, load, time_step=1e-4,
+                solver=Solver.NEWMARK_EXPLICIT, random_props=RF_props, write_gnn=True)

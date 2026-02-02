@@ -36,7 +36,7 @@ class Solver(Enum):
 
 def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,
             inp_settings: dict, loading: dict, time_step: float = 0.1, solver: Solver=Solver.NEWMARK_EXPLICIT,
-            random_props: bool = False) -> export_results.Write:
+            random_props: bool = False, write_gnn: bool = False) -> export_results.Write:
     r"""
     3D finite element code.
                                                             ^  _
@@ -57,6 +57,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     :param time_step: time step for the analysis (optional: default 0.1 s)
     :param solver: solver to use for the analysis, see `Solver` enum (optional: default Newmark explicit)
     :param random_props: bool with random fields analysis (optional: default False)
+    :param write_gnn: bool to enable writing GNN files (optional: default False)
     """
 
     # print message
@@ -117,7 +118,6 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # definition of time
     time = np.linspace(0, loading["time"], int(np.ceil(loading["time"] / time_step) + 1))
 
-    # matrix.C *= 0
     # initialise solver
     if solver == Solver.NEWMARK_EXPLICIT:
         numerical = newmark_solver.NewmarkExplicit()
@@ -151,9 +151,25 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         top_surface_elements = model.get_top_surface()
     else:
         top_surface_elements = []
-
     F.initialise_load(loading, time, model, numerical, top_surface_elements=top_surface_elements)
     numerical.update_rhs_at_time_step_func = F.update_load_at_t
+
+    # # print(np.linalg.cond(matrix.K.toarray()))
+    # print("Condition number of K matrix: ", np.linalg.cond(matrix.K.toarray()))
+    # sys.exit()
+
+    # # create force
+    # fff = []
+    # for t in range(len(F.time)):
+    #     fff.append(F.update_load_at_t(t))
+    # # save the structure
+    # import pickle
+    # with open("data_aron_2.pickle", "wb") as f:
+    #     # pickle.dump([matrix.M, matrix.C, matrix.K, np.array(fff).T, model.number_eq, time], f)
+    #     pickle.dump([matrix.M, matrix.C, matrix.K, np.array(fff).T, time], f)
+    # sys.exit("Data saved to data.pickle")
+
+
 
     print("solver started")
     # start solver
@@ -162,6 +178,9 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     else:
         numerical.update(0)
         numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time) - 1)
+
+    if write_gnn:
+        utils.generate_gnn_files(model, matrix, F.force_vector, numerical, outfile_folder)
 
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)

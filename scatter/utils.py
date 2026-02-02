@@ -1,7 +1,7 @@
 import os
-import pickle
 from typing import Tuple, Union
 import numpy as np
+import h5py
 
 
 def calculate_distance(p1: list, p2: list) -> float:
@@ -200,21 +200,25 @@ def are_collinear(coords: np.ndarray) -> bool:
 
 def generate_gnn_files(model: object, matrix: object, F: object, results, output_folder: str):
     """
-    Generate files for Graph Neural Networks
+    Generate files for training Graph Neural Networks
 
 
     Node features:
     - coordinates
     - BC
     - matrix properties (M, C, K) (diagonal terms)
-    - time
-    - force
+    - force (x, y, z)
 
     Edge features:
     - distance
     - matrix properties (M, C, K) (non-diagonal terms)
 
 
+    k_till K_till_inv
+
+    Graph feature:
+    - time
+    - time-step
 
     Parameters
     ----------
@@ -228,107 +232,159 @@ def generate_gnn_files(model: object, matrix: object, F: object, results, output
 
     # ToDo: only works for hexa8 elements
     if model.element_type != "hexa8":
-        raise ValueError("Only hexa8 elements are supported for GNNs")
+        raise ValueError("Only hexa8 elements currently supported")
 
     os.makedirs(output_folder, exist_ok=True)
+    h5_path = os.path.join(output_folder, "data.h5")
+
+    # Mesh & DOF structure
+    nodes_id = model.nodes[:, 0].astype(int)
+    coords = model.nodes[:, 1:]
+    n_nodes, dim = coords.shape
+
+    dof_map = model.eq_nb_dof.copy()
+    dof_mask = ~np.isnan(dof_map)
+    dof_map = np.where(dof_mask, dof_map, -1).astype(int)
+    dof_per_node = dof_map.shape[1]
+
+    # BC type per DOF (0=free, 1=fixed, 2=absorbing)
+    bc_type = np.zeros_like(dof_map)
+    for i in range(n_nodes):
+        for d in range(dof_per_node):
+            if not dof_mask[i, d]:
+                bc_type[i, d] = 1
+            else:
+                bc_type[i, d] = model.BC[dof_map[i, d]]
+
+    # Connectivity → graph edges
+    elem_nodes = model.elem.astype(int)
+    node_id_to_idx = {nid: i for i, nid in enumerate(nodes_id)}
+    elem_idx = np.vectorize(node_id_to_idx.get)(elem_nodes)
 
     # connectivity list only valid for hex8 ToDo: add this as a property of element types
-    connectivities_nodes = {0: [1, 3, 4],
-                            1: [0, 2, 5],
-                            2: [1, 3, 6],
-                            3: [0, 2, 7],
-                            4: [0, 5, 7],
-                            5: [1, 4, 6],
-                            6: [2, 5, 7],
-                            7: [3, 4, 6]
-                            }
+    connectivities_idx_nodes = {0: [1, 3, 4],
+                                1: [0, 2, 5],
+                                2: [1, 3, 6],
+                                3: [0, 2, 7],
+                                4: [0, 5, 7],
+                                5: [1, 4, 6],
+                                6: [2, 5, 7],
+                                7: [3, 4, 6]
+                                }
 
-    data = {}
-    data["nb_nodes"] = len(model.nodes)
-    data["nodes"] = model.nodes[:, 0]
-    data["nodes_coordinates"] = model.nodes[:, 1:]
-    data["nb_elements"] = len(model.elem)
-    data["element_type"] = model.element_type
-    data["BC"] = model.BC
-    data["connectivities"] = []
+    edges = set()
+    for elem in elem_idx:
+        for li, ni in enumerate(elem):
+            for lj in connectivities_idx_nodes[li]:
+                nj = elem[lj]
+                edges.add((ni, nj))
+                edges.add((nj, ni))
 
-    data["node_features"] = []
-    data["edge_features"] = []
-    data["results"] = []
+    edge_index = np.array(list(edges), dtype=int).T
+    src, dst = edge_index
 
-    # find connectivities for each node
-    for n in data["nodes"]:
-        aux = []
-        for i, k in enumerate(model.elem):
-            idx = np.where(k == n)[0]
-            if len(idx) > 0:
-                aux.extend(k[connectivities_nodes[int(idx)]])
-        data["connectivities"].append(sorted(set(aux)))
+    dx = coords[dst] - coords[src]
+    dist = np.linalg.norm(dx, axis=1, keepdims=True)
+    dir_vec = dx / np.maximum(dist, 1e-12)
 
+    # Node features (diagonal terms)
+    Mii = np.zeros((n_nodes, dof_per_node))
+    Cii = np.zeros_like(Mii)
+    Kii = np.zeros_like(Mii)
 
-    # generate the node and edge features (for the mesh and matrices)
-    for idx_n, _ in enumerate(data["nodes"]):
+    for i in range(n_nodes):
+        for d in range(dof_per_node):
+            gdof = dof_map[i, d]
+            if gdof >= 0:
+                Mii[i, d] = matrix.M[gdof, gdof]
+                Cii[i, d] = matrix.C[gdof, gdof]
+                Kii[i, d] = matrix.K[gdof, gdof]
 
-        idx_dofs = [i.astype(int) for i in model.eq_nb_dof[idx_n] if not np.isnan(i)]
+    # Edge coupling features (aggregated)
+    def coupling_norm(mat, i, j):
+        vals = []
+        for di in range(dof_per_node):
+            for dj in range(dof_per_node):
+                gi = dof_map[i, di]
+                gj = dof_map[j, dj]
+                if gi >= 0 and gj >= 0:
+                    vals.append(mat[gi, gj])
+        if not vals:
+            return 0.0
+        return float(np.linalg.norm(vals))
 
-        if len(idx_dofs) == 0:
-            continue
+    Kij = np.array([coupling_norm(matrix.K, i, j) for i, j in zip(src, dst)])[:, None]
+    Mij = np.array([coupling_norm(matrix.M, i, j) for i, j in zip(src, dst)])[:, None]
+    Cij = np.array([coupling_norm(matrix.C, i, j) for i, j in zip(src, dst)])[:, None]
 
-        for idx_dof in idx_dofs:
-            # node features: coordinates, BC, matrix
-            node_features = [model.nodes[idx_dof, 1:],
-                             model.BC[idx_dof]]
-            node_features = np.array(node_features).flatten().tolist()
+    # Time series (node-wise)
+    time = np.array(F.time)
+    out_idx = np.arange(0, len(time), results.output_interval)
 
-            node_features.append(matrix.M[idx_dof.astype(int), idx_dof.astype(int)])
-            node_features.append(matrix.C[idx_dof.astype(int), idx_dof.astype(int)])
-            node_features.append(matrix.K[idx_dof.astype(int), idx_dof.astype(int)])
+    def reshape_series(arr):
+        out = np.zeros((len(out_idx), n_nodes, dof_per_node))
+        for t_i, t in enumerate(out_idx):
+            for i in range(n_nodes):
+                for d in range(dof_per_node):
+                    gdof = dof_map[i, d]
+                    if gdof >= 0:
+                        out[t_i, i, d] = arr[t, gdof]
+        return out
 
-            data["node_features"].append(node_features)
+    u = reshape_series(results.u)
+    v = reshape_series(results.v)
+    a = reshape_series(results.a)
 
-        # find connectivities for each node
-        node_connect = data["connectivities"][idx_n]
-        idx_connect = [model.nodes[:,0].tolist().index(c) for c in node_connect]
-        idx_connections = []
-        for i in idx_connect:
-            for j in model.eq_nb_dof[i]:
-                if not np.isnan(j):
-                    idx_connections.append(j.astype(int))
+    force = np.zeros_like(u)
+    for ti, t in enumerate(out_idx):
+        f_glob = F.update_load_at_t(time[t])
+        for i in range(n_nodes):
+            for d in range(dof_per_node):
+                gdof = dof_map[i, d]
+                if gdof >= 0:
+                    force[ti, i, d] = f_glob[gdof]
 
-        # distance, matrix
-        aux_edge_features = []
-        for i in idx_connections:
-            distance = np.linalg.norm(model.nodes[idx_n, 1:] - model.nodes[i, 1:])
-            edge_features = [distance]
+    # Sparse matrices
+    def save_sparse(group, name, mat):
+        rows, cols = mat.nonzero()
+        grp = group.create_group(name)
+        grp.create_dataset("row", data=rows)
+        grp.create_dataset("col", data=cols)
+        grp.create_dataset("val", data=mat[rows, cols])
+        grp.create_dataset("shape", data=mat.shape)
 
-            # for each node dof
-            for j in idx_dofs:
-                edge_features.append(matrix.M[i, j.astype(int)])
-                edge_features.append(matrix.C[i, j.astype(int)])
-                edge_features.append(matrix.K[i, j.astype(int)])
-            aux_edge_features.append(edge_features)
-        data["edge_features"].append(aux_edge_features)
+    # Write HDF5
+    with h5py.File(h5_path, "w") as h5:
+        mesh = h5.create_group("mesh")
+        mesh.create_dataset("coords", data=coords)
+        mesh.create_dataset("dof_map", data=dof_map)
+        mesh.create_dataset("dof_mask", data=dof_mask)
+        mesh.create_dataset("bc_type", data=bc_type)
+        mesh.create_dataset("edge_index", data=edge_index)
 
+        static = h5.create_group("static")
+        static.create_dataset("Mii", data=Mii)
+        static.create_dataset("Cii", data=Cii)
+        static.create_dataset("Kii", data=Kii)
+        static.create_dataset("edge_dist", data=dist)
+        static.create_dataset("edge_dir", data=dir_vec)
+        static.create_dataset("Kij", data=Kij)
+        static.create_dataset("Mij", data=Mij)
+        static.create_dataset("Cij", data=Cij)
 
-    # update the node features with the force
-    for t in range(0, len(F.time), results.output_interval):
-        force = F.update_load_at_t(t)
+        series = h5.create_group("series")
+        series.create_dataset("time", data=time[out_idx])
+        series.create_dataset("u", data=u)
+        series.create_dataset("v", data=v)
+        series.create_dataset("a", data=a)
+        series.create_dataset("force", data=force)
 
-        if t == 0:
-            for i, f in enumerate(force):
-                data["node_features"][i].append(F.time[t])
-                data["node_features"][i].append(f)
-                data["results"].append([results.u[t, :], results.v[t, :], results.a[t, :]])
-        else:
-            for i, f in enumerate(force):
-                data["node_features"][i][-1] = F.time[t]
-                data["node_features"][i][-1] = f
-                data["results"][i][-1] = [results.u[t, :], results.v[t, :], results.a[t, :]]
+        meta = h5.create_group("meta")
+        meta.create_dataset("dt", data=results.dt)
+        meta.create_dataset("beta", data=results.beta)
+        meta.create_dataset("gamma", data=results.gamma)
 
-        # save the data for each time step
-        with open(f"{output_folder}/data_{t}.pickle", "wb") as f:
-            pickle.dump({"node_features": data["node_features"],
-                         "edge_features": data["edge_features"],
-                         "results": data["results"]},
-                         f)
-
+        mats = h5.create_group("matrices")
+        save_sparse(mats, "M", matrix.M)
+        save_sparse(mats, "K", matrix.K)
+        save_sparse(mats, "C", matrix.C)

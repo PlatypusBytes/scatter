@@ -133,7 +133,7 @@ class RoseUtils:
         )
 
     @staticmethod
-    def assign_data_to_coupled_model(rose_data: dict, seed=14) -> CoupledTrainTrack:
+    def assign_data_to_coupled_model(rose_data: dict, seed=14, irregularities=True) -> CoupledTrainTrack:
         """
         assigns rose data from dictionary to rose coupled model
 
@@ -213,7 +213,7 @@ class RoseUtils:
         train = rose_data["traffic_data"]["model"]
         train.time = time
         train.velocities = velocities
-        train.use_irregularities = True
+        train.use_irregularities = irregularities
         train.irregularity_parameters = {"Av": 0.00002095,
                                          "seed": seed}
 
