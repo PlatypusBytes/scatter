@@ -2,6 +2,7 @@ import os
 from typing import Tuple, Union
 import numpy as np
 import h5py
+from scipy import sparse
 
 
 def calculate_distance(p1: list, p2: list) -> float:
@@ -206,6 +207,8 @@ def generate_gnn_files(model: object, matrix: object, F: object, results, output
     Node features:
     - coordinates
     - BC
+    - u, v, a (at time t)
+    - Delta force (for time t + 1)
     - matrix properties (M, C, K) (diagonal terms)
     - force (x, y, z)
 
@@ -213,8 +216,8 @@ def generate_gnn_files(model: object, matrix: object, F: object, results, output
     - distance
     - matrix properties (M, C, K) (non-diagonal terms)
 
-
-    k_till K_till_inv
+    Target:
+    - Delta u (at time t + 1)
 
     Graph feature:
     - time
@@ -235,156 +238,34 @@ def generate_gnn_files(model: object, matrix: object, F: object, results, output
         raise ValueError("Only hexa8 elements currently supported")
 
     os.makedirs(output_folder, exist_ok=True)
-    h5_path = os.path.join(output_folder, "data.h5")
+    output_file = os.path.join(output_folder, "data.hdf5")
 
-    # Mesh & DOF structure
-    nodes_id = model.nodes[:, 0].astype(int)
-    coords = model.nodes[:, 1:]
-    n_nodes, dim = coords.shape
+    with h5py.File(output_file, "w") as f:
+        mesh_group = f.create_group("mesh")
 
-    dof_map = model.eq_nb_dof.copy()
-    dof_mask = ~np.isnan(dof_map)
-    dof_map = np.where(dof_mask, dof_map, -1).astype(int)
-    dof_per_node = dof_map.shape[1]
+        mesh_group.create_dataset("nodes_id", data=model.nodes[:, 0], dtype='i', compression="gzip")
+        mesh_group.create_dataset("coordinates", data=model.nodes[:, 1:], dtype='f', compression="gzip")
+        mesh_group.create_dataset("BC", data=model.BC, dtype='f', compression="gzip")
+        mesh_group.create_dataset("eq_nb_dof", data=model.eq_nb_dof, dtype='f', compression="gzip")
 
-    # BC type per DOF (0=free, 1=fixed, 2=absorbing)
-    bc_type = np.zeros_like(dof_map)
-    for i in range(n_nodes):
-        for d in range(dof_per_node):
-            if not dof_mask[i, d]:
-                bc_type[i, d] = 1
-            else:
-                bc_type[i, d] = model.BC[dof_map[i, d]]
+        mat_group = f.create_group("matrices")
 
-    # Connectivity → graph edges
-    elem_nodes = model.elem.astype(int)
-    node_id_to_idx = {nid: i for i, nid in enumerate(nodes_id)}
-    elem_idx = np.vectorize(node_id_to_idx.get)(elem_nodes)
+        for name, mat in [("stiffness", matrix.K), ("mass", matrix.M), ("damping", matrix.C)]:
+            grp = mat_group.create_group(name)
+            mat = sparse.csr_matrix(mat)
+            grp.create_dataset("data", data=mat.data, compression="gzip")
+            grp.create_dataset("indices", data=mat.indices, compression="gzip")
+            grp.create_dataset("indptr", data=mat.indptr, compression="gzip")
+            grp.attrs["shape"] = mat.shape
 
-    # connectivity list only valid for hex8 ToDo: add this as a property of element types
-    connectivities_idx_nodes = {0: [1, 3, 4],
-                                1: [0, 2, 5],
-                                2: [1, 3, 6],
-                                3: [0, 2, 7],
-                                4: [0, 5, 7],
-                                5: [1, 4, 6],
-                                6: [2, 5, 7],
-                                7: [3, 4, 6]
-                                }
+        time_group = f.create_group("time_results")
+        time_group.create_dataset("time", data=results.time, compression="gzip")
+        time_group.create_dataset("displacement", data=results.u, compression="gzip")
+        time_group.create_dataset("velocity", data=results.v, compression="gzip")
+        time_group.create_dataset("acceleration", data=results.a, compression="gzip")
 
-    edges = set()
-    for elem in elem_idx:
-        for li, ni in enumerate(elem):
-            for lj in connectivities_idx_nodes[li]:
-                nj = elem[lj]
-                edges.add((ni, nj))
-                edges.add((nj, ni))
-
-    edge_index = np.array(list(edges), dtype=int).T
-    src, dst = edge_index
-
-    dx = coords[dst] - coords[src]
-    dist = np.linalg.norm(dx, axis=1, keepdims=True)
-    dir_vec = dx / np.maximum(dist, 1e-12)
-
-    # Node features (diagonal terms)
-    Mii = np.zeros((n_nodes, dof_per_node))
-    Cii = np.zeros_like(Mii)
-    Kii = np.zeros_like(Mii)
-
-    for i in range(n_nodes):
-        for d in range(dof_per_node):
-            gdof = dof_map[i, d]
-            if gdof >= 0:
-                Mii[i, d] = matrix.M[gdof, gdof]
-                Cii[i, d] = matrix.C[gdof, gdof]
-                Kii[i, d] = matrix.K[gdof, gdof]
-
-    # Edge coupling features (aggregated)
-    def coupling_norm(mat, i, j):
-        vals = []
-        for di in range(dof_per_node):
-            for dj in range(dof_per_node):
-                gi = dof_map[i, di]
-                gj = dof_map[j, dj]
-                if gi >= 0 and gj >= 0:
-                    vals.append(mat[gi, gj])
-        if not vals:
-            return 0.0
-        return float(np.linalg.norm(vals))
-
-    Kij = np.array([coupling_norm(matrix.K, i, j) for i, j in zip(src, dst)])[:, None]
-    Mij = np.array([coupling_norm(matrix.M, i, j) for i, j in zip(src, dst)])[:, None]
-    Cij = np.array([coupling_norm(matrix.C, i, j) for i, j in zip(src, dst)])[:, None]
-
-    # Time series (node-wise)
-    time = np.array(F.time)
-    out_idx = np.arange(0, len(time), results.output_interval)
-
-    def reshape_series(arr):
-        out = np.zeros((len(out_idx), n_nodes, dof_per_node))
-        for t_i, t in enumerate(out_idx):
-            for i in range(n_nodes):
-                for d in range(dof_per_node):
-                    gdof = dof_map[i, d]
-                    if gdof >= 0:
-                        out[t_i, i, d] = arr[t, gdof]
-        return out
-
-    u = reshape_series(results.u)
-    v = reshape_series(results.v)
-    a = reshape_series(results.a)
-
-    force = np.zeros_like(u)
-    for ti, t in enumerate(out_idx):
-        f_glob = F.update_load_at_t(time[t])
-        for i in range(n_nodes):
-            for d in range(dof_per_node):
-                gdof = dof_map[i, d]
-                if gdof >= 0:
-                    force[ti, i, d] = f_glob[gdof]
-
-    # Sparse matrices
-    def save_sparse(group, name, mat):
-        rows, cols = mat.nonzero()
-        grp = group.create_group(name)
-        grp.create_dataset("row", data=rows)
-        grp.create_dataset("col", data=cols)
-        grp.create_dataset("val", data=mat[rows, cols])
-        grp.create_dataset("shape", data=mat.shape)
-
-    # Write HDF5
-    with h5py.File(h5_path, "w") as h5:
-        mesh = h5.create_group("mesh")
-        mesh.create_dataset("coords", data=coords)
-        mesh.create_dataset("dof_map", data=dof_map)
-        mesh.create_dataset("dof_mask", data=dof_mask)
-        mesh.create_dataset("bc_type", data=bc_type)
-        mesh.create_dataset("edge_index", data=edge_index)
-
-        static = h5.create_group("static")
-        static.create_dataset("Mii", data=Mii)
-        static.create_dataset("Cii", data=Cii)
-        static.create_dataset("Kii", data=Kii)
-        static.create_dataset("edge_dist", data=dist)
-        static.create_dataset("edge_dir", data=dir_vec)
-        static.create_dataset("Kij", data=Kij)
-        static.create_dataset("Mij", data=Mij)
-        static.create_dataset("Cij", data=Cij)
-
-        series = h5.create_group("series")
-        series.create_dataset("time", data=time[out_idx])
-        series.create_dataset("u", data=u)
-        series.create_dataset("v", data=v)
-        series.create_dataset("a", data=a)
-        series.create_dataset("force", data=force)
-
-        meta = h5.create_group("meta")
-        meta.create_dataset("dt", data=results.dt)
-        meta.create_dataset("beta", data=results.beta)
-        meta.create_dataset("gamma", data=results.gamma)
-
-        mats = h5.create_group("matrices")
-        save_sparse(mats, "M", matrix.M)
-        save_sparse(mats, "K", matrix.K)
-        save_sparse(mats, "C", matrix.C)
+        force_group = f.create_group("force_results")
+        force = []
+        for ti, _ in enumerate(results.time):
+            force.append(F.update_load_at_t(ti))
+        force_group.create_dataset("force", data=force, compression="gzip")

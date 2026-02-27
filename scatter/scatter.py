@@ -129,9 +129,6 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         numerical = bathe_solver.BatheSolver()
     elif solver == Solver.STATIC:
         numerical = static_solver.StaticSolver()
-    elif type_analysis == "harmonic_response":
-        from scatter.harmonic_response import HarmonicResponse
-        numerical = HarmonicResponse()
     else:
         sys.exit(f"Error: {solver} not supported")
 
@@ -154,29 +151,6 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     F.initialise_load(loading, time, model, numerical, top_surface_elements=top_surface_elements)
     numerical.force.update_rhs_at_time_step_func = F.update_load_at_t
 
-
-
-
-
-
-
-
-
-
-
-    # # create force
-    # fff = []
-    # for t in range(len(F.time)):
-    #     fff.append(F.update_load_at_t(t))
-    # # save the structure
-    # import pickle
-    # with open("data_aron_100000.pickle", "wb") as f:
-    #     # pickle.dump([matrix.M, matrix.C, matrix.K, np.array(fff).T, model.number_eq, time], f)
-    #     pickle.dump([matrix.M, matrix.C, matrix.K, np.array(fff).T, time], f)
-    # sys.exit("Data saved to data.pickle")
-
-
-
     print("solver started")
     # start solver
     if solver == Solver.STATIC:
@@ -185,15 +159,14 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         numerical.state.update_initial_conditions(0)
         numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time) - 1)
 
-    if write_gnn:
-        utils.generate_gnn_files(model, matrix, F, numerical, outfile_folder)
-
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)
     # export results to pickle
     results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
     # export results to VTK
     results.vtk(write=inp_settings["VTK"], binary=inp_settings["VTK_binary"], output_interval=output_interval)
+    if write_gnn:
+        utils.generate_gnn_files(model, matrix, F, numerical, outfile_folder)
 
     # print end statement
     print("\n\n\n\x1B[3m" + "  Never tell me the odds. " + "\x1B[0m")

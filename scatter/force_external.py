@@ -36,6 +36,7 @@ class Force:
         self.steps = load_set["ini_steps"] #  number of steps to apply the load following a triangular form
         self.loading_type = load_set["type"] # loading type
         self.solver = solver
+        self.element_type = model.element_type
 
         if self.loading_type == "pulse":
             self.initialise_pulse_load()
@@ -315,6 +316,11 @@ class Force:
         self.force_vector[active_dof_el[valid_dofs].astype(int)] = nodal_force[valid_dofs]
 
     def update_moving_load(self, t):
+
+        # ToDo: only works for hexa8 elements
+        if self.element_type not in ["hexa8", "quad4"]:
+            raise ValueError("Only linear elements currently supported")
+
         self.force_vector = np.zeros(self.nb_equations)
 
         # if the load as reached the end of the model returns

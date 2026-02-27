@@ -50,7 +50,6 @@ if __name__ == "__main__":
                 "aniso_z": 1,
                 }
 
-    from solvers import newmark_solver, central_difference_solver, bathe_solver
     # run scatter
-    scatter(r"./mesh/column.msh", "./results_abs_newmark", mat, BC, sett, load, time_step=0.05e-4, solver=Solver.NEWMARK_EXPLICIT)
-    scatter(r"./mesh/column.msh", "./results_abs_bathe", mat, BC, sett, load, time_step=0.05e-4, solver=Solver.BATHE)
+    scatter(r"./mesh/column.msh", "./results_abs_newmark", mat, BC, sett, load, time_step=5e-4, solver=Solver.NEWMARK_EXPLICIT)
+    scatter(r"./mesh/column.msh", "./results_abs_bathe", mat, BC, sett, load, time_step=5e-4, solver=Solver.BATHE)
