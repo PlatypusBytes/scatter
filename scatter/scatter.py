@@ -139,7 +139,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         output_interval = inp_settings["output_interval"]
     else:
         output_interval = 1
-    numerical.output_interval = output_interval
+    numerical.state.output_interval = output_interval
     numerical.initialise(model.number_eq, time)
 
     # generate matrix external
@@ -152,7 +152,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     else:
         top_surface_elements = []
     F.initialise_load(loading, time, model, numerical, top_surface_elements=top_surface_elements)
-    numerical.update_rhs_at_time_step_func = F.update_load_at_t
+    numerical.force.update_rhs_at_time_step_func = F.update_load_at_t
 
 
 
@@ -182,7 +182,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     if solver == Solver.STATIC:
         numerical.calculate(matrix.K, F.force_vector, 0, len(F.time) -1)
     else:
-        numerical.update(0)
+        numerical.state.update_initial_conditions(0)
         numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time) - 1)
 
     if write_gnn:
@@ -193,7 +193,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # export results to pickle
     results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
     # export results to VTK
-    results.vtk(write=inp_settings["VTK"], binary=inp_settings["VTK_binary"], output_interval=1)
+    results.vtk(write=inp_settings["VTK"], binary=inp_settings["VTK_binary"], output_interval=output_interval)
 
     # print end statement
     print("\n\n\n\x1B[3m" + "  Never tell me the odds. " + "\x1B[0m")
