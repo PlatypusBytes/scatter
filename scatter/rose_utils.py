@@ -1,6 +1,6 @@
 from rose.model.model_part import Material, Section
 from rose.model.train_track_interaction import *
-from solvers.newmark_solver import NewmarkSolver
+from solvers.newmark_solver import NewmarkImplicitForce
 import numpy as np
 
 
@@ -142,7 +142,7 @@ class RoseUtils:
         :return: Coupled train track model
         """
         # choose solver
-        solver = NewmarkSolver()
+        solver = NewmarkImplicitForce()
 
         all_element_model_parts = []
         all_meshes = []

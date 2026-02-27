@@ -49,10 +49,10 @@ class Write:
         self.eq_nb_dof = model.eq_nb_dof
         self.coordinates = model.nodes[:, 1:]
         self.elements = model.elem[:, self.idx_vtk] - 1
-        self.time = numerical.output_time
-        self.dis = numerical.u
-        self.vel = numerical.v
-        self.acc = numerical.a
+        self.time = numerical.state.output_time
+        self.dis = numerical.state.u
+        self.vel = numerical.state.v
+        self.acc = numerical.state.a
         self.mat = model.materials
         self.mat_idx = model.materials_index
         self.materials = materials
