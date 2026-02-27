@@ -330,7 +330,7 @@ class Force:
         l = self.node_distances[id_n + 1] - self.node_distances[id_n]
 
         shp = np.array([1 - x / l,
-                        x * l])
+                        x / l])
 
         # for each node with load
         for j, n in enumerate(nodes):
