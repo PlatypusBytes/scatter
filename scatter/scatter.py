@@ -3,6 +3,9 @@ import sys
 from enum import Enum
 import numpy as np
 
+from solvers.base_solver import  State
+from solvers import newmark_solver, static_solver, bathe_solver, central_difference_solver
+
 from scatter import mesher
 from scatter import system_matrix
 from scatter import force_external
@@ -10,7 +13,7 @@ from scatter import random_fields
 from scatter import export_results
 from scatter import validator
 from scatter.rose_utils import RoseUtils
-from solvers import newmark_solver, static_solver, bathe_solver, central_difference_solver
+
 
 
 class Solver(Enum):
@@ -118,23 +121,18 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
 
     # initialise solver
     if solver == Solver.NEWMARK_EXPLICIT:
-        numerical = newmark_solver.NewmarkExplicit()
+        numerical = newmark_solver.NewmarkExplicit(state=State(output_interval=inp_settings["output_interval"]))
     elif solver == Solver.NEWMARK_IMPLICIT:
-        numerical = newmark_solver.NewmarkImplicitForce()
+        numerical = newmark_solver.NewmarkImplicitForce(state=State(output_interval=inp_settings["output_interval"]))
     elif solver == Solver.CENTRAL_DIFFERENCE:
-        numerical = central_difference_solver.CentralDifferenceSolver()
+        numerical = central_difference_solver.CentralDifferenceSolver(state=State(output_interval=inp_settings["output_interval"]))
     elif solver == Solver.BATHE:
-        numerical = bathe_solver.BatheSolver()
+        numerical = bathe_solver.BatheSolver(state=State(output_interval=inp_settings["output_interval"]))
     elif solver == Solver.STATIC:
-        numerical = static_solver.StaticSolver()
+        numerical = static_solver.StaticSolver(state=State(output_interval=inp_settings["output_interval"]))
     else:
         sys.exit(f"Error: {solver} not supported")
 
-    if "output_interval" in inp_settings.keys():
-        output_interval = inp_settings["output_interval"]
-    else:
-        output_interval = 1
-    numerical.state.output_interval = output_interval
     numerical.initialise(model.number_eq, time)
 
     # generate matrix external
@@ -150,12 +148,42 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     F.initialise_load(loading, time, model, numerical, top_surface_elements=top_surface_elements)
     numerical.force.update_rhs_at_time_step_func = F.update_load_at_t
 
+
+
+
+
+
+
+
+
+    # # create force
+    # fff = []
+    # for t in range(len(F.time)):
+    #     fff.append(F.update_load_at_t(t))
+    # # save the structure
+    # import pickle
+    # with open("data_aron_100000.pickle", "wb") as f:
+    #     # pickle.dump([matrix.M, matrix.C, matrix.K, np.array(fff).T, model.number_eq, time], f)
+    #     pickle.dump([matrix.M, matrix.C, matrix.K, np.array(fff).T, time], f)
+    # sys.exit("Data saved to data.pickle")
+
+
+
+
+
+
+
+
+
+
+
+
+
     print("solver started")
     # start solver
     if solver == Solver.STATIC:
         numerical.calculate(matrix.K, F.force_vector, 0, len(F.time) -1)
     else:
-        numerical.state.update_initial_conditions(0)
         numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time) - 1)
 
     # export results
@@ -163,7 +191,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # export results to pickle
     results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
     # export results to VTK
-    results.vtk(write=inp_settings["VTK"], binary=inp_settings["VTK_binary"], output_interval=output_interval)
+    results.vtk(write=inp_settings["VTK"], binary=inp_settings["VTK_binary"], output_interval=inp_settings["output_interval"])
 
     # print end statement
     print("\n\n\n\x1B[3m" + "  Never tell me the odds. " + "\x1B[0m")
