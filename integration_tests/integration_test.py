@@ -58,7 +58,7 @@ class Test1DWavePropagation_3D(unittest.TestCase):
         file = os.path.join(self.root, r"./results_mean_abs/data.pickle")
         self.mean_data_abs = read_pickle(file)
 
-        self.fold_results = []
+        self.fold_results = None
 
     def test_1(self):
         """
@@ -321,7 +321,8 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                     self.assertTrue(correct[i], computed[i])
 
     def tearDown(self):
-        shutil.rmtree(self.fold_results)
+        if self.fold_results is not None:
+            shutil.rmtree(self.fold_results)
 
 
 class Test1DWavePropagation_2D(unittest.TestCase):
@@ -709,7 +710,8 @@ class TestBenchmarkSet(unittest.TestCase):
         assert_dict_almost_equal(res_data, assert_data)
 
     def tearDown(self):
-        shutil.rmtree(self.output_dir)
+        if self.output_dir is not None:
+            shutil.rmtree(self.output_dir)
 
 if __name__ == "__main__":
     unittest.main()
