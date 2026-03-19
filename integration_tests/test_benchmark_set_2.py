@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 import pytest
+from solvers.newmark_solver import NewmarkExplicit
 from scatter.scatter import scatter
 from analytical_solutions import analytical_wave_prop
 
@@ -77,7 +78,7 @@ class TestBenchmarkSet2:
         input_file = f"integration_tests/mesh/column_{n_dim}D_{element_type}.msh"
         output_dir = f"integration_tests/results_{element_type}"
         expected_res_file = f"integration_tests/test_data/column_{n_dim}D_{element_type}.pickle"
-        res = scatter(input_file, output_dir, mat, BC, sett, load, time_step=5e-4)
+        res = scatter(input_file, output_dir, mat, BC, sett, load, time_step=5e-4, solver=NewmarkExplicit())
 
         # get results
         calculated_disp = res.dis[:,0]

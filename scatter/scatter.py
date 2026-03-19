@@ -1,10 +1,8 @@
 import os
-import sys
-from enum import Enum
 import numpy as np
 
-from solvers.base_solver import  State
-from solvers import newmark_solver, static_solver, bathe_solver, central_difference_solver
+from solvers.base_solver import BaseSolverABC, TimeIntegrationType
+from solvers.newmark_solver import NewmarkExplicit
 
 from scatter import mesher
 from scatter import system_matrix
@@ -15,29 +13,8 @@ from scatter import validator
 from scatter.rose_utils import RoseUtils
 
 
-
-class Solver(Enum):
-    """
-    Enum for the solver types.
-    See solvers module for more information.
-
-    Attributes
-    ----------
-    STATIC: Static solver.
-    NEWMARK_EXPLICIT: Newmark explicit solver.
-    NEWMARK_IMPLICIT: Newmark implicit solver.
-    CENTRAL_DIFFERENCE: Central difference solver.
-    BATHE: Bathe solver.
-    """
-    STATIC = "StaticSolver"
-    NEWMARK_EXPLICIT = "NewmarkExplicit"
-    NEWMARK_IMPLICIT = "NewmarkImplicitForce"
-    CENTRAL_DIFFERENCE = "CentralDifferenceSolver"
-    BATHE = "BatheSolver"
-
-
 def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,
-            inp_settings: dict, loading: dict, time_step: float = 0.1, solver: Solver=Solver.NEWMARK_EXPLICIT,
+            inp_settings: dict, loading: dict, time_step: float = 0.1, solver: BaseSolverABC=NewmarkExplicit(),
             random_props: bool = False) -> export_results.Write:
     r"""
     3D finite element code.
@@ -120,19 +97,8 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     time = np.linspace(0, loading["time"], int(np.ceil(loading["time"] / time_step) + 1))
 
     # initialise solver
-    if solver == Solver.NEWMARK_EXPLICIT:
-        numerical = newmark_solver.NewmarkExplicit(state=State(output_interval=inp_settings["output_interval"]))
-    elif solver == Solver.NEWMARK_IMPLICIT:
-        numerical = newmark_solver.NewmarkImplicitForce(state=State(output_interval=inp_settings["output_interval"]))
-    elif solver == Solver.CENTRAL_DIFFERENCE:
-        numerical = central_difference_solver.CentralDifferenceSolver(state=State(output_interval=inp_settings["output_interval"]))
-    elif solver == Solver.BATHE:
-        numerical = bathe_solver.BatheSolver(state=State(output_interval=inp_settings["output_interval"]))
-    elif solver == Solver.STATIC:
-        numerical = static_solver.StaticSolver(state=State(output_interval=inp_settings["output_interval"]))
-    else:
-        sys.exit(f"Error: {solver} not supported")
-
+    numerical = solver
+    numerical.state.output_interval = inp_settings["output_interval"]
     numerical.initialise(model.number_eq, time)
 
     # generate matrix external
@@ -150,10 +116,12 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
 
     print("solver started")
     # start solver
-    if solver == Solver.STATIC:
+    if numerical.type is TimeIntegrationType.DYNAMIC:
+        numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time) - 1)
+    elif numerical.type is TimeIntegrationType.STATIC:
         numerical.calculate(matrix.K, F.force_vector, 0, len(F.time) -1)
     else:
-        numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time) - 1)
+        raise ValueError("Time integration type not supported")
 
     # export results
     results = export_results.Write(outfile_folder, model, materials, numerical)
