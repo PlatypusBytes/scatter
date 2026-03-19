@@ -4,7 +4,11 @@ from pathlib import Path
 import shutil
 import pickle
 import numpy as np
+
 from scatter.scatter import scatter
+from scatter.rose_utils import RoseUtils
+from rose.pre_process.default_trains import TrainType
+from scatter import create_rose
 
 
 dec_places = 5
@@ -22,7 +26,6 @@ def read_pickle(file):
     # read pickle file
     with open(file, "rb") as f:
         data = pickle.load(f)
-
     return data
 
 
@@ -40,8 +43,6 @@ def assert_dict_almost_equal(expected, actual):
                 # if elements are string
                 unittest.TestCase.assertAlmostEqual(expected[key], actual[key])
 
-    return
-
 
 class Test1DWavePropagation_3D(unittest.TestCase):
     def setUp(self):
@@ -57,7 +58,7 @@ class Test1DWavePropagation_3D(unittest.TestCase):
         file = os.path.join(self.root, r"./results_mean_abs/data.pickle")
         self.mean_data_abs = read_pickle(file)
 
-        self.fold_results = []
+        self.fold_results = None
 
     def test_1(self):
         """
@@ -70,6 +71,7 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "damping": [1, 0.001, 30, 0.001],
                 "absorbing_BC": [1, 1],
                 "absorbing_BC_stiff": 1e3,
+                "output_interval": 1,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False,
@@ -117,6 +119,7 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "damping": [1, 0.001, 30, 0.001],
                 "absorbing_BC": [1, 1],
                 "absorbing_BC_stiff": 1e3,
+                "output_interval": 1,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False,
@@ -166,7 +169,6 @@ class Test1DWavePropagation_3D(unittest.TestCase):
 
         assert_dict_almost_equal(data, self.random_data)
 
-        return
 
     def test_3(self):
         """
@@ -179,6 +181,7 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "damping": [1, 0.001, 30, 0.001],
                 "absorbing_BC": [1, 1],
                 "absorbing_BC_stiff": 1e3,
+                "output_interval": 1,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False,
@@ -215,6 +218,7 @@ class Test1DWavePropagation_3D(unittest.TestCase):
 
         assert_dict_almost_equal(data, self.mean_data_abs)
 
+
     def test_4(self):
         # computational settings
         sett = {"gamma": 0.5,
@@ -223,6 +227,7 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "damping": [1, 0.001, 30, 0.001],
                 "absorbing_BC": [1, 1],
                 "absorbing_BC_stiff": 1e3,
+                "output_interval": 1,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False,
@@ -258,7 +263,7 @@ class Test1DWavePropagation_3D(unittest.TestCase):
         data = read_pickle(os.path.join(self.fold_results, "data.pickle"))
 
         assert_dict_almost_equal(data, self.mean_data_high)
-        return
+
 
     def test_vtk(self):
         # computational settings
@@ -268,6 +273,7 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "damping": [1, 0.001, 30, 0.001],
                 "absorbing_BC": [1, 1],
                 "absorbing_BC_stiff": 1e3,
+                "output_interval": 1,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": True,
@@ -315,7 +321,8 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                     self.assertTrue(correct[i], computed[i])
 
     def tearDown(self):
-        shutil.rmtree(self.fold_results)
+        if self.fold_results is not None:
+            shutil.rmtree(self.fold_results)
 
 
 class Test1DWavePropagation_2D(unittest.TestCase):
@@ -341,6 +348,7 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                 "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
+                "output_interval": 1,
                 "VTK": False,
                 "VTK_binary": True}
 
@@ -383,6 +391,7 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                 "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
+                "output_interval": 1,
                 "VTK": False,
                 "VTK_binary": True}
 
@@ -438,6 +447,7 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                 "absorbing_BC_stiff": 1e3,
                 "pickle": True,
                 "pickle_nodes": "all",
+                "output_interval": 1,
                 "VTK": True,
                 "VTK_binary": False}
 
@@ -487,8 +497,8 @@ class Test1DWavePropagation_2D(unittest.TestCase):
 class TestBenchmarkSet(unittest.TestCase):
 
     def setUp(self):
-
         self.root = "integration_tests"
+        self.output_dir = None
 
     def test_moving_load(self):
         """
@@ -502,6 +512,7 @@ class TestBenchmarkSet(unittest.TestCase):
                 "damping": [1, 0.00, 30, 0.00],
                 "absorbing_BC": [1, 1],
                 "absorbing_BC_stiff": 1e3,
+                "output_interval": 1,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": True,
@@ -534,13 +545,13 @@ class TestBenchmarkSet(unittest.TestCase):
 
         # run scatter
         input_file = os.path.join(self.root, r"mesh/cube.msh")
-        output_dir = os.path.join(self.root,"results_mean/cube_res")
-        scatter(input_file, output_dir, mat, BC, sett, load, time_step=0.5e-2)
+        self.output_dir = os.path.join(self.root,"results_mean/cube_res")
+        scatter(input_file, self.output_dir, mat, BC, sett, load, time_step=0.5e-2)
 
         # open results and delete file
-        with open(Path(output_dir, "data.pickle"), "rb") as f:
+        with open(Path(self.output_dir, "data.pickle"), "rb") as f:
             res_data = pickle.load(f)
-        Path(output_dir, "data.pickle").unlink()
+        Path(self.output_dir, "data.pickle").unlink()
 
         # open results to be asserted with
         with open(os.path.join(self.root,"test_data/moving_load_res.pickle"), "rb") as f:
@@ -560,6 +571,7 @@ class TestBenchmarkSet(unittest.TestCase):
                 "damping": [1, 0.00, 30, 0.00],
                 "absorbing_BC": [1, 1],
                 "absorbing_BC_stiff": 1e3,
+                "output_interval": 1,
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False,
@@ -606,13 +618,13 @@ class TestBenchmarkSet(unittest.TestCase):
 
         # run scatter
         input_file = os.path.join(self.root, r"./mesh/cube.msh")
-        output_dir = os.path.join(self.root,"./results_RF/cube_res")
-        scatter(input_file, output_dir, mat, BC, sett, load, time_step=0.5e-2, random_props=RF_props)
+        self.output_dir = os.path.join(self.root,"./results_RF/cube_res")
+        scatter(input_file, self.output_dir, mat, BC, sett, load, time_step=0.5e-2, random_props=RF_props)
 
         # open results and delete file
-        with open(Path(output_dir, "data.pickle"), "rb") as f:
+        with open(Path(self.output_dir, "data.pickle"), "rb") as f:
             res_data = pickle.load(f)
-        Path(output_dir, "data.pickle").unlink()
+        Path(self.output_dir, "data.pickle").unlink()
 
         # open results to be asserted with
         with open(os.path.join(self.root,"test_data/moving_load_plane_res.pickle"), "rb") as f:
@@ -620,6 +632,86 @@ class TestBenchmarkSet(unittest.TestCase):
 
         assert_dict_almost_equal(res_data, assert_data)
 
+    def test_with_rose(self):
+        """
+        Regression test for 3D with ROSE.
+        """
+
+        # computational settings
+        sett = {"gamma": 0.5,
+                "beta": 0.25,
+                "int_order": 2,
+                "damping": [1, 0.005, 80, 0.005],
+                "absorbing_BC": [1, 1],
+                "absorbing_BC_stiff": 1e3,
+                "pickle": True,
+                "pickle_nodes": "all",
+                "VTK": False,
+                "VTK_binary": True,
+                "output_interval": 2}
+
+        # boundary conditions
+        x = 10
+        y_min, y_max = -5, 0.5
+        z = -24
+
+        BC = {"bottom": ["010", [[0, y_min, 0], [x, y_min, 0], [0, y_min, z], [x, y_min, z]]],
+            "left": ["100", [[0, y_min, 0], [0, y_min, z], [0, y_max, 0], [0, y_max, z]]],
+            "right": ["200", [[x, y_min, 0], [x, y_min, z], [x, y_max, 0], [x, y_max, z]]],
+            "front": ["002", [[0, y_min, 0], [x, y_min, 0], [0, y_max, 0], [x, y_max, 0]]],
+            "back": ["002", [[0, y_min, z], [x, y_min, z], [0, y_max, z], [x, y_max, z]]],
+            }
+
+        # material dictionary: rho, E, v
+        mat = {"embankment": {"density": 2000,
+                            "Young": 100e6,
+                            "poisson": 0.2},
+            "soil1": {"density": 1700,
+                        "Young": 40e6,
+                        "poisson": 0.2},
+            "soil2": {"density": 2000,
+                        "Young": 10e6,
+                        "poisson": 0.2},
+            }
+
+        mesh_file = "integration_tests/mesh/rose_small.msh"
+        rose_data = create_rose.create_input_dict(100, 0.01, 0.01,
+                                                15,
+                                                mesh_file,
+                                                TrainType.DOUBLEDEKKER)
+
+        # set time integration,
+        # note that each timestep is equal. This includes the initialisation stage in Rose
+        time_step = 1e-3
+        loading_time = rose_data["time_integration"]["tot_ini_time"] + rose_data["time_integration"]["tot_calc_time"]
+        rose_data["time_integration"]["n_t_ini"] = round(rose_data["time_integration"]["tot_ini_time"] / time_step)
+        rose_data["time_integration"]["n_t_calc"] = round(rose_data["time_integration"]["tot_calc_time"] / time_step)
+
+
+        coupled_model = RoseUtils.assign_data_to_coupled_model(rose_data)
+
+        load = {"model": coupled_model,
+                "type": "rose",
+                "time": loading_time}
+
+        # run scatter
+        self.output_dir = os.path.join(self.root,"./results_rose")
+        scatter(mesh_file, self.output_dir, mat, BC, sett, load, time_step=time_step, random_props=False)
+
+        # open results and delete file
+        with open(Path(self.output_dir, "data.pickle"), "rb") as f:
+            res_data = pickle.load(f)
+        Path(self.output_dir, "data.pickle").unlink()
+
+        # open results to be asserted with
+        with open(os.path.join(self.root,"test_data/rose_data.pickle"), "rb") as f:
+            assert_data = pickle.load(f)
+
+        assert_dict_almost_equal(res_data, assert_data)
+
+    def tearDown(self):
+        if self.output_dir is not None:
+            shutil.rmtree(self.output_dir)
 
 if __name__ == "__main__":
     unittest.main()
