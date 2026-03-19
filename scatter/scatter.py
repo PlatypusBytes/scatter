@@ -148,37 +148,6 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     F.initialise_load(loading, time, model, numerical, top_surface_elements=top_surface_elements)
     numerical.force.update_rhs_at_time_step_func = F.update_load_at_t
 
-
-
-
-
-
-
-
-
-    # # create force
-    # fff = []
-    # for t in range(len(F.time)):
-    #     fff.append(F.update_load_at_t(t))
-    # # save the structure
-    # import pickle
-    # with open("data_aron_100000.pickle", "wb") as f:
-    #     # pickle.dump([matrix.M, matrix.C, matrix.K, np.array(fff).T, model.number_eq, time], f)
-    #     pickle.dump([matrix.M, matrix.C, matrix.K, np.array(fff).T, time], f)
-    # sys.exit("Data saved to data.pickle")
-
-
-
-
-
-
-
-
-
-
-
-
-
     print("solver started")
     # start solver
     if solver == Solver.STATIC:
