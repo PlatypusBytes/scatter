@@ -4,6 +4,7 @@ from pathlib import Path
 import shutil
 import pickle
 import numpy as np
+from solvers.newmark_solver import NewmarkImplicitForce
 
 from scatter.scatter import scatter
 from scatter.rose_utils import RoseUtils
@@ -688,7 +689,7 @@ class TestBenchmarkSet(unittest.TestCase):
         rose_data["time_integration"]["n_t_calc"] = round(rose_data["time_integration"]["tot_calc_time"] / time_step)
 
 
-        coupled_model = RoseUtils.assign_data_to_coupled_model(rose_data)
+        coupled_model = RoseUtils.assign_data_to_coupled_model(rose_data, NewmarkImplicitForce())
 
         load = {"model": coupled_model,
                 "type": "rose",

@@ -1,7 +1,7 @@
+import numpy as np
+from solvers.base_solver import BaseSolverABC
 from rose.model.model_part import Material, Section
 from rose.model.train_track_interaction import *
-from solvers.newmark_solver import NewmarkImplicitForce
-import numpy as np
 
 
 class RoseUtils:
@@ -133,16 +133,17 @@ class RoseUtils:
         )
 
     @staticmethod
-    def assign_data_to_coupled_model(rose_data: dict, seed=14) -> CoupledTrainTrack:
+    def assign_data_to_coupled_model(rose_data: dict, solver: BaseSolverABC, seed=14) -> CoupledTrainTrack:
         """
         assigns rose data from dictionary to rose coupled model
 
         :param rose_data: Dictionary containing rose train_info, track_info, time_int and soil data
+        :param solver: solver to be used for the coupled train track model
         :param seed: seed for irregularities (default = 14)
         :return: Coupled train track model
         """
         # choose solver
-        solver = NewmarkImplicitForce()
+        solver = solver
 
         all_element_model_parts = []
         all_meshes = []
