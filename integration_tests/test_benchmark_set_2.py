@@ -1,6 +1,8 @@
 # this file contains benchmark tests where the analytical/semi-analytical solution is known, however the exact solution
 # is not feasible to obtain numerically. Numerical solutions are visually checked and recursively asserted.
 
+import shutil
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
@@ -94,6 +96,9 @@ class TestBenchmarkSet2:
         np.testing.assert_array_almost_equal(calculated_disp, expected_disp[0::10])
         np.testing.assert_array_almost_equal(calculated_vel, expected_vel[0::10])
 
+        # remove output directory
+        shutil.rmtree(output_dir)
+        
         # compare velocity with analytical solution if CHECK_RESULTS is true
         if CHECK_RESULT:
 

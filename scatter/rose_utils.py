@@ -142,9 +142,7 @@ class RoseUtils:
         :param seed: seed for irregularities (default = 14)
         :return: Coupled train track model
         """
-        # choose solver
-        solver = solver
-
+        
         all_element_model_parts = []
         all_meshes = []
         # loop over number of segments

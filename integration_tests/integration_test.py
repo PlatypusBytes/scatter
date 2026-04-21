@@ -4,7 +4,7 @@ from pathlib import Path
 import shutil
 import pickle
 import numpy as np
-from solvers.newmark_solver import NewmarkImplicitForce
+from solvers.newmark_solver import NewmarkImplicitForce, NewmarkExplicit
 
 from scatter.scatter import scatter
 from scatter.rose_utils import RoseUtils
@@ -697,7 +697,7 @@ class TestBenchmarkSet(unittest.TestCase):
 
         # run scatter
         self.output_dir = os.path.join(self.root,"./results_rose")
-        scatter(mesh_file, self.output_dir, mat, BC, sett, load, time_step=time_step, random_props=False)
+        scatter(mesh_file, self.output_dir, mat, BC, sett, load, time_step=time_step, random_props=False, solver=NewmarkExplicit())
 
         # open results and delete file
         with open(Path(self.output_dir, "data.pickle"), "rb") as f:

@@ -97,9 +97,8 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     time = np.linspace(0, loading["time"], int(np.ceil(loading["time"] / time_step) + 1))
 
     # initialise solver
-    numerical = solver
-    numerical.state.output_interval = inp_settings["output_interval"]
-    numerical.initialise(model.number_eq, time)
+    solver.state.output_interval = inp_settings["output_interval"]
+    solver.initialise(model.number_eq, time)
 
     # generate matrix external
     print("Setting load")
@@ -111,20 +110,20 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     else:
         top_surface_elements = []
 
-    F.initialise_load(loading, time, model, numerical, top_surface_elements=top_surface_elements)
-    numerical.force.update_rhs_at_time_step_func = F.update_load_at_t
+    F.initialise_load(loading, time, model, solver, top_surface_elements=top_surface_elements)
+    solver.force.update_rhs_at_time_step_func = F.update_load_at_t
 
     print("solver started")
     # start solver
-    if numerical.type is TimeIntegrationType.DYNAMIC:
-        numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time) - 1)
-    elif numerical.type is TimeIntegrationType.STATIC:
-        numerical.calculate(matrix.K, F.force_vector, 0, len(F.time) -1)
+    if solver.type is TimeIntegrationType.DYNAMIC:
+        solver.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time) - 1)
+    elif solver.type is TimeIntegrationType.STATIC:
+        solver.calculate(matrix.K, F.force_vector, 0, len(F.time) -1)
     else:
         raise ValueError("Time integration type not supported")
 
     # export results
-    results = export_results.Write(outfile_folder, model, materials, numerical)
+    results = export_results.Write(outfile_folder, model, materials, solver)
     # export results to pickle
     results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
     # export results to VTK
