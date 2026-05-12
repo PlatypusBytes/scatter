@@ -16,7 +16,7 @@ from scatter.rose_utils import RoseUtils
 
 def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,
             inp_settings: dict, loading: dict, time_step: float = 0.1, solver: BaseSolverABC=NewmarkExplicit(),
-            random_props: bool = False, write_gnn: bool = False) -> export_results.Write:
+            random_props: bool = False) -> export_results.Write:
     r"""
     3D finite element code.
                                                             ^  _
@@ -37,7 +37,6 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     :param time_step: time step for the analysis (optional: default 0.1 s)
     :param solver: solver to use for the analysis, see `Solver` enum (optional: default Newmark explicit)
     :param random_props: bool with random fields analysis (optional: default False)
-    :param write_gnn: bool to enable writing GNN files (optional: default False)
     """
 
     # print message
@@ -130,8 +129,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
     # export results to VTK
     results.vtk(write=inp_settings["VTK"], binary=inp_settings["VTK_binary"])
-    if write_gnn:
-        utils.generate_gnn_files(model, matrix, F, numerical, outfile_folder)
+    results.generate_gnn_files(model, matrix, F, write=inp_settings["write_GNN"])
 
     # print end statement
     print("\n\n\n\x1B[3m" + "  Never tell me the odds. " + "\x1B[0m")

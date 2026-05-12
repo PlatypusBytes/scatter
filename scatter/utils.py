@@ -1,8 +1,6 @@
 import os
 from typing import Tuple, Union
 import numpy as np
-import h5py
-from scipy import sparse
 
 
 def calculate_distance(p1: list, p2: list) -> float:
@@ -197,75 +195,3 @@ def are_collinear(coords: np.ndarray) -> bool:
         if new_slope != slope:
             return False
     return True
-
-
-def generate_gnn_files(model: object, matrix: object, F: object, results, output_folder: str):
-    """
-    Generate files for training Graph Neural Networks
-
-
-    Node features:
-    - coordinates
-    - BC
-    - u, v, a (at time t)
-    - Delta force (for time t + 1)
-    - matrix properties (M, C, K) (diagonal terms)
-    - force (x, y, z)
-
-    Edge features:
-    - distance
-    - matrix properties (M, C, K) (non-diagonal terms)
-
-    Target:
-    - Delta u (at time t + 1)
-
-    Graph feature:
-    - time
-    - time-step
-
-    Parameters
-    ----------
-    :param model: model object
-    :param materials: dictionary with material properties
-    :param matrix: matrix object
-    :param inp_settings: dictionary with numerical settings
-    :param loading: dictionary with loading conditions
-    :param output_folder: location of the output folder
-    """
-
-    # ToDo: only works for hexa8 elements
-    if model.element_type != "hexa8":
-        raise ValueError("Only hexa8 elements currently supported")
-
-    os.makedirs(output_folder, exist_ok=True)
-    output_file = os.path.join(output_folder, "data.hdf5")
-
-    with h5py.File(output_file, "w") as f:
-        mesh_group = f.create_group("mesh")
-
-        mesh_group.create_dataset("nodes_id", data=model.nodes[:, 0], dtype='i', compression="gzip")
-        mesh_group.create_dataset("coordinates", data=model.nodes[:, 1:], dtype='f', compression="gzip")
-        mesh_group.create_dataset("BC", data=model.BC, dtype='f', compression="gzip")
-        mesh_group.create_dataset("eq_nb_dof", data=model.eq_nb_dof, dtype='f', compression="gzip")
-
-        mat_group = f.create_group("matrices")
-
-        for name, mat in [("stiffness", matrix.K), ("mass", matrix.M), ("damping", matrix.C)]:
-            grp = mat_group.create_group(name)
-            mat = sparse.csr_matrix(mat)
-            grp.create_dataset("data", data=mat.data, compression="gzip")
-            grp.create_dataset("indices", data=mat.indices, compression="gzip")
-            grp.create_dataset("indptr", data=mat.indptr, compression="gzip")
-            grp.attrs["shape"] = mat.shape
-
-        time_group = f.create_group("time_results")
-        time_group.create_dataset("time", data=results.time, compression="gzip")
-        time_group.create_dataset("displacement", data=results.u, compression="gzip")
-        time_group.create_dataset("velocity", data=results.v, compression="gzip")
-        time_group.create_dataset("acceleration", data=results.a, compression="gzip")
-
-        force_group = f.create_group("force_results")
-        force = []
-        for ti, _ in enumerate(results.time):
-            force.append(F.update_load_at_t(ti))
-        force_group.create_dataset("force", data=force, compression="gzip")

@@ -1,7 +1,10 @@
 from pathlib import Path
 import numpy as np
 import create_geo_file
-from scatter.scatter import scatter, Solver
+from scatter.scatter import scatter
+from solvers.newmark_solver import NewmarkExplicitGPU
+from solvers.preconditioners import JacobiPreconditionerGPU
+from solvers.linear_equations_solvers import CGSolverGPU
 
 
 if __name__ == "__main__":
@@ -17,10 +20,11 @@ if __name__ == "__main__":
             "VTK": False,
             "VTK_binary": True,
             "output_interval": 1,
+            "write_GNN": True,
             }
 
 
-    for i in range(500):
+    for i in range(50):
         np.random.seed(i)
         element_size = np.round(np.random.uniform(0.2, 1), 2)
         model_size = int(np.random.uniform(5, 20))
@@ -67,4 +71,5 @@ if __name__ == "__main__":
 
         # run scatter
         scatter(Path(f"GNN/run_{i}") / "brick.msh", Path(f"GNN/run_{i}"), mat, BC, sett, load, time_step=5e-4,
-                solver=Solver.NEWMARK_EXPLICIT, random_props=RF_props, write_gnn=True)
+                solver=NewmarkExplicitGPU(linear_solver=CGSolverGPU(),
+                                        preconditioner=JacobiPreconditionerGPU()), random_props=RF_props)
