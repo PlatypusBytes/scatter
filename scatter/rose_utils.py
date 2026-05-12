@@ -212,7 +212,7 @@ class RoseUtils:
         train = rose_data["traffic_data"]["model"]
         train.time = time
         train.velocities = velocities
-        train.use_irregularities = irregularities
+        train.use_irregularities = True
         train.irregularity_parameters = {"Av": 0.00002095,
                                          "seed": seed}
 
