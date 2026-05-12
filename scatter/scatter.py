@@ -1,7 +1,8 @@
 import os
-import sys
-from enum import Enum
 import numpy as np
+
+from solvers.base_solver import BaseSolverABC, TimeIntegrationType
+from solvers.newmark_solver import NewmarkExplicit
 
 from scatter import mesher
 from scatter import system_matrix
@@ -11,31 +12,10 @@ from scatter import export_results
 from scatter import utils
 from scatter import validator
 from scatter.rose_utils import RoseUtils
-from solvers import newmark_solver, static_solver, bathe_solver, central_difference_solver
-
-
-class Solver(Enum):
-    """
-    Enum for the solver types.
-    See solvers module for more information.
-
-    Attributes
-    ----------
-    STATIC: Static solver.
-    NEWMARK_EXPLICIT: Newmark explicit solver.
-    NEWMARK_IMPLICIT: Newmark implicit solver.
-    CENTRAL_DIFFERENCE: Central difference solver.
-    BATHE: Bathe solver.
-    """
-    STATIC = "StaticSolver"
-    NEWMARK_EXPLICIT = "NewmarkExplicit"
-    NEWMARK_IMPLICIT = "NewmarkImplicitForce"
-    CENTRAL_DIFFERENCE = "CentralDifferenceSolver"
-    BATHE = "BatheSolver"
 
 
 def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: dict,
-            inp_settings: dict, loading: dict, time_step: float = 0.1, solver: Solver=Solver.NEWMARK_EXPLICIT,
+            inp_settings: dict, loading: dict, time_step: float = 0.1, solver: BaseSolverABC=NewmarkExplicit(),
             random_props: bool = False, write_gnn: bool = False) -> export_results.Write:
     r"""
     3D finite element code.
@@ -119,25 +99,8 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     time = np.linspace(0, loading["time"], int(np.ceil(loading["time"] / time_step) + 1))
 
     # initialise solver
-    if solver == Solver.NEWMARK_EXPLICIT:
-        numerical = newmark_solver.NewmarkExplicit()
-    elif solver == Solver.NEWMARK_IMPLICIT:
-        numerical = newmark_solver.NewmarkImplicitForce()
-    elif solver == Solver.CENTRAL_DIFFERENCE:
-        numerical = central_difference_solver.CentralDifferenceSolver()
-    elif solver == Solver.BATHE:
-        numerical = bathe_solver.BatheSolver()
-    elif solver == Solver.STATIC:
-        numerical = static_solver.StaticSolver()
-    else:
-        sys.exit(f"Error: {solver} not supported")
-
-    if "output_interval" in inp_settings.keys():
-        output_interval = inp_settings["output_interval"]
-    else:
-        output_interval = 1
-    numerical.state.output_interval = output_interval
-    numerical.initialise(model.number_eq, time)
+    solver.state.output_interval = inp_settings["output_interval"]
+    solver.initialise(model.number_eq, time)
 
     # generate matrix external
     print("Setting load")
@@ -148,23 +111,25 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
         top_surface_elements = model.get_top_surface()
     else:
         top_surface_elements = []
-    F.initialise_load(loading, time, model, numerical, top_surface_elements=top_surface_elements)
-    numerical.force.update_rhs_at_time_step_func = F.update_load_at_t
+
+    F.initialise_load(loading, time, model, solver, top_surface_elements=top_surface_elements)
+    solver.force.update_rhs_at_time_step_func = F.update_load_at_t
 
     print("solver started")
     # start solver
-    if solver == Solver.STATIC:
-        numerical.calculate(matrix.K, F.force_vector, 0, len(F.time) -1)
+    if solver.type is TimeIntegrationType.DYNAMIC:
+        solver.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time) - 1)
+    elif solver.type is TimeIntegrationType.STATIC:
+        solver.calculate(matrix.K, F.force_vector, 0, len(F.time) -1)
     else:
-        numerical.state.update_initial_conditions(0)
-        numerical.calculate(matrix.M, matrix.C, matrix.K, F.force_vector, 0, len(F.time) - 1)
+        raise ValueError("Time integration type not supported")
 
     # export results
-    results = export_results.Write(outfile_folder, model, materials, numerical)
+    results = export_results.Write(outfile_folder, model, materials, solver)
     # export results to pickle
     results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
     # export results to VTK
-    results.vtk(write=inp_settings["VTK"], binary=inp_settings["VTK_binary"], output_interval=output_interval)
+    results.vtk(write=inp_settings["VTK"], binary=inp_settings["VTK_binary"])
     if write_gnn:
         utils.generate_gnn_files(model, matrix, F, numerical, outfile_folder)
 

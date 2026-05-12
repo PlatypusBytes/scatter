@@ -2,6 +2,7 @@ from scatter.scatter import scatter
 from scatter.rose_utils import RoseUtils
 from rose.pre_process.default_trains import TrainType
 from scatter import create_rose
+from solvers.newmark_solver import NewmarkImplicitForce
 
 
 if __name__ == "__main__":
@@ -42,9 +43,10 @@ if __name__ == "__main__":
                      "poisson": 0.2},
            }
 
+    mesh_file = r"./mesh/embankment_rose.msh",
     rose_data = create_rose.create_input_dict(100, 0.01, 1.2,
                                               15,
-                                              r"./mesh/embankment_rose.msh",
+                                              mesh_file,
                                               TrainType.DOUBLEDEKKER)
 
     # set time integration,
@@ -54,7 +56,7 @@ if __name__ == "__main__":
     rose_data["time_integration"]["n_t_ini"] = round(rose_data["time_integration"]["tot_ini_time"] / time_step)
     rose_data["time_integration"]["n_t_calc"] = round(rose_data["time_integration"]["tot_calc_time"] / time_step)
 
-    coupled_model = RoseUtils.assign_data_to_coupled_model(rose_data)
+    coupled_model = RoseUtils.assign_data_to_coupled_model(rose_data, NewmarkImplicitForce())
 
     load = {"model": coupled_model,
             "type": "rose",
@@ -74,4 +76,5 @@ if __name__ == "__main__":
                 }
 
     # run scatter
-    scatter(r"./mesh/embankment_rose.msh", "./results_rose_embankment_3d_rf3", mat, BC, sett, load, time_step=time_step, random_props=False)
+    scatter(mesh_file, "./results_rose_embankment_3d_rf3", mat, BC, sett, load, time_step=time_step,
+            random_props=False, solver=NewmarkImplicitForce())

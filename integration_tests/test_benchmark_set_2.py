@@ -1,10 +1,13 @@
 # this file contains benchmark tests where the analytical/semi-analytical solution is known, however the exact solution
 # is not feasible to obtain numerically. Numerical solutions are visually checked and recursively asserted.
 
+import shutil
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 import pytest
+from solvers.newmark_solver import NewmarkExplicit
 from scatter.scatter import scatter
 from analytical_solutions import analytical_wave_prop
 
@@ -77,7 +80,7 @@ class TestBenchmarkSet2:
         input_file = f"integration_tests/mesh/column_{n_dim}D_{element_type}.msh"
         output_dir = f"integration_tests/results_{element_type}"
         expected_res_file = f"integration_tests/test_data/column_{n_dim}D_{element_type}.pickle"
-        res = scatter(input_file, output_dir, mat, BC, sett, load, time_step=5e-4)
+        res = scatter(input_file, output_dir, mat, BC, sett, load, time_step=5e-4, solver=NewmarkExplicit())
 
         # get results
         calculated_disp = res.dis[:,0]
@@ -93,6 +96,9 @@ class TestBenchmarkSet2:
         np.testing.assert_array_almost_equal(calculated_disp, expected_disp[0::10])
         np.testing.assert_array_almost_equal(calculated_vel, expected_vel[0::10])
 
+        # remove output directory
+        shutil.rmtree(output_dir)
+        
         # compare velocity with analytical solution if CHECK_RESULTS is true
         if CHECK_RESULT:
 

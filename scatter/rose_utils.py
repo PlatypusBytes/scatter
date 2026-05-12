@@ -1,7 +1,7 @@
+import numpy as np
+from solvers.base_solver import BaseSolverABC
 from rose.model.model_part import Material, Section
 from rose.model.train_track_interaction import *
-from solvers.newmark_solver import NewmarkImplicitForce
-import numpy as np
 
 
 class RoseUtils:
@@ -33,7 +33,7 @@ class RoseUtils:
         RoseUtils.recalculate_ndof(scatter_model, rose_model)
 
         # reinitialise solver with correct ndof
-        solver.initialise(scatter_model.number_eq, solver.time)
+        solver.initialise(scatter_model.number_eq, solver.state.time)
 
         # calculate initial displacement of the track system
         rose_model.calculate_initial_displacement_track()
@@ -45,9 +45,9 @@ class RoseUtils:
         # calculate initial Hertzian contact deformation
         rose_model.calculate_static_contact_deformation()
 
-        # self.solver.update_rhs_at_time_step_func = self.update_time_step_rhs
-        solver.update_rhs_at_non_linear_iteration_func = rose_model.update_non_linear_iteration
-        # solver.load_func = rose_model.update_non_linear_iteration
+        # self.solver.force.update_rhs_at_time_step_func = self.update_time_step_rhs
+        solver.force.update_rhs_at_non_linear_iteration_func = rose_model.update_non_linear_iteration
+        # solver.force.load_func = rose_model.update_non_linear_iteration
 
         # add track displacement and velocity to global system
         solver.u[0, :rose_model.track.total_n_dof] = rose_model.track.solver.u[0, :]
@@ -133,16 +133,15 @@ class RoseUtils:
         )
 
     @staticmethod
-    def assign_data_to_coupled_model(rose_data: dict, seed=14, irregularities=True) -> CoupledTrainTrack:
+    def assign_data_to_coupled_model(rose_data: dict, solver: BaseSolverABC, seed=14) -> CoupledTrainTrack:
         """
         assigns rose data from dictionary to rose coupled model
 
         :param rose_data: Dictionary containing rose train_info, track_info, time_int and soil data
+        :param solver: solver to be used for the coupled train track model
         :param seed: seed for irregularities (default = 14)
         :return: Coupled train track model
         """
-        # choose solver
-        solver = NewmarkImplicitForce()
 
         all_element_model_parts = []
         all_meshes = []

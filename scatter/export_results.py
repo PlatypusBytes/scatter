@@ -50,6 +50,7 @@ class Write:
         self.coordinates = model.nodes[:, 1:]
         self.elements = model.elem[:, self.idx_vtk] - 1
         self.time = numerical.state.output_time
+        self.time_idx = numerical.state.output_time_indices
         self.dis = numerical.state.u
         self.vel = numerical.state.v
         self.acc = numerical.state.a
@@ -63,7 +64,7 @@ class Write:
 
         # parse the data
         self.parse_data()
-        return
+
 
     def parse_data(self) -> None:
         """
@@ -100,7 +101,7 @@ class Write:
                 self.data["displacement"][str(int(self.nodes[i]))][label_xyz[idx]] = u
                 self.data["velocity"][str(int(self.nodes[i]))][label_xyz[idx]] = v
                 self.data["acceleration"][str(int(self.nodes[i]))][label_xyz[idx]] = a
-        return
+
 
     def pickle(self, name="data", write=True, nodes="all") -> None:
         """
@@ -138,17 +139,15 @@ class Write:
             # dump data
             with open(os.path.join(self.output_folder, f"{name}.pickle"), "wb") as f:
                 pickle.dump(self.data, f)
-        return
 
-    def vtk(self, name="data", binary=True, write=True, output_interval=1) -> None:
+
+    def vtk(self, name="data", binary=True, write=True) -> None:
         """
-        Writes VTK file
+        Writes VTK file at the pre-difined output interval
 
         :param name: (optional, default data) basename of the VTK file
         :param write: (optional, default True) checks if file needs to be written
         :param binary: (optional, default True) writes VTK in binary format
-        :param output_interval: (optional, default 1) interval in timesteps which are written to vtk
-
         """
         if not write:
             return
@@ -179,9 +178,9 @@ class Write:
             bc = self.bc
 
         # for each output time writes a VTK file
-        for output_t in range(int(len(self.time)/output_interval)):
+        for t, output_t in enumerate(self.time_idx):
             # calculate actual time step
-            t = int(output_t*output_interval)
+            # t = int(output_t*output_interval)
 
             # define displacement and velocity
             displacement = np.zeros((nb_nodes, 3))
@@ -210,4 +209,3 @@ class Write:
             for j, m in enumerate(list_props):
                 vtk.add_scalar(f"material_prop_{m}", material_prop[:, j], header=False)
             vtk.save()
-        return
