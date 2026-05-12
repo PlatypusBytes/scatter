@@ -43,9 +43,10 @@ if __name__ == "__main__":
                      "poisson": 0.2},
            }
 
+    mesh_file = r"./mesh/embankment_rose.msh",
     rose_data = create_rose.create_input_dict(100, 0.01, 1.2,
                                               15,
-                                              r"./mesh/embankment_rose.msh",
+                                              mesh_file,
                                               TrainType.DOUBLEDEKKER)
 
     # set time integration,
@@ -75,5 +76,5 @@ if __name__ == "__main__":
                 }
 
     # run scatter
-    scatter(r"./mesh/embankment_rose.msh", "./results_rose_embankment_3d_rf3", mat, BC, sett, load, time_step=time_step,
+    scatter(mesh_file, "./results_rose_embankment_3d_rf3", mat, BC, sett, load, time_step=time_step,
             random_props=False, solver=NewmarkImplicitForce())
