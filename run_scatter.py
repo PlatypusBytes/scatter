@@ -16,6 +16,7 @@ if __name__ == "__main__":
             "pickle_nodes": ["28"],
             "VTK": False,
             "VTK_binary": True,
+            "write_GNN": True,
             }
 
     x = 1
@@ -54,9 +55,9 @@ if __name__ == "__main__":
                 }
 
     # run scatter
-    scatter(r"./mesh/column.msh", "./results_abs_newmark", mat, BC, sett, load, time_step=0.05e-4,
+    scatter(r"./mesh/column.msh", "./results_abs_newmark_explicit", mat, BC, sett, load, time_step=0.05e-4,
             solver=NewmarkExplicit(linear_solver=SparseDirectSolverLU(),
                                    preconditioner=None))
-    scatter(r"./mesh/column.msh", "./results_abs_bathe", mat, BC, sett, load, time_step=0.05e-4,
-            solver=NewmarkImplicitForce(linear_solver=CGSolver(),
-                                        preconditioner=JacobiPreconditioner()))
+    scatter(r"./mesh/column.msh", "./results_abs_newmark_implicit", mat, BC, sett, load, time_step=0.05e-4,
+            solver=NewmarkImplicitForce(linear_solver=SparseDirectSolverLU(),
+                                        preconditioner=None))

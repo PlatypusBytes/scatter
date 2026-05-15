@@ -2,9 +2,9 @@ from pathlib import Path
 import numpy as np
 import create_geo_file
 from scatter.scatter import scatter
-from solvers.newmark_solver import NewmarkExplicitGPU
-from solvers.preconditioners import JacobiPreconditionerGPU
-from solvers.linear_equations_solvers import CGSolverGPU
+from solvers.newmark_solver import NewmarkExplicit
+from solvers.preconditioners import JacobiPreconditioner
+from solvers.linear_equations_solvers import CGSolver
 
 
 if __name__ == "__main__":
@@ -30,6 +30,7 @@ if __name__ == "__main__":
         model_size = int(np.random.uniform(5, 20))
         model_depth = int(np.random.uniform(5, 20))
         aniso_z = int(np.random.uniform(1, 10))
+        theta = np.random.uniform(1, 10)
 
         x = model_size
         y = model_depth
@@ -42,7 +43,7 @@ if __name__ == "__main__":
             "back": ["002", [[0, 0, z], [x, 0, z], [0, y, z], [x, y, z]]],
             }
 
-        create_geo_file.main(x, y, z, element_size, Path(f"GNN/run_{i}"), name=f"brick")
+        create_geo_file.main(x, y, z, element_size, Path(f"./GNN/run_{i}"), name=f"brick")
 
         # material dictionary: rho, E, v
         mat = {"solid": {"density": 1500,
@@ -59,7 +60,7 @@ if __name__ == "__main__":
         # Random field properties
         RF_props = {"number_realisations": 1,
                     "element_size": element_size,
-                    "theta": 2,
+                    "theta": theta,
                     "seed_number": i,
                     "material": "solid",
                     "key_material": "Young",
@@ -70,6 +71,6 @@ if __name__ == "__main__":
                     }
 
         # run scatter
-        scatter(Path(f"GNN/run_{i}") / "brick.msh", Path(f"GNN/run_{i}"), mat, BC, sett, load, time_step=5e-4,
-                solver=NewmarkExplicitGPU(linear_solver=CGSolverGPU(),
-                                        preconditioner=JacobiPreconditionerGPU()), random_props=RF_props)
+        scatter(Path(f"./GNN/run_{i}") / "brick.msh", Path(f"GNN/run_{i}"), mat, BC, sett, load, time_step=5e-4,
+                solver=NewmarkExplicit(linear_solver=CGSolver(),
+                                        preconditioner=JacobiPreconditioner()), random_props=RF_props)
