@@ -214,7 +214,7 @@ class Write:
 
 
 
-    def generate_gnn_files(self,  model: object, matrix: object, F: object, write: bool):
+    def generate_gnn_files_(self,  model: object, matrix: object, F: object, write: bool):
         """
         Generate files for training Graph Neural Networks
 
@@ -263,6 +263,7 @@ class Write:
             mesh_group.create_dataset("coordinates", data=model.nodes[:, 1:], dtype='f', compression="gzip")
             mesh_group.create_dataset("BC", data=model.BC, dtype='f', compression="gzip")
             mesh_group.create_dataset("eq_nb_dof", data=model.eq_nb_dof, dtype='f', compression="gzip")
+            mesh_group.create_dataset("elements", data=model.elem[:, self.idx_vtk] - 1, dtype="i", compression="gzip")
 
             mat_group = f.create_group("matrices")
 
@@ -285,3 +286,250 @@ class Write:
             for ti, _ in enumerate(self.time):
                 force.append(F.update_load_at_t(ti))
             force_group.create_dataset("force", data=force, compression="gzip")
+
+
+    def generate_gnn_files(self, model: object, matrix: object, F: object, write: bool = True) -> None:
+        """
+        Generate a compact HDF5 dataset for GNN-based structural dynamics.
+
+        The GNN learns the temporal evolution operator:
+
+            state_t -> state_(t+1)
+
+        Therefore we separate:
+
+        STATIC INFORMATION
+        ------------------
+        - mesh geometry
+        - topology
+        - boundary conditions
+        - material properties
+
+        DYNAMIC INFORMATION
+        -------------------
+        - displacement
+        - velocity
+        - acceleration
+        - external force
+
+        Graph Representation
+        --------------------
+        Nodes:
+            coordinates
+            BC
+            dynamic state
+
+        Edges:
+            relative geometry
+            material properties
+
+        Targets:
+            acceleration_(t+1)
+            OR delta_u_(t+1)
+
+        Notes
+        -----
+        - One HDF5 file per simulation
+        - One timestep corresponds to one training sample
+        - Compatible with PyTorch Geometric
+        """
+
+        if not write:
+            return
+
+        # ToDo: only works for hexa8 elements
+        if model.element_type != "hexa8":
+            raise ValueError("Only hexa8 elements currently supported")
+
+
+        os.makedirs(self.output_folder, exist_ok=True)
+        output_file = os.path.join(self.output_folder, "data.hdf5")
+
+        # edge connectivity
+        # element connectivity (0-based indexing)
+        elements = model.elem[:, self.idx_vtk] - 1
+
+        edge_set = set()
+        edge_material_ids = []
+
+        # maps edge -> material id
+        edge_to_material = {}
+
+        for elem_idx, elem_nodes in enumerate(elements):
+
+            elem_nodes = [int(n) for n in elem_nodes]
+
+            # material index for this element
+            mat_id = int(model.materials_index[elem_idx])
+
+            # fully connected element graph
+            for i in range(len(elem_nodes)):
+                for j in range(i + 1, len(elem_nodes)):
+
+                    n1 = elem_nodes[i]
+                    n2 = elem_nodes[j]
+
+                    edge_set.add((n1, n2))
+                    edge_set.add((n2, n1))
+
+                    edge_to_material[(n1, n2)] = mat_id
+                    edge_to_material[(n2, n1)] = mat_id
+
+        edge_index = np.array(list(edge_set), dtype=np.int64)
+
+        # edge geometric features
+        coordinates = model.nodes[:, 1:]
+
+        src = edge_index[:, 0]
+        dst = edge_index[:, 1]
+
+        rel_pos = coordinates[dst] - coordinates[src]
+
+        distance = np.linalg.norm(rel_pos, axis=1, keepdims=True)
+
+        # edge material features
+        edge_E = []
+        edge_rho = []
+        edge_nu = []
+        edge_damping = []
+
+        for edge in edge_index:
+
+            edge_tuple = (int(edge[0]), int(edge[1]))
+
+            mat_idx = edge_to_material[edge_tuple]
+
+            material_name = [m[2] for m in model.materials if m[1]==mat_idx][0]
+            E = self.materials[material_name]["Young"]
+            rho = self.materials[material_name]["density"]
+            nu = self.materials[material_name]["poisson"]
+            # damping = self.materials[material_name]["damping"]
+
+            edge_E.append(E)
+            edge_rho.append(rho)
+            edge_nu.append(nu)
+            # edge_damping.append(damping)
+
+        edge_E = np.asarray(edge_E).reshape(-1, 1)
+        edge_rho = np.asarray(edge_rho).reshape(-1, 1)
+        edge_nu = np.asarray(edge_nu).reshape(-1, 1)
+        # edge_damping = np.asarray(edge_damping).reshape(-1, 1)
+
+        edge_attr = np.concatenate(
+            [
+                rel_pos,
+                distance,
+                edge_E,
+                edge_rho,
+                edge_nu,
+                # edge_damping,
+            ],
+            axis=1,
+        )
+
+        # force history
+        force_history = []
+        for ti in range(len(self.time)):
+            force_history.append(F.update_load_at_t(ti))
+        force_history = np.asarray(force_history)
+
+        # store data in HDF5 format
+        with h5py.File(output_file, "w") as f:
+
+            # graph information
+            graph_group = f.create_group("graph")
+
+            graph_group.create_dataset(
+                "edge_index",
+                data=edge_index,
+                dtype="i",
+                compression="gzip",
+            )
+
+            graph_group.create_dataset(
+                "edge_attr",
+                data=edge_attr,
+                dtype="f",
+                compression="gzip",
+            )
+
+            # mesh
+            mesh_group = f.create_group("mesh")
+            mesh_group.create_dataset(
+                "node_ids",
+                data=model.nodes[:, 0],
+                dtype="i",
+                compression="gzip",
+            )
+
+            mesh_group.create_dataset(
+                "coordinates",
+                data=coordinates,
+                dtype="f",
+                compression="gzip",
+            )
+
+            mesh_group.create_dataset(
+                "elements",
+                data=elements,
+                dtype="i",
+                compression="gzip",
+            )
+
+            mesh_group.create_dataset(
+                "boundary_conditions",
+                data=model.BC,
+                dtype="f",
+                compression="gzip",
+            )
+
+            mesh_group.create_dataset(
+                "eq_nb_dof",
+                data=model.eq_nb_dof,
+                dtype="f",
+                compression="gzip",
+            )
+
+            # time series
+            time_group = f.create_group("time")
+
+            time_group.create_dataset(
+                "time",
+                data=self.time,
+                compression="gzip",
+            )
+
+            dt = np.diff(self.time)
+
+            time_group.create_dataset(
+                "dt",
+                data=dt,
+                compression="gzip",
+            )
+
+            # dynamic state
+            state_group = f.create_group("dynamic")
+
+            state_group.create_dataset(
+                "displacement",
+                data=self.dis,
+                compression="gzip",
+            )
+
+            state_group.create_dataset(
+                "velocity",
+                data=self.vel,
+                compression="gzip",
+            )
+
+            state_group.create_dataset(
+                "acceleration",
+                data=self.acc,
+                compression="gzip",
+            )
+
+            state_group.create_dataset(
+                "force",
+                data=force_history,
+                compression="gzip",
+            )

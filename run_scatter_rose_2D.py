@@ -1,4 +1,6 @@
-from solvers.newmark_solver import NewmarkImplicitForce
+from solvers.newmark_solver import NewmarkImplicitForceGPU
+from solvers.preconditioners import JacobiPreconditionerGPU
+from solvers.linear_equations_solvers import CGSolverGPU
 
 from scatter.scatter import scatter
 from scatter.rose_utils import RoseUtils
@@ -55,7 +57,8 @@ if __name__ == "__main__":
     rose_data["time_integration"]["n_t_ini"] = round(rose_data["time_integration"]["tot_ini_time"] / time_step)
     rose_data["time_integration"]["n_t_calc"] = round(rose_data["time_integration"]["tot_calc_time"] / time_step)
 
-    coupled_model = RoseUtils.assign_data_to_coupled_model(rose_data, solver=NewmarkImplicitForce())
+    coupled_model = RoseUtils.assign_data_to_coupled_model(rose_data, solver=NewmarkImplicitForceGPU(linear_solver=CGSolverGPU(),
+                                                                   preconditioner=JacobiPreconditionerGPU()))
 
     load = {"model": coupled_model,
             "type": "rose",
@@ -76,4 +79,6 @@ if __name__ == "__main__":
 
     # run scatter
     scatter(r"./mesh/rose_2D_side.msh", "./results_rose_2D_side", mat, BC, sett, load, time_step=time_step,
-            random_props=RF_props, solver=NewmarkImplicitForce())
+            random_props=RF_props, solver=NewmarkImplicitForceGPU(linear_solver=CGSolverGPU(),
+                                                                   preconditioner=JacobiPreconditionerGPU()))
+
