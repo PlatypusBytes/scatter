@@ -142,7 +142,7 @@ class RoseUtils:
         :param seed: seed for irregularities (default = 14)
         :return: Coupled train track model
         """
-        
+
         all_element_model_parts = []
         all_meshes = []
         # loop over number of segments
@@ -158,7 +158,7 @@ class RoseUtils:
 
         # Setup global mesh and combine model parts of all segments
         rail_model_part, sleeper_model_part, rail_pad_model_part, _, all_mesh = \
-            combine_horizontal_tracks(all_element_model_parts, all_meshes, 0.6)
+            combine_horizontal_tracks(all_element_model_parts, all_meshes)
 
         # set initialisation time
         initialisation_time = np.linspace(0, rose_data["time_integration"]["tot_ini_time"], rose_data["time_integration"]["n_t_ini"]+1)
