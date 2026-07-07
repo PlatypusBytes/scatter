@@ -50,6 +50,13 @@ class ReadMesh:
         self.nb_nodes_lower_elem = []  # number of nodes for element type for the absorbing boundary conditions
         self.materials_index = []  # list containing material index for each element
         self.dimension = 3  # Dimension of the problem
+
+        # Biot (u-w) formulation: additional fluid (w) degrees of freedom
+        self.number_eq_u = []  # number of solid (u) equations (block partitioning)
+        self.number_eq_w = 0  # number of fluid (w) equations (block partitioning)
+        self.eq_nb_dof_w = []  # equation number for each fluid (w) dof in the node list
+        self.eq_nb_elem_w = []  # equation number for the fluid (w) dof's per element
+        self.is_biot_node = []  # boolean per node: True if it belongs to a Biot element
         return
 
     def read_gmsh(self) -> None:
@@ -307,6 +314,8 @@ class ReadMesh:
                     sys.exit("Error in the boundary condition definition. \n"
                              f"{self.BC[i][j]} is not a valid boundary condition.")
         self.number_eq = equation_nb
+        # by default (dry / single phase) all equations are solid (u) equations
+        self.number_eq_u = equation_nb
         return
 
     def connectivities(self) -> None:
@@ -323,6 +332,77 @@ class ReadMesh:
             idx_nodes = [np.where(self.nodes[:, 0] == j)[0][0] for j in self.elem[i]]
             self.eq_nb_elem[i, :] = self.eq_nb_dof[idx_nodes].flatten()
             self.type_BC_elem[i, :] = self.type_BC[idx_nodes].flatten()
+        return
+
+    def add_biot_dofs(self, materials: dict) -> None:
+        r"""
+        Add the fluid (w) degrees of freedom for the Biot (u-w) formulation.
+
+        The global matrices are block partitioned: all solid (u) equations are
+        numbered first (``0 .. number_eq_u - 1``), followed by all fluid (w)
+        equations (``number_eq_u .. number_eq - 1``). Fluid equations are only
+        created for nodes that belong to at least one element with a material
+        using ``"formulation": "biot"``.
+
+        The fluid Dirichlet conditions mirror the solid ones: where a solid dof
+        is fixed (rigid, impervious wall) the corresponding fluid dof is fixed as
+        well (no normal fluid flux); where the solid dof is free or absorbing the
+        fluid dof is free (a free/drained surface is a natural boundary).
+
+        For a model without any Biot material this method is a no-op and the
+        behaviour is identical to the single-phase (dry) case.
+
+        Parameters
+        ----------
+        :param materials: dictionary with material properties
+        """
+
+        # map material index (as string) to material name
+        dict_materials = dict(np.array(self.materials)[:, 1:])
+
+        # determine which materials use the Biot formulation
+        biot_material_names = {name for name, props in materials.items()
+                               if str(props.get("formulation", "dry")).lower() == "biot"}
+
+        # initialise fluid dof bookkeeping (no fluid dofs by default)
+        self.is_biot_node = np.zeros(len(self.nodes), dtype=bool)
+        self.eq_nb_dof_w = np.full((len(self.nodes), self.dimension), np.nan)
+        self.eq_nb_elem_w = np.full((self.elem.shape[0], self.nb_nodes_elem * self.dimension), np.nan)
+        self.number_eq_w = 0
+        self.number_eq_u = self.number_eq
+
+        # nothing to do without a Biot material
+        if not biot_material_names:
+            return
+
+        # flag every node that belongs to a Biot element
+        for idx in range(self.elem.shape[0]):
+            name_material = dict_materials[str(self.materials_index[idx])]
+            if name_material in biot_material_names:
+                idx_nodes = [np.where(self.nodes[:, 0] == j)[0][0] for j in self.elem[idx]]
+                self.is_biot_node[idx_nodes] = True
+
+        # number the fluid (w) equations, appended after all solid (u) equations
+        equation_nb = self.number_eq
+        for i in range(len(self.nodes)):
+            if not self.is_biot_node[i]:
+                continue
+            for j in range(self.dimension):
+                # mirror the solid Dirichlet condition: fixed solid dof -> impervious fluid dof
+                if self.BC[i][j] == 1:
+                    self.eq_nb_dof_w[i, j] = np.nan
+                else:
+                    self.eq_nb_dof_w[i, j] = equation_nb
+                    equation_nb += 1
+
+        # total number of fluid equations and updated total equation count
+        self.number_eq_w = equation_nb - self.number_eq
+        self.number_eq = equation_nb
+
+        # build the fluid connectivity (equation number for the w dof's per element)
+        for i in range(self.elem.shape[0]):
+            idx_nodes = [np.where(self.nodes[:, 0] == j)[0][0] for j in self.elem[i]]
+            self.eq_nb_elem_w[i, :] = self.eq_nb_dof_w[idx_nodes].flatten()
         return
 
     def get_mesh_edges(self):

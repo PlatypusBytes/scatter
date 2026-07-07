@@ -21,7 +21,7 @@ if __name__ == "__main__":
     x = 1
     y = 10
     z = -1
-    BC = {"bottom": ["020", [[0, 0, 0], [x, 0, 0], [0, 0, z], [x, 0, z]]],
+    BC = {"bottom": ["010", [[0, 0, 0], [x, 0, 0], [0, 0, z], [x, 0, z]]],
           "left": ["100", [[0, 0, 0], [0, 0, z], [0, y, 0], [0, y, z]]],
           "right": ["100", [[x, 0, 0], [x, 0, z], [x, y, 0], [x, y, z]]],
           "front": ["001", [[0, 0, 0], [z, 0, 0], [0, y, 0], [x, y, 0]]],
@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     load = {"force": [0, -1000, 0],
             "node": [3, 4, 7, 8],
-            "time": 0.25,
+            "time": 1,
             "type": "heaviside",  # pulse or heaviside or moving
             "speed": 80}  # only for moving
 
@@ -56,9 +56,35 @@ if __name__ == "__main__":
                 }
 
     # run scatter
-    scatter(r"./mesh/column.msh", "./results_abs_newmark", mat, BC, sett, load, time_step=0.05e-4,
+    scatter(r"./mesh/column.msh", "./results_newmark", mat, BC, sett, load, time_step=0.05e-4,
             solver=NewmarkExplicit(linear_solver=SparseDirectSolverLU(),
                                    preconditioner=None))
-    scatter(r"./mesh/column.msh", "./results_abs_bathe", mat, BC, sett, load, time_step=0.05e-4,
-            solver=NewmarkImplicitForce(linear_solver=CGSolver(),
-                                        preconditioner=JacobiPreconditioner()))
+
+
+
+
+    # Biot (u-w) material dictionary: saturated porous medium.
+    # In addition to the drained skeleton (Young, poisson) a Biot material requires:
+    #   porosity            : porosity n [-]
+    #   solid_density       : density of the solid grains rho_s [kg/m3]
+    #   fluid_density       : density of the pore fluid rho_f [kg/m3]
+    #   solid_bulk_modulus  : bulk modulus of the solid grains K_s [Pa]
+    #   fluid_bulk_modulus  : bulk modulus of the pore fluid K_f [Pa]
+    #   permeability        : Darcy hydraulic conductivity k [m/s]
+    # optional: biot_coefficient (alpha), biot_modulus, tortuosity, gravity, drag
+    mat_biot = {"solid": {"formulation": "biot",
+                          "Young": 30e6,
+                          "poisson": 0.2,
+                          "porosity": 0.4,
+                          "solid_density": 2650.0,
+                          "fluid_density": 1000.0,
+                          "solid_bulk_modulus": 1e11,
+                          "fluid_bulk_modulus": 2.2e9,
+                          "permeability": 1e-3},
+                }
+
+
+    # run scatter with a saturated soil column using the Biot (u-w) formulation
+    scatter(r"./mesh/column.msh", "./results_biot", mat_biot, BC, sett, load, time_step=0.5e-4,
+            solver=NewmarkExplicit(linear_solver=SparseDirectSolverLU(),
+                                   preconditioner=None))

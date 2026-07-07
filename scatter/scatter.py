@@ -44,6 +44,9 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # validate loading
     validator.ValidateLoad.validate(loading)
 
+    # validate materials (sets the default formulation and checks Biot parameters)
+    validator.ValidateMaterial.validate(materials)
+
     # read gmsh mesh & create structure
     model = mesher.ReadMesh(mesh_file)
     # read gmsh file: file_name, dimension, nb_nodes_elem, materials, nodes, elem, element type
@@ -54,6 +57,9 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     model.mapping()
     # connectivities
     model.connectivities()
+    # add fluid (w) degrees of freedom for Biot (u-w) materials (block partitioning).
+    # No-op when all materials are dry, keeping the single-phase behaviour unchanged.
+    model.add_biot_dofs(materials)
     # add rose connectivities
     if loading["type"] == "rose":
         # pre process rose
@@ -81,6 +87,8 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     # generate matrix internal
     print("Generating global matrices scatter")
     matrix = system_matrix.GenerateMatrix(model.number_eq, inp_settings['int_order'])
+    # number of solid (u) equations, used to block-partition Rayleigh damping (Biot)
+    matrix.number_eq_u = model.number_eq_u
     matrix.generate_stiffness_and_mass(model, materials)
     matrix.absorbing_boundaries(model, materials, inp_settings["absorbing_BC"], inp_settings["absorbing_BC_stiff"])
 

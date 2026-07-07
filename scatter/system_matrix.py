@@ -27,6 +27,11 @@ class GenerateMatrix:
         self.C = lil_matrix((nb_equations, nb_equations))
         self.K = lil_matrix((nb_equations, nb_equations))
 
+        # number of solid (u) equations: for the Biot (u-w) block partitioning the
+        # solid equations occupy the leading block [0:number_eq_u]. For a dry model
+        # all equations are solid equations.
+        self.number_eq_u = nb_equations
+
         # order of the Gauss integration
         self.order = order
 
@@ -38,15 +43,22 @@ class GenerateMatrix:
 
         Generates and assembles the global stiffness and mass matrix for the structure.
 
+        Both single-phase (``dry``) and saturated (``biot``) materials are
+        supported. For a Biot material the *u-w* formulation is used and the
+        element contributions are block partitioned into the solid (u) and fluid
+        (w) blocks, see :func:`scatter.material_models.get_material_properties`.
+        The fluid viscous drag is assembled into the damping matrix ``self.C``.
+
         Parameters
         ----------
         :param data: mesh and geometry data class
         :param material: material dictionary
         """
 
-        # initialise stiffness and mass dictionary
+        # initialise stiffness, mass and (Biot drag) damping dictionaries
         k_dict = defaultdict(float)
         mass_dict = defaultdict(float)
+        c_dict = defaultdict(float)
 
         # create dictionaries of materials and nodes for quicker look-up
         dict_materials = dict(np.array(data.materials)[:, 1:])
@@ -65,13 +77,8 @@ class GenerateMatrix:
             # find material name
             name_material = dict_materials[str(mat_idx)]
 
-            # solid elastic properties
-            E = material[name_material]["Young"]
-            v = material[name_material]["poisson"]
-            rho = material[name_material]["density"]
-
-            # element stiffness matrix
-            D = material_models.stiffness_elasticity(E, v, data.dimension)
+            # parse material properties (dry or biot)
+            mat = material_models.get_material_properties(material[name_material], data.dimension)
 
             # coordinates for all the nodes in one element
             xyz = np.array([dict_nodes[node] for node in elem])
@@ -79,46 +86,111 @@ class GenerateMatrix:
             # generate shape functions B and H matrix
             shape_fct.generate(xyz)
 
-            # compute stiffness
-            Ke = shape_fct.compute_stiffness(D)
+            # solid equation numbers for this element
+            u_eq = data.eq_nb_elem[idx]
 
-            # compute mass
-            Me = shape_fct.compute_mass(rho)
+            # solid skeleton stiffness and (solid/bulk) mass
+            Ke = shape_fct.compute_stiffness(mat.D)
+            Me = shape_fct.compute_mass(mat.rho)
 
-            # assemble Stiffness and mass matrix
-            # equation number where the stiff and mass matrix exists
-            i1 = data.eq_nb_elem[idx][~np.isnan(data.eq_nb_elem[idx])].astype(int)
-            id1 = np.argsort(i1)
-            i1 = np.sort(i1)
-            # index where stiffness and mass matrix exists
-            i2 = np.where(~np.isnan(data.eq_nb_elem[idx]))[0]
-            i2 = i2[id1]
+            if not mat.is_biot:
+                # single phase (dry) material: assemble into the solid (u-u) block
+                self._assemble_block(k_dict, Ke, u_eq, u_eq)
+                self._assemble_block(mass_dict, Me, u_eq, u_eq)
+                continue
 
-            # assign to the global stiffness matrix dictionary
-            for i, j in zip(i1, i2):
-                for k, l in zip(i1, i2):
+            # ---- Biot (u-w) formulation: block partitioned element matrices ----
+            # fluid equation numbers for this element
+            w_eq = data.eq_nb_elem_w[idx]
 
-                    # add value to dictionary
-                    k_dict[i, k] += Ke[j, l]
-                    mass_dict[i, k] += Me[j, l]
+            # volumetric coupling matrix: int (B^T m)(m^T B) dV
+            K_vol = shape_fct.compute_volumetric_coupling()
+            alpha = mat.alpha
+            biot_mod = mat.biot_modulus
 
-        # create arrays from dictionary keys and values
+            # stiffness blocks (effective stress + pore pressure coupling)
+            K_uu = Ke + alpha ** 2 * biot_mod * K_vol
+            K_uw = alpha * biot_mod * K_vol
+            K_ww = biot_mod * K_vol
 
-        # stiffness data
-        keys_k = np.array(list(k_dict.keys())).astype("uint32")
-        row_k = keys_k[:,0]
-        col_k = keys_k[:,1]
-        values_k = list(k_dict.values())
+            # mass coupling and fluid mass blocks (M_uu = Me already computed with bulk density)
+            M_uw = shape_fct.compute_mass(mat.mass_coupling)
+            M_ww = shape_fct.compute_mass(mat.mass_fluid)
 
-        # mass data
-        keys_m = np.array(list(mass_dict.keys())).astype("uint32")
-        row_m = keys_m[:,0]
-        col_m = keys_m[:,1]
-        values_m = list(mass_dict.values())
+            # fluid viscous drag (generalised Darcy) damping block
+            C_ww = shape_fct.compute_mass(mat.drag)
 
-        # create sparse lil matrices
-        self.K = coo_matrix((values_k, (row_k, col_k))).tolil()
-        self.M = coo_matrix((values_m, (row_m, col_m))).tolil()
+            # assemble the stiffness blocks
+            self._assemble_block(k_dict, K_uu, u_eq, u_eq)
+            self._assemble_block(k_dict, K_uw, u_eq, w_eq)
+            self._assemble_block(k_dict, K_uw.T, w_eq, u_eq)
+            self._assemble_block(k_dict, K_ww, w_eq, w_eq)
+
+            # assemble the mass blocks
+            self._assemble_block(mass_dict, Me, u_eq, u_eq)
+            self._assemble_block(mass_dict, M_uw, u_eq, w_eq)
+            self._assemble_block(mass_dict, M_uw.T, w_eq, u_eq)
+            self._assemble_block(mass_dict, M_ww, w_eq, w_eq)
+
+            # assemble the fluid drag damping block
+            self._assemble_block(c_dict, C_ww, w_eq, w_eq)
+
+        # create sparse lil matrices (block partitioned for a Biot model)
+        shape = (data.number_eq, data.number_eq)
+        self.K = self._dict_to_lil(k_dict, shape)
+        self.M = self._dict_to_lil(mass_dict, shape)
+        # initialise the damping matrix with the Biot fluid drag (zero for a dry model)
+        self.C = self._dict_to_lil(c_dict, shape)
+
+    @staticmethod
+    def _assemble_block(target: dict, local_matrix: np.ndarray, row_eq: np.ndarray, col_eq: np.ndarray) -> None:
+        r"""
+        Add an element (block) matrix into a global ``{(row_eq, col_eq): value}`` dictionary.
+
+        Local degrees of freedom whose global equation number is ``nan`` (fixed
+        boundary) are skipped. Rows are mapped through ``row_eq`` and columns
+        through ``col_eq``, which allows assembling both diagonal blocks
+        (e.g. u-u, w-w) and coupling blocks (e.g. u-w).
+
+        Parameters
+        ----------
+        :param target: dictionary accumulating the global matrix entries
+        :param local_matrix: element block matrix
+        :param row_eq: global equation number (or nan) for each local row dof
+        :param col_eq: global equation number (or nan) for each local column dof
+        """
+        row_mask = ~np.isnan(row_eq)
+        col_mask = ~np.isnan(col_eq)
+        row_glob = row_eq[row_mask].astype(int)
+        col_glob = col_eq[col_mask].astype(int)
+        row_loc = np.where(row_mask)[0]
+        col_loc = np.where(col_mask)[0]
+
+        for rg, rl in zip(row_glob, row_loc):
+            local_row = local_matrix[rl]
+            for cg, cl in zip(col_glob, col_loc):
+                target[rg, cg] += local_row[cl]
+
+    @staticmethod
+    def _dict_to_lil(entries: dict, shape: tuple) -> lil_matrix:
+        r"""
+        Convert a ``{(row, col): value}`` dictionary into a sparse lil matrix.
+
+        Parameters
+        ----------
+        :param entries: dictionary with the matrix entries
+        :param shape: shape of the resulting matrix
+        :return: sparse lil matrix
+        """
+        if not entries:
+            return lil_matrix(shape)
+
+        keys = np.array(list(entries.keys()))
+        rows = keys[:, 0]
+        cols = keys[:, 1]
+        values = list(entries.values())
+
+        return coo_matrix((values, (rows, cols)), shape=shape).tolil()
 
     def add_rose_stiffness(self,data, rose_model):
         """
@@ -195,7 +267,21 @@ class GenerateMatrix:
         # solution
         coefs = np.linalg.solve(damp_mat, damp_qsi)
 
-        self.C = self.C + (self.M.tocsr() * coefs[0] + self.K.tocsr() * coefs[1]).tolil()
+        # Rayleigh damping is only applied to the solid skeleton (u) block. For a
+        # dry model number_eq_u spans the whole system so the full matrices are
+        # used; for a Biot model the fluid (w) block is left untouched (its
+        # physical damping is the viscous drag assembled in generate_stiffness_and_mass).
+        n_u = self.number_eq_u
+        n = self.C.shape[0]
+
+        M_uu = self.M.tocsr()[:n_u, :n_u]
+        K_uu = self.K.tocsr()[:n_u, :n_u]
+        rayleigh_uu = (M_uu * coefs[0] + K_uu * coefs[1]).tocoo()
+
+        # embed the solid block contribution into the full system size
+        rayleigh = coo_matrix((rayleigh_uu.data, (rayleigh_uu.row, rayleigh_uu.col)), shape=(n, n))
+
+        self.C = (self.C.tocsr() + rayleigh.tocsr()).tolil()
 
     def add_rose_damping(self, data, rose_model):
 
@@ -277,10 +363,11 @@ class GenerateMatrix:
             # find material name
             name_material = dict_materials[str(mat_idx)]
 
-            # solid elastic properties
-            rho = material[name_material]["density"]
-            E = material[name_material]["Young"]
-            v = material[name_material]["poisson"]
+            # material properties (bulk density and drained elastic moduli for Biot materials)
+            mat_props = material_models.get_material_properties(material[name_material], data.dimension)
+            rho = mat_props.rho
+            E = mat_props.E
+            v = mat_props.poisson
 
             # computation of velocities
             Ec = E * (1 - v) / ((1 + v) * (1 - 2 * v))

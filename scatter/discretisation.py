@@ -221,6 +221,31 @@ class VolumeElement:
 
         return Me
 
+    def compute_volumetric_coupling(self) -> np.ndarray:
+        r"""
+        Compute the volumetric coupling matrix over one element.
+
+        Used by the Biot (u-w) formulation. It is the integral of the outer
+        product of the divergence operator :math:`\mathbf{m}^T \mathbf{B}`:
+
+        .. math:: \int_\Omega (\mathbf{B}^T \mathbf{m})(\mathbf{m}^T \mathbf{B})\, d\Omega
+
+        with :math:`\mathbf{m} = [1, 1, 1, 0, 0, 0]^T` in 3D (Voigt notation).
+
+        :return: Volumetric coupling matrix
+        """
+
+        # Voigt divergence selector for a volume (3D) element
+        m = np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0])
+
+        # divergence operator m^T B at each integration point -> (n_gauss, n_dof)
+        mtB = np.einsum("k, ikl -> il", m, self.B_matrix)
+
+        # K_vol = sum_g (m^T B)^T (m^T B) det_jacobian * weight
+        K_vol = np.einsum("gi, gj, g -> ij", mtB, mtB, self.d_jacob * self.W)
+
+        return K_vol
+
     def compute_abs_bound(self) -> np.ndarray:
         """
         Compute the absorbing boundary unitary force matrix over one element.
@@ -415,6 +440,31 @@ class SurfaceElement:
             Me = Me + np.dot(np.dot(np.transpose(N), rho), N) * self.d_jacob[i] * self.W[i]
 
         return Me
+
+    def compute_volumetric_coupling(self) -> np.ndarray:
+        r"""
+        Compute the volumetric coupling matrix over one element.
+
+        Used by the Biot (u-w) formulation. It is the integral of the outer
+        product of the divergence operator :math:`\mathbf{m}^T \mathbf{B}`:
+
+        .. math:: \int_\Omega (\mathbf{B}^T \mathbf{m})(\mathbf{m}^T \mathbf{B})\, d\Omega
+
+        with :math:`\mathbf{m} = [1, 1, 0]^T` in 2D (Voigt notation).
+
+        :return: Volumetric coupling matrix
+        """
+
+        # Voigt divergence selector for a surface (2D) element
+        m = np.array([1.0, 1.0, 0.0])
+
+        K_vol = np.zeros((self.B_matrix[0].shape[1], self.B_matrix[0].shape[1]))
+        for i, b in enumerate(self.B_matrix):
+            # divergence operator m^T B at the integration point
+            mtB = m.dot(b)
+            K_vol = K_vol + np.outer(mtB, mtB) * self.d_jacob[i] * self.W[i]
+
+        return K_vol
 
     def compute_abs_bound(self) -> np.ndarray:
         """

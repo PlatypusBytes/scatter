@@ -47,6 +47,9 @@ class Write:
         # variables
         self.nodes = model.nodes[:, 0].astype(int)
         self.eq_nb_dof = model.eq_nb_dof
+        # fluid (w) equation numbers for Biot (u-w) materials (None / 0 for a dry model)
+        self.eq_nb_dof_w = getattr(model, "eq_nb_dof_w", None)
+        self.number_eq_w = getattr(model, "number_eq_w", 0)
         self.coordinates = model.nodes[:, 1:]
         self.elements = model.elem[:, self.idx_vtk] - 1
         self.time = numerical.state.output_time
@@ -102,6 +105,28 @@ class Write:
                 self.data["velocity"][str(int(self.nodes[i]))][label_xyz[idx]] = v
                 self.data["acceleration"][str(int(self.nodes[i]))][label_xyz[idx]] = a
 
+        # fluid (w) results for Biot (u-w) materials, stored under separate keys
+        if self.number_eq_w:
+            self.data.update({"fluid_displacement": defaultdict(dict),
+                              "fluid_velocity": defaultdict(dict),
+                              "fluid_acceleration": defaultdict(dict),
+                              })
+
+            for i in range(len(self.nodes)):
+                for idx in iterator_xyz:
+                    dof = self.eq_nb_dof_w[i][idx]
+                    if np.isnan(dof):
+                        u = v = a = np.zeros(len(self.time))
+                    else:
+                        u = self.dis[:, int(dof)]
+                        v = self.vel[:, int(dof)]
+                        a = self.acc[:, int(dof)]
+
+                    # update dic
+                    self.data["fluid_displacement"][str(int(self.nodes[i]))][label_xyz[idx]] = u
+                    self.data["fluid_velocity"][str(int(self.nodes[i]))][label_xyz[idx]] = v
+                    self.data["fluid_acceleration"][str(int(self.nodes[i]))][label_xyz[idx]] = a
+
 
     def pickle(self, name="data", write=True, nodes="all") -> None:
         """
@@ -130,6 +155,17 @@ class Write:
                 data["displacement"].update({str(n): self.data["displacement"][str(n)]})
                 data["velocity"].update({str(n): self.data["velocity"][str(n)]})
                 data["acceleration"].update({str(n): self.data["acceleration"][str(n)]})
+
+            # include the fluid (w) results for Biot (u-w) materials
+            if self.number_eq_w:
+                data.update({"fluid_displacement": defaultdict(dict),
+                             "fluid_velocity": defaultdict(dict),
+                             "fluid_acceleration": defaultdict(dict),
+                             })
+                for n in nodes:
+                    data["fluid_displacement"].update({str(n): self.data["fluid_displacement"][str(n)]})
+                    data["fluid_velocity"].update({str(n): self.data["fluid_velocity"][str(n)]})
+                    data["fluid_acceleration"].update({str(n): self.data["fluid_acceleration"][str(n)]})
 
             # dump data
             with open(os.path.join(self.output_folder, f"{name}.pickle"), "wb") as f:
