@@ -62,16 +62,26 @@ if __name__ == "__main__":
             "time": loading_time}
 
     # Random field properties
-    RF_props = {"number_realisations": 1,
-                "element_size": 1,
-                "theta": 1,
-                "seed_number": -26021981,
-                "material": "soil1",
-                "key_material": "Young",
-                "std_value": 3e6,
-                "aniso_x": 10,
-                "aniso_z": 5,
-                "model_name": "Gaussian"
+    RF_props = {"soil1": {"number_realisations": 1,
+                          "element_size": 1,
+                          "theta": 1,
+                          "seed_number": 1,
+                          "key_material": "Young",
+                          "std_value": 3e3,
+                          "aniso_x": 10,
+                          "aniso_z": 5,
+                          "model_name": "Gaussian"
+                         },
+                "soil2": {"number_realisations": 1,
+                          "element_size": 1,
+                          "theta": 1,
+                          "seed_number": 14,
+                          "key_material": "Young",
+                          "std_value": 4e3,
+                          "aniso_x": 1,
+                          "aniso_z": 1,
+                          "model_name": "Gaussian"
+                         }
                 }
 
     # run scatter

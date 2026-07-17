@@ -42,19 +42,6 @@ if __name__ == "__main__":
             "type": "heaviside",  # pulse or heaviside or moving
             "speed": 80}  # only for moving
 
-    # Random field properties
-    RF_props = {"number_realisations": 1,
-                "element_size": 1,
-                "theta": 5,
-                "seed_number": -26021981,
-                "material": "solid",
-                "key_material": "Young",
-                "std_value": 1e6,
-                "aniso_x": 1,
-                "aniso_y": 1,
-                "aniso_z": 1,
-                }
-
     # run scatter
     scatter(r"./mesh/column.msh", "./results_abs_newmark", mat, BC, sett, load, time_step=0.05e-4,
             solver=NewmarkExplicit(linear_solver=SparseDirectSolverLU(),

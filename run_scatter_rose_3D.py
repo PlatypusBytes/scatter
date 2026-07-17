@@ -43,7 +43,7 @@ if __name__ == "__main__":
                      "poisson": 0.2},
            }
 
-    mesh_file = r"./mesh/embankment_rose.msh",
+    mesh_file = r"./mesh/embankment_rose.msh"
     rose_data = create_rose.create_input_dict(100, 0.01, 1.2,
                                               15,
                                               mesh_file,
@@ -63,18 +63,26 @@ if __name__ == "__main__":
             "time": loading_time}
 
     # Random field properties
-    RF_props = {"number_realisations": 1,
-                "element_size": 1,
-                "theta": 1,
-                "seed_number": -26021981,
-                "material": "soil2",
-                "key_material": "Young",
-                "std_value": 1e6,
-                "aniso_x": 10,
-                "aniso_z": 10,
-                "model_name": "Gaussian"
+    RF_props = {"soil1": {"number_realisations": 1,
+                          "element_size": 1,
+                          "theta": 1,
+                          "seed_number": 14,
+                          "key_material": "Young",
+                          "std_value": 4e6,
+                          "aniso_x": 10,
+                          "aniso_z": 10,
+                          "model_name": "Gaussian"},
+                "soil2": {"number_realisations": 1,
+                          "element_size": 1,
+                          "theta": 1,
+                          "seed_number": -14,
+                          "key_material": "Young",
+                          "std_value": 1e6,
+                          "aniso_x": 10,
+                          "aniso_z": 10,
+                          "model_name": "Gaussian"},
                 }
 
     # run scatter
-    scatter(mesh_file, "./results_rose_embankment_3d_rf3", mat, BC, sett, load, time_step=time_step,
-            random_props=False, solver=NewmarkImplicitForce())
+    scatter(mesh_file, "./results_rose_embankment_3D", mat, BC, sett, load, time_step=time_step,
+            random_props=RF_props, solver=NewmarkImplicitForce())

@@ -149,17 +149,16 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "type": "pulse"}  # pulse or heaviside
 
         # Random field properties
-        RF_props = {"number_realisations": 1,
-                    "element_size": 1,
-                    "theta": 5,
-                    "seed_number": -26021981,
-                    "material": "solid",
-                    "key_material": "Young",
-                    "std_value": 1e6,
-                    "aniso_x": 1,
-                    "aniso_z": 1,
-                    "model_name": "Exponential"
-                    }
+        RF_props = {"solid": {"number_realisations": 1,
+                              "element_size": 1,
+                              "theta": 5,
+                              "seed_number": -26021981,
+                              "key_material": "Young",
+                              "std_value": 1e6,
+                              "aniso_x": 1,
+                              "aniso_z": 1,
+                              "model_name": "Exponential"
+                              }}
 
         # run scatter
         self.fold_results = os.path.join(self.root, "./_results_rf")
@@ -417,17 +416,16 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                 "type": "heaviside"}
 
         # Random field properties
-        RF_props = {"number_realisations": 1,
-                    "element_size": 1,
-                    "theta": 5,
-                    "seed_number": -26021981,
-                    "material": "solid",
-                    "key_material": "Young",
-                    "std_value": 3e6,
-                    "aniso_x": 2/5,
-                    "aniso_z": 1/5,
-                    "model_name": "Exponential"
-                    }
+        RF_props = {"solid": {"number_realisations": 1,
+                              "element_size": 1,
+                              "theta": 5,
+                              "seed_number": -26021981,
+                              "key_material": "Young",
+                              "std_value": 3e6,
+                              "aniso_x": 2/5,
+                              "aniso_z": 1/5,
+                              "model_name": "Exponential"}
+                              }
 
         # run scatter
         self.fold_results = os.path.join(self.root, "./_results_rf_2d")
@@ -605,17 +603,16 @@ class TestBenchmarkSet(unittest.TestCase):
                 "ini_steps": 50}
 
         # Random field properties
-        RF_props = {"number_realisations": 1,
-                    "element_size": 1,
-                    "theta": 5,
-                    "seed_number": -26021981,
-                    "material": "solid",
-                    "key_material": "Young",
-                    "std_value": 7.5e6,
-                    "aniso_x": 1/5,
-                    "aniso_z": 1/5,
-                    "model_name": "Exponential"
-                    }
+        RF_props = {"solid": {"number_realisations": 1,
+                              "element_size": 1,
+                              "theta": 5,
+                              "seed_number": -26021981,
+                              "key_material": "Young",
+                              "std_value": 7.5e6,
+                              "aniso_x": 1/5,
+                              "aniso_z": 1/5,
+                              "model_name": "Exponential"
+                              }}
 
         # run scatter
         input_file = os.path.join(self.root, r"./mesh/cube.msh")
