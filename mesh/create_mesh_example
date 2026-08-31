@@ -1,2 +1,4 @@
 gmsh column.geo -format msh2 -3 -o column.msh
+gmsh column.geo -format msh2 -3 -order 2 -o column.msh  \\ with high order elements
 gmsh column_2D.geo -format msh2 -2 -o column_2D.msh
+
