@@ -330,12 +330,18 @@ class Write:
         :return: (n_elem, 3) array with [Young, poisson, density]
         """
         mat_ids = np.asarray(model.materials_index, dtype=np.int64)
-        table = np.full((int(mat_ids.max()) + 1, 3), np.nan)
-        for _, mat_id, name in model.materials:
+        # a random field shifts the id of the material it replaces above every id still in use,
+        # so the table has to cover the ids of model.materials as well
+        known = {int(mat_id): name for _, mat_id, name in model.materials}
+        table = np.full((max(max(known), int(mat_ids.max())) + 1, 3), np.nan)
+        for mat_id, name in known.items():
             props = self.materials[name]
-            table[int(mat_id)] = [props["Young"], props["poisson"], props["density"]]
+            table[mat_id] = [props["Young"], props["poisson"], props["density"]]
 
-        return table[mat_ids]
+        props = table[mat_ids]
+        if np.any(np.isnan(props)):
+            raise ValueError("Elements refer to material ids that are not in model.materials")
+        return props
 
     def generate_gnn_files(self, model: object, matrix: object, F: object, write: bool = True,
                            file_name: str = "data.hdf5") -> None:
@@ -350,7 +356,7 @@ class Write:
         Layout
         ------
         attrs           element_type, n_dim, n_nodes, n_elem, n_eq, dt, beta, gamma,
-                        rayleigh_alpha, rayleigh_beta
+                        rayleigh_alpha, rayleigh_beta (C = alpha M + beta K + absorbing dashpots)
         mesh/           node_ids, coordinates, elements, bc, dof_index, dof_mask
         graph/          edge_index (2, n_edges), edge_attr
         node/           material (E, nu, rho), wave_speed (cp, cs), m_diag, c_diag, k_diag
@@ -372,6 +378,11 @@ class Write:
         if not write:
             return
 
+        # the samples are only consistent with the Newmark relations the dataset rebuilds
+        if not (hasattr(self.solver, "beta") and hasattr(self.solver, "gamma")):
+            raise ValueError("GNN export requires a Newmark solver, "
+                             f"got {type(self.solver).__name__}")
+
         # the Newmark relations only link consecutive solver steps, so subsampled output
         # cannot be used as training pairs
         output_interval = getattr(self.solver.state, "output_interval", 1)
@@ -380,16 +391,25 @@ class Write:
                              f"got {output_interval}. Newmark consistency between consecutive "
                              "samples is lost when the output is subsampled.")
 
+        if len(self.time) < 2:
+            raise ValueError("GNN export requires at least two output times")
         dt = np.diff(self.time)
         if not np.allclose(dt, dt[0]):
             raise ValueError("GNN export requires a constant time step")
         dt = float(dt[0])
 
+        n_dim = self.n_dim
+        n_eq = int(model.number_eq)
+
+        # cropping a coupled (e.g. rose) system to the mesh dofs drops the coupling blocks, the
+        # exported mesh system would then not satisfy equilibrium
+        if matrix.K.shape[0] != n_eq:
+            raise ValueError(f"GNN export supports uncoupled models only: the system has "
+                             f"{matrix.K.shape[0]} equations, the mesh {n_eq}")
+
         os.makedirs(self.output_folder, exist_ok=True)
         output_file = os.path.join(self.output_folder, file_name)
 
-        n_dim = self.n_dim
-        n_eq = int(model.number_eq)
         node_ids = model.nodes[:, 0].astype(np.int64)
         coordinates = model.nodes[:, 1:1 + n_dim].astype(np.float64)
         n_nodes = coordinates.shape[0]
@@ -471,7 +491,6 @@ class Write:
             diagonals[name] = nodal
 
         # -------------------------------------------------------------- dynamic state
-        # extra dofs of a coupled rose model are dropped, they are not mesh nodes
         u = np.asarray(self.dis)[:, :n_eq]
         v = np.asarray(self.vel)[:, :n_eq]
         a = np.asarray(self.acc)[:, :n_eq]
@@ -531,13 +550,15 @@ class Write:
             time_group = f.create_group("time")
             time_group.create_dataset("time", data=self.time, dtype="f8", compression="gzip")
 
-            # float32 halves the file size and stays far above the noise floor of the solver
-            chunk = (min(64, u.shape[0]), n_eq)
+            # float32 raises the equilibrium residual of the stored states to ~1e-6, far below
+            # what the network reaches
+            # one chunk per time step: a training sample reads two rows at a random time, a
+            # multi-row chunk would be decompressed in full for each of them
             dynamic = f.create_group("dynamic")
             for name, values in (("displacement", u), ("velocity", v),
                                  ("acceleration", a), ("force", force)):
-                dynamic.create_dataset(name, data=values, dtype="f4",
-                                       chunks=chunk, compression="gzip")
+                dynamic.create_dataset(name, data=values, dtype="f4", chunks=(1, n_eq),
+                                       shuffle=True, compression="gzip")
 
     @staticmethod
     def _p_wave_velocity(young: np.ndarray, poisson: np.ndarray, density: np.ndarray) -> np.ndarray:
