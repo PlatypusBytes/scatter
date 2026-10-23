@@ -2,6 +2,7 @@
 import os
 import sys
 import numpy as np
+import numpy.typing as npt
 # import scatter packages
 from scatter import utils
 from scatter.element_types import HexEight
@@ -314,16 +315,34 @@ class ReadMesh:
         Define equation numbers and type of boundary condition for each *dof* in the element list
         """
 
-        # initialise variables
-        self.eq_nb_elem = np.zeros((self.elem.shape[0], self.nb_nodes_elem * self.dimension))
-        self.type_BC_elem = np.full((self.elem.shape[0], self.nb_nodes_elem * self.dimension), "Normal")
-
-        # loop element
-        for i in range(self.elem.shape[0]):
-            idx_nodes = [np.where(self.nodes[:, 0] == j)[0][0] for j in self.elem[i]]
-            self.eq_nb_elem[i, :] = self.eq_nb_dof[idx_nodes].flatten()
-            self.type_BC_elem[i, :] = self.type_BC[idx_nodes].flatten()
+        node_rows = self.get_node_rows(self.elem)
+        self.eq_nb_elem = self.eq_nb_dof[node_rows].reshape(self.elem.shape[0], -1)
+        self.type_BC_elem = self.type_BC[node_rows].reshape(self.elem.shape[0], -1)
         return
+
+    def get_node_rows(self, node_ids: npt.ArrayLike) -> npt.NDArray[np.int64]:
+        """Find the rows of the node list that hold the given node numbers.
+
+        Args:
+            node_ids: gmsh node numbers, of any shape.
+
+        Returns:
+            Row index in the node list of each node number, with the same shape as `node_ids`.
+
+        Raises:
+            ValueError: if a node number is not in the node list.
+        """
+        node_numbers = self.nodes[:, 0].astype(np.int64)
+        node_ids = np.asarray(node_ids).astype(np.int64)
+
+        # node numbers can have gaps, so map them through a lookup table instead of assuming row = number - 1
+        lookup = np.full(max(node_numbers.max(), node_ids.max(initial=0)) + 1, -1, dtype=np.int64)
+        lookup[node_numbers] = np.arange(len(node_numbers))
+        rows = lookup[node_ids]
+        if np.any(rows < 0) or np.any(node_ids < 0):
+            missing = np.unique(node_ids[(rows < 0) | (node_ids < 0)])
+            raise ValueError(f"Nodes {missing.tolist()} are not in the node list.")
+        return rows
 
     def get_mesh_edges(self):
         """
@@ -339,53 +358,38 @@ class ReadMesh:
         else:
             return
 
-        # Find all nodes of the mesh which lay on the edge, also find elements which contain the corresponding nodes
-        boundary_elements = []
-        is_node_boundary_node = np.empty(self.nodes.shape[0], dtype=bool) * False
-        for idx, node in enumerate(self.nodes):
+        #todo methodology does not work for quadratic elements
+        if element_type.is_quadratic:
+            return
 
+        # node is boundary node if it is connected to less than the maximum of element connections
+        node_rows = self.get_node_rows(self.elem)
+        nb_attached_elements = np.bincount(node_rows.ravel(), minlength=self.nodes.shape[0])
+        is_node_boundary_node = nb_attached_elements < element_type.max_element_connections
 
-            # find the elements which are connected to the current node
-            attached_elements = np.where(self.elem == int(node[0]))[0]
-
-            # node is boundary node if it is connected to less than the maximum of element connections
-            #todo methodology does not work for quadratic elements
-            if not element_type.is_quadratic:
-                is_boundary_node = len(attached_elements) < element_type.max_element_connections
-            else:
-                return
-            is_node_boundary_node[idx] = is_boundary_node
-
-            # if node is on boundary, add connected elements to list
-            if is_boundary_node:
-                boundary_elements.append(attached_elements)
+        # boundary elements are the elements connected to at least one boundary node
+        boundary_elements = np.where(is_node_boundary_node[node_rows].any(axis=1))[0]
 
         # get the boundary surfaces of all the boundary elements
         boundary_surfaces = []
-        # loop element connectivities of boundary nodes
-        for elements in boundary_elements:
-            # loop over boundary elements
-            for i in elements:
+        for i in boundary_elements:
 
-                # get boundary nodes corresponding to boundary element
-                is_node_boundary = np.empty(len(self.elem[i]),dtype=bool)*False
-                for idx, j in enumerate(self.elem[i]):
-                    if j in self.nodes[is_node_boundary_node, 0].astype(int):
-                        is_node_boundary[idx] = True
+            # get boundary nodes corresponding to boundary element
+            is_node_boundary = is_node_boundary_node[node_rows[i]]
 
-                # if more than one boundary surface is present at boundary element, find all surfaces
-                if sum(is_node_boundary)>element_type.n_boundary_nodes:
+            # if more than one boundary surface is present at boundary element, find all surfaces
+            if sum(is_node_boundary) > element_type.n_boundary_nodes:
 
-                    # find all boundary surfaces by comparing boundary nodes to the local node numbering
-                    for surface in element_type.surfaces:
-                        if all(is_node_boundary[surface]):
-                            boundary_surface = self.elem[i][surface]
-                            boundary_surfaces.append(boundary_surface)
+                # find all boundary surfaces by comparing boundary nodes to the local node numbering
+                for surface in element_type.surfaces:
+                    if all(is_node_boundary[surface]):
+                        boundary_surface = self.elem[i][surface]
+                        boundary_surfaces.append(boundary_surface)
 
-                # else add boundary surface to boundary surface list
-                else:
-                    boundary_surface = self.elem[i][is_node_boundary]
-                    boundary_surfaces.append(boundary_surface)
+            # else add boundary surface to boundary surface list
+            else:
+                boundary_surface = self.elem[i][is_node_boundary]
+                boundary_surfaces.append(boundary_surface)
 
         # get unique boundary elements and add to boundary elem array
         self.boundary_elem = np.unique(np.array(boundary_surfaces), axis=0)
@@ -431,30 +435,20 @@ class ReadMesh:
         """
 
         vertical_index = 1
-        eq_nb_dof_rose = []
-        node_coords = []
-        for elem in self.rose_elem:
-            idx_nodes = [np.where(self.nodes[:, 0] == j)[0][0] for j in elem]
-            # eq_nb_dof_rose_nodes = self.eq_nb_dof[elem][:,vertical_index]
-            eq_nb_dof_rose.append(self.eq_nb_dof[idx_nodes][:, vertical_index])
-            node_coords.append(self.nodes[idx_nodes][:, 1:])
+        node_rows = self.get_node_rows(self.rose_elem)
 
-        node_coords = np.array(node_coords)
-
-        node_coords = node_coords.reshape((node_coords.shape[0] * node_coords.shape[1], node_coords.shape[2]))
-        # np.array(node_coords).reshape((40, 3))
-        # np.unique(np.array(node_coords).reshape((40, 3)),axis=1)
+        # coordinates of the rose nodes, element by element
+        node_coords = self.nodes[node_rows, 1:].reshape(-1, self.nodes.shape[1] - 1)
         indices = np.unique(node_coords, axis=0, return_index=True)[1]
-        node_coords = np.array([node_coords[index] for index in sorted(indices)])
+        node_coords = node_coords[np.sort(indices)]
 
         # sort on x-coordinate, then z-coordinate
         sorted_coords_indices = np.lexsort((node_coords[:, 0], node_coords[:, 2]))
 
-        # indexes = np.unique(a, return_index=True)[1]
         # add all unique equation number to one array
-        stack = np.hstack(eq_nb_dof_rose)
+        stack = self.eq_nb_dof[node_rows, vertical_index].ravel()
         unique_indices = np.unique(stack, return_index=True)[1]
-        sorted_eq_nb_dof_rose =np.array([stack[index] for index in sorted(unique_indices)]).astype(int)
+        sorted_eq_nb_dof_rose = stack[np.sort(unique_indices)].astype(int)
 
         self.eq_nb_dof_rose_nodes = sorted_eq_nb_dof_rose[sorted_coords_indices]
 

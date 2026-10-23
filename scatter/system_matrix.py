@@ -1,10 +1,49 @@
-from collections import defaultdict
+from typing import TYPE_CHECKING, Dict, List, Sequence, Tuple, Union
 import numpy as np
-from scipy.sparse import lil_matrix, coo_matrix
+import numpy.typing as npt
+from scipy.sparse import coo_matrix, csr_matrix, spmatrix
 
 # import scatter packages
 from scatter import discretisation, material_models
+from scatter.globals import ASSEMBLY_MEMORY_BUDGET
 from scatter.utils import clockwise_sort_2D_elements
+from scatter.mesher import ReadMesh
+
+
+class SparseAccumulator:
+    """Sums a sequence of sparse matrices.
+
+    The matrices are added pairwise, like a binary counter, so the cost grows with nnz * log(n) instead of nnz * n when
+    adding n chunks into one growing matrix.
+    """
+
+    def __init__(self, shape: Tuple[int, int]) -> None:
+        """Initialise an empty sum.
+
+        Args:
+            shape: shape of the matrices.
+        """
+        self.__shape = shape
+        self.__partial_sums: List[Tuple[int, csr_matrix]] = []
+
+    def add(self, matrix: csr_matrix) -> None:
+        """Add a matrix to the sum.
+
+        Args:
+            matrix: matrix to add.
+        """
+        level = 0
+        while self.__partial_sums and self.__partial_sums[-1][0] == level:
+            matrix = matrix + self.__partial_sums.pop()[1]
+            level += 1
+        self.__partial_sums.append((level, matrix))
+
+    def total(self) -> csr_matrix:
+        """Return the sum of all matrices added so far."""
+        total = csr_matrix(self.__shape)
+        for _, matrix in self.__partial_sums:
+            total = total + matrix
+        return total
 
 
 class GenerateMatrix:
@@ -23,102 +62,92 @@ class GenerateMatrix:
         :param order: order of Gaussian numerical integration
         """
         # generation of variable
-        self.M = lil_matrix((nb_equations, nb_equations))
-        self.C = lil_matrix((nb_equations, nb_equations))
-        self.K = lil_matrix((nb_equations, nb_equations))
+        self.M = csr_matrix((nb_equations, nb_equations))
+        self.C = csr_matrix((nb_equations, nb_equations))
+        self.K = csr_matrix((nb_equations, nb_equations))
 
         # order of the Gauss integration
         self.order = order
 
         return
 
-    def generate_stiffness_and_mass(self, data: classmethod, material:dict) -> None:
-        r"""
-        Global stiffness and mass matrix generation.
+    def generate_stiffness_and_mass(self, data: "ReadMesh", material: Dict[str, Dict[str, float]]) -> None:
+        """Generate and assemble the global stiffness and consistent mass matrices.
 
-        Generates and assembles the global stiffness and mass matrix for the structure.
+        The element matrices are computed for chunks of elements at once, with the chunk size set by
+        `ASSEMBLY_MEMORY_BUDGET`.
 
-        Parameters
-        ----------
-        :param data: mesh and geometry data class
-        :param material: material dictionary
+        Args:
+            data: mesh and geometry data.
+            material: material properties ("Young" [Pa], "poisson" [-] and "density" [kg/m^3]) per material name.
         """
+        element = discretisation.ElementBatch(data.element_type, self.order)
+        young, poisson, density = self.__element_properties(data, material)
+        node_rows = data.get_node_rows(data.elem)
+        coordinates = data.nodes[:, 1:]
+        shape = (data.number_eq, data.number_eq)
 
-        # initialise stiffness and mass dictionary
-        k_dict = defaultdict(float)
-        mass_dict = defaultdict(float)
+        stiffness = SparseAccumulator(shape)
+        mass = SparseAccumulator(shape)
+        chunk_size = max(1, ASSEMBLY_MEMORY_BUDGET // element.memory_per_element)
+        for start in range(0, len(data.elem), chunk_size):
+            chunk = slice(start, start + chunk_size)
 
-        # create dictionaries of materials and nodes for quicker look-up
-        dict_materials = dict(np.array(data.materials)[:, 1:])
-        dict_nodes = dict([(node[0], node[1:]) for node in data.nodes])
-        # compute material matrix for isotropic elasticity
-        for idx, elem in enumerate(data.elem):
+            # generate shape functions, Jacobian and B matrix of all elements in the chunk
+            element.generate(coordinates[node_rows[chunk]])
 
-            # call shape functions
-            if data.dimension == 3:
-                shape_fct = discretisation.VolumeElement(data.element_type, self.order)
-            if data.dimension == 2:
-                shape_fct = discretisation.SurfaceElement(data.element_type, self.order)
+            D = material_models.stiffness_elasticity_batch(young[chunk], poisson[chunk], data.dimension)
+            stiffness.add(self.__assemble(data.eq_nb_elem[chunk], element.compute_stiffness(D), shape))
+            mass.add(self.__assemble(data.eq_nb_elem[chunk], element.compute_mass(density[chunk]), shape))
 
-            # material index
-            mat_idx = data.materials_index[idx]
-            # find material name
-            name_material = dict_materials[str(mat_idx)]
+        self.K = stiffness.total()
+        self.M = mass.total()
 
-            # solid elastic properties
-            E = material[name_material]["Young"]
-            v = material[name_material]["poisson"]
-            rho = material[name_material]["density"]
+    @staticmethod
+    def __element_properties(
+            data: "ReadMesh", material: Dict[str, Dict[str, float]]
+    ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+        """Collect the elastic properties of each element.
 
-            # element stiffness matrix
-            D = material_models.stiffness_elasticity(E, v, data.dimension)
+        Args:
+            data: mesh and geometry data.
+            material: material properties per material name.
 
-            # coordinates for all the nodes in one element
-            xyz = np.array([dict_nodes[node] for node in elem])
+        Returns:
+            Young modulus [Pa], Poisson ratio [-] and density [kg/m^3] of each element.
+        """
+        material_names = dict(np.array(data.materials)[:, 1:])
 
-            # generate shape functions B and H matrix
-            shape_fct.generate(xyz)
+        # look up each material once: with random fields there can be one material per element
+        material_index, element_material = np.unique(np.asarray(data.materials_index, dtype=int), return_inverse=True)
+        properties = np.array([[material[material_names[str(idx)]][key] for key in ("Young", "poisson", "density")]
+                               for idx in material_index],
+                              dtype=float)
 
-            # compute stiffness
-            Ke = shape_fct.compute_stiffness(D)
+        young, poisson, density = properties[element_material.ravel()].T
+        return young, poisson, density
 
-            # compute mass
-            Me = shape_fct.compute_mass(rho)
+    @staticmethod
+    def __assemble(eq_nb: npt.NDArray[np.float64], values: npt.NDArray[np.float64],
+                   shape: Tuple[int, int]) -> csr_matrix:
+        """Assemble element matrices into a global sparse matrix.
 
-            # assemble Stiffness and mass matrix
-            # equation number where the stiff and mass matrix exists
-            i1 = data.eq_nb_elem[idx][~np.isnan(data.eq_nb_elem[idx])].astype(int)
-            id1 = np.argsort(i1)
-            i1 = np.sort(i1)
-            # index where stiffness and mass matrix exists
-            i2 = np.where(~np.isnan(data.eq_nb_elem[idx]))[0]
-            i2 = i2[id1]
+        Args:
+            eq_nb: equation number of each degree of freedom of each element, NaN where the dof is fixed, with shape
+                (element, dof).
+            values: element matrices, with shape (element, dof, dof).
+            shape: shape of the global matrix.
 
-            # assign to the global stiffness matrix dictionary
-            for i, j in zip(i1, i2):
-                for k, l in zip(i1, i2):
+        Returns:
+            Global matrix, where contributions to the same entry are summed.
+        """
+        nb_dofs = eq_nb.shape[1]
+        rows = np.repeat(eq_nb, nb_dofs, axis=1).ravel()
+        cols = np.tile(eq_nb, (1, nb_dofs)).ravel()
+        is_free = ~(np.isnan(rows) | np.isnan(cols))
 
-                    # add value to dictionary
-                    k_dict[i, k] += Ke[j, l]
-                    mass_dict[i, k] += Me[j, l]
-
-        # create arrays from dictionary keys and values
-
-        # stiffness data
-        keys_k = np.array(list(k_dict.keys())).astype("uint32")
-        row_k = keys_k[:,0]
-        col_k = keys_k[:,1]
-        values_k = list(k_dict.values())
-
-        # mass data
-        keys_m = np.array(list(mass_dict.keys())).astype("uint32")
-        row_m = keys_m[:,0]
-        col_m = keys_m[:,1]
-        values_m = list(mass_dict.values())
-
-        # create sparse lil matrices
-        self.K = coo_matrix((values_k, (row_k, col_k))).tolil()
-        self.M = coo_matrix((values_m, (row_m, col_m))).tolil()
+        return coo_matrix((values.reshape(-1)[is_free], (rows[is_free].astype(np.int64), cols[is_free].astype(np.int64))),
+                          shape=shape).tocsr()
 
     def add_rose_stiffness(self,data, rose_model):
         """
@@ -195,7 +224,7 @@ class GenerateMatrix:
         # solution
         coefs = np.linalg.solve(damp_mat, damp_qsi)
 
-        self.C = self.C + (self.M.tocsr() * coefs[0] + self.K.tocsr() * coefs[1]).tolil()
+        self.C = csr_matrix(self.C + self.M.tocsr() * coefs[0] + self.K.tocsr() * coefs[1])
 
     def add_rose_damping(self, data, rose_model):
 
@@ -209,168 +238,113 @@ class GenerateMatrix:
                                               :data.number_eq + rose_model.track.total_n_dof - len(
                                                   data.eq_nb_dof_rose_nodes)]
 
-    def add_rose_matrix(self, scatter_matrix, rose_matrix, contact_dofs_scatter, contact_dofs_rose):
+    def add_rose_matrix(self, scatter_matrix: spmatrix, rose_matrix: Union[spmatrix, npt.NDArray[np.float64]],
+                        contact_dofs_scatter: Sequence[int], contact_dofs_rose: Sequence[int]) -> csr_matrix:
+        """Combine a scatter matrix and a rose matrix into one coupled matrix.
+
+        The rose degrees of freedom in contact with scatter are merged into the scatter degrees of freedom; the other
+        rose degrees of freedom are appended after the scatter ones, in their original order. Of the couplings between
+        contact degrees of freedom, only the diagonal is added to the scatter matrix.
+
+        Args:
+            scatter_matrix: scatter matrix.
+            rose_matrix: rose matrix.
+            contact_dofs_scatter: scatter equation numbers of the contact degrees of freedom.
+            contact_dofs_rose: rose equation numbers of the contact degrees of freedom, in the same order as
+                `contact_dofs_scatter`.
+
+        Returns:
+            Coupled matrix.
         """
-        Add rose matrix to scatter matrix
+        nb_scatter = scatter_matrix.shape[0]
+        nb_rose = rose_matrix.shape[0]
+        contact_dofs_scatter = np.asarray(contact_dofs_scatter, dtype=np.int64)
+        contact_dofs_rose = np.asarray(contact_dofs_rose, dtype=np.int64)
 
-        Parameters
-        ----------
-        :param scatter_matrix: scatter matrix
-        :param rose_matrix: rose matrix
-        :param scatter_data: scatter data
-        :return:
+        is_contact = np.zeros(nb_rose, dtype=bool)
+        is_contact[contact_dofs_rose] = True
+
+        # coupled equation number of each rose dof
+        rose_to_coupled = np.empty(nb_rose, dtype=np.int64)
+        rose_to_coupled[~is_contact] = nb_scatter + np.arange(np.count_nonzero(~is_contact))
+        rose_to_coupled[contact_dofs_rose] = contact_dofs_scatter
+
+        rose = coo_matrix(rose_matrix)
+        rose.sum_duplicates()
+        keep = ~(is_contact[rose.row] & is_contact[rose.col] & (rose.row != rose.col))
+
+        scatter = coo_matrix(scatter_matrix)
+        rows = np.concatenate((scatter.row, rose_to_coupled[rose.row[keep]]))
+        cols = np.concatenate((scatter.col, rose_to_coupled[rose.col[keep]]))
+        values = np.concatenate((scatter.data, rose.data[keep]))
+
+        nb_coupled = nb_scatter + nb_rose - len(contact_dofs_scatter)
+        return coo_matrix((values, (rows, cols)), shape=(nb_coupled, nb_coupled)).tocsr()
+
+    def absorbing_boundaries(self, data: "ReadMesh", material: Dict[str, Dict[str, float]],
+                             parameters_viscous: Sequence[float], parameters_stiff: float) -> None:
+        """Add the absorbing boundaries to the damping and stiffness matrices, following Lysmer and Kuhlemeyer.
+
+        An element has an absorbing surface in a direction when exactly `nb_nodes_lower_elem` of its nodes are absorbing
+        in that direction. Absorbing boundaries are only computed for 3D meshes.
+
+        Args:
+            data: mesh and geometry data.
+            material: material properties ("Young" [Pa], "poisson" [-] and "density" [kg/m^3]) per material name.
+            parameters_viscous: factors on the dashpots perpendicular and tangential to the boundary [-].
+            parameters_stiff: divisor of the spring stiffness of the absorbing boundary [m].
         """
+        # 2D meshes have no lower element type: absorbing boundaries are not implemented for 2D
+        if data.dimension != 3:
+            return
 
-        # rose_matrix
-        combined_matrix = lil_matrix((scatter_matrix.shape[0] + rose_matrix.shape[0] - len(contact_dofs_scatter), scatter_matrix.shape[1]
-                                 + rose_matrix.shape[1] - len(contact_dofs_scatter)))
+        young, poisson, density = self.__element_properties(data, material)
+        constrained_modulus = young * (1 - poisson) / ((1 + poisson) * (1 - 2 * poisson))
+        shear_modulus = young / (2 * (1 + poisson))
+        vp = np.sqrt(constrained_modulus / density)
+        vs = np.sqrt(shear_modulus / density)
 
-        # mask rows and columns of rose damping matrix which coincide with scatter mass matrix
-        mask = np.ones(rose_matrix.shape[0], bool)
-        mask[np.array(contact_dofs_rose)] = False
-        masked_rose = rose_matrix.toarray()[:, mask]
-        masked_rose = masked_rose[mask, :]
+        # perpendicular direction flag of each equation
+        is_free = ~np.isnan(data.eq_nb_dof)
+        bc_dir_eq = np.zeros(self.C.shape[0], dtype=int)
+        bc_dir_eq[data.eq_nb_dof[is_free].astype(int)] = data.BC_dir[is_free]
 
-        # add scatter damping matrix to combined damping matrix
+        node_rows = data.get_node_rows(data.elem)
+        is_absorbing = data.type_BC == "Absorb"
+        surface = discretisation.ElementBatch(data.lower_element_type, self.order)
+        shape = self.C.shape
+        absorbing_damping = csr_matrix(shape)
+        absorbing_stiffness = csr_matrix(shape)
 
-        # first transform data to coo matrices for efficient memory usage
-        combined_matrix = combined_matrix.tocoo()
-        coo_scatter = scatter_matrix.tocoo()
-        reshaped_coo = coo_matrix(((coo_scatter.data), (coo_scatter.row, coo_scatter.col)), shape=combined_matrix.shape)
-        combined_matrix = combined_matrix + reshaped_coo
-        combined_matrix = combined_matrix.tolil()
-
-        # add non-diagonal of rose connectivities
-        combined_matrix[scatter_matrix.shape[0]:, contact_dofs_scatter] = rose_matrix.toarray()[mask, :][:, contact_dofs_rose]
-        combined_matrix[contact_dofs_scatter, scatter_matrix.shape[1]:] = rose_matrix.toarray()[:, mask][contact_dofs_rose, :]
-
-        # add rose damping matrix
-        combined_matrix[scatter_matrix.shape[0]:, scatter_matrix.shape[1]:] = masked_rose
-
-        # add diagonal of rose connectivities
-        combined_matrix[contact_dofs_scatter, contact_dofs_scatter] = \
-            combined_matrix[contact_dofs_scatter, contact_dofs_scatter] + rose_matrix[contact_dofs_rose, contact_dofs_rose]
-
-        return combined_matrix
-
-    def absorbing_boundaries(self, data: classmethod, material: dict, parameters_viscous: list, parameters_stiff: float) -> None:
-        """
-        Compute absorbing boundary force
-
-        Parameters
-        ----------
-        :param data:  mesh and geometry data class
-        :param material: material dictionary
-        :param parameters: viscous absorbing boundary parameters
-        :param parameters_stiff: stiffness absorbing boundary parameters
-        """
-
-        absorbing_bc = lil_matrix(self.C.shape)
-        absorbing_bc_stiff = lil_matrix(self.C.shape)
-
-        # create dictionaries of materials and nodes for quicker look-up
-        dict_materials = dict(np.array(data.materials)[:, 1:])
-        # compute material matrix for isotropic elasticity
-        for idx, elem in enumerate(data.elem):
-            # material index
-            mat_idx = data.materials_index[idx]
-            # find material name
-            name_material = dict_materials[str(mat_idx)]
-
-            # solid elastic properties
-            rho = material[name_material]["density"]
-            E = material[name_material]["Young"]
-            v = material[name_material]["poisson"]
-
-            # computation of velocities
-            Ec = E * (1 - v) / ((1 + v) * (1 - 2 * v))
-            G = E / (2 * (1 + v))
-            vp = np.sqrt(Ec / rho)
-            vs = np.sqrt(G / rho)
-
-            # check if abs boundary exist
-            index_nodes = []
-            xyz = []  # coordinates of the nodes in the element
-            xyz_abs = []  # coordinates of the nodes in the element where abs boundary exists
-            eq_nb = []  # equation number of the nodes in the element where abs boundary exists
-            # bc_dir = []  # perpendicular direction of the nodes in the element where abs boundary exists
-            bc_type = []
-            for node in elem:
-                # get global coordinates of the node
-                idx_node = np.where(data.nodes[:, 0] == node)[0][0]
-                index_nodes.append(idx_node)
-                xyz.append(data.nodes[idx_node, 1:])
-                if "Absorb" in data.type_BC[idx_node]:
-                    bc_type.append(data.type_BC[idx_node])
-                    xyz_abs.append(data.nodes[data.nodes[:, 0] == node, 1:][0])
-                    eq_nb.append(data.eq_nb_dof[idx_node])
-                    # bc_dir.append(data.BC_dir[idx_node])
-
-            # if there are no absorbing boundaries goes to next element
-            if not bc_type:
+        for direction in range(data.dimension):
+            # nodes of each element that absorb in this direction, in the order of the element connectivity
+            is_absorbing_elem = is_absorbing[node_rows, direction]
+            elements = np.where(is_absorbing_elem.sum(axis=1) == data.nb_nodes_lower_elem)[0]
+            if len(elements) == 0:
                 continue
+            surface_rows = node_rows[elements][is_absorbing_elem[elements]].reshape(len(elements), -1)
 
-            # find indices of surfaces that have absorbing boundaries
-            idx_surfaces = [i for i in range(data.dimension) if len(np.where(np.array(bc_type)[:, i] == "Absorb")[0]) == data.nb_nodes_lower_elem]
+            # in-plane coordinates of the surface, sorted in clockwise order following gmsh order
+            in_plane = np.delete(data.nodes[:, 1:], direction, axis=1)
+            surface_coordinates = np.array([clockwise_sort_2D_elements(xy) for xy in in_plane[surface_rows]])
 
-            # apply abs boundary to each surface
-            for idx_bc in idx_surfaces:
-                # get the coordinates of the surface without the common coordinate
-                idx_col = np.where(np.array(bc_type)[:, idx_bc] == "Absorb")[0]
-                xy_abs = np.delete(np.array(xyz_abs)[idx_col, :], idx_bc, axis=1)
+            # unitary absorbing boundary matrix
+            surface.generate(surface_coordinates)
+            abs_bound = surface.compute_scalar_mass(np.ones(len(elements)))
 
-                if data.dimension == 3:
-                    shape_fct_surf = discretisation.SurfaceElement(data.lower_element_type, self.order)
-                if data.dimension == 2:
-                    # TODO: implement
-                    exit("Absorbing boundaries not implemented for 2D yet")
-                    # shape_fct = discretisation.SurfaceElement(data.lower_element_type, self.order)
+            # equation numbers are sorted independently of the clockwise sorted nodes, as in the original algorithm
+            eq_nb = np.sort(data.eq_nb_dof[surface_rows, direction], axis=1).astype(int)
 
-                # sort the nodes in clockwise order following gmsh order
-                xy_abs = clockwise_sort_2D_elements(xy_abs)
+            # absorbing boundary coefficients: vp for perpendicular, vs otherwise
+            is_perpendicular = bc_dir_eq[eq_nb] == 1
+            damping_factor = np.where(is_perpendicular, parameters_viscous[0] * (density * vp)[elements, None],
+                                      parameters_viscous[1] * (density * vs)[elements, None])
+            stiffness_factor = np.where(is_perpendicular, constrained_modulus[elements, None],
+                                        shear_modulus[elements, None])
 
-                # generate shape functions B and H matrix
-                shape_fct_surf.generate(xy_abs)
+            absorbing_damping = absorbing_damping + self.__assemble(eq_nb, abs_bound * damping_factor[:, None, :], shape)
+            absorbing_stiffness = absorbing_stiffness + self.__assemble(
+                eq_nb, np.abs(abs_bound) * stiffness_factor[:, None, :], shape)
 
-                # compute unitary absorbing boundary force
-                abs_bound = shape_fct_surf.compute_abs_bound()
-
-                # extend abs_bound to 3D
-                abs_extended = np.copy(abs_bound)
-
-                # increase the columns
-                new_column = np.zeros(abs_bound.shape[0])
-                for i in range(data.nb_nodes_lower_elem):
-                    abs_extended = np.insert(abs_extended, 2 + (i * data.dimension), new_column, axis=1)
-
-                # increase the rows
-                new_row = np.zeros(abs_extended.shape[1])
-                for i in range(data.nb_nodes_lower_elem):
-                    new_row = np.copy(abs_extended[2 + (i * data.dimension)-1, :])
-                    new_row = np.concatenate(([new_row[-1]], new_row[:-1]))
-                    abs_extended = np.insert(abs_extended, 2 + (i * data.dimension), new_row, axis=0)
-
-                # assemble absorbing boundary matrix
-                # equation number where the absorbing matrix exists
-                aux = np.array(eq_nb)[idx_col, idx_bc]
-                i1 = np.sort(aux).astype(int)
-                i2 = np.linspace(idx_bc, idx_bc + (data.nb_nodes_lower_elem - 1) * (data.dimension), data.nb_nodes_lower_elem, dtype=int)
-
-                # assign the absorbing boundary coefficients: vp for perpendicular vs otherwise
-                fct = np.ones(len(i1)) * parameters_viscous[1] * rho * vs
-                fct2 = np.ones(len(i1)) * G
-                for i, val in enumerate(i1):
-                    j = np.where(data.eq_nb_dof == val)
-                    direct = data.BC_dir[j[0], j[1]]
-                    if direct == 1:
-                        fct[i] = parameters_viscous[0] * rho * vp
-                        fct2[i] = Ec
-
-                # # assign to the global damping matrix dictionary
-                absorbing_bc[i1.reshape(len(i1), 1), i1] = absorbing_bc[i1.reshape(len(i1), 1), i1] +\
-                                                              abs_extended[i2.reshape(len(i2), 1), i2] * fct
-
-                absorbing_bc_stiff[i1.reshape(len(i1), 1), i1] += np.abs(abs_extended[i2.reshape(len(i2), 1), i2]) * fct2
-
-        self.C = self.C + absorbing_bc
-        self.K = self.K + absorbing_bc_stiff / parameters_stiff
+        self.C = csr_matrix(self.C + absorbing_damping)
+        self.K = csr_matrix(self.K + absorbing_stiffness / parameters_stiff)
