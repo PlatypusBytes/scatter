@@ -76,7 +76,8 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False,
-                "VTK_binary": True}
+                "VTK_binary": True,
+                "write_GNN": False}
 
         x = 0.1
         y = 20
@@ -124,7 +125,8 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False,
-                "VTK_binary": True}
+                "VTK_binary": True,
+                "write_GNN": False}
 
         x = 0.1
         y = 20
@@ -185,7 +187,8 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False,
-                "VTK_binary": True}
+                "VTK_binary": True,
+                "write_GNN": False}
 
         x = 0.1
         y = 20
@@ -231,7 +234,8 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False,
-                "VTK_binary": True}
+                "VTK_binary": True,
+                "write_GNN": False}
 
         x = 0.1
         y = 20
@@ -277,7 +281,8 @@ class Test1DWavePropagation_3D(unittest.TestCase):
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": True,
-                "VTK_binary": False}
+                "VTK_binary": False,
+                "write_GNN": False}
 
         x = 0.1
         y = 20
@@ -350,7 +355,8 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                 "pickle_nodes": "all",
                 "output_interval": 1,
                 "VTK": False,
-                "VTK_binary": True}
+                "VTK_binary": True,
+                "write_GNN": False}
 
         # boundary conditions
         x = 1
@@ -393,7 +399,8 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                 "pickle_nodes": "all",
                 "output_interval": 1,
                 "VTK": False,
-                "VTK_binary": True}
+                "VTK_binary": True,
+                "write_GNN": False}
 
         # boundary conditions
         x = 1
@@ -448,7 +455,8 @@ class Test1DWavePropagation_2D(unittest.TestCase):
                 "pickle_nodes": "all",
                 "output_interval": 1,
                 "VTK": True,
-                "VTK_binary": False}
+                "VTK_binary": False,
+                "write_GNN": False}
 
         # boundary conditions
         x = 1
@@ -515,7 +523,8 @@ class TestBenchmarkSet(unittest.TestCase):
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": True,
-                "VTK_binary": True}
+                "VTK_binary": True,
+                "write_GNN": False}
 
         x = 10
         y = 10
@@ -574,7 +583,8 @@ class TestBenchmarkSet(unittest.TestCase):
                 "pickle": True,
                 "pickle_nodes": "all",
                 "VTK": False,
-                "VTK_binary": True}
+                "VTK_binary": True,
+                "write_GNN": False}
 
         x = 10
         y = 10
@@ -646,6 +656,7 @@ class TestBenchmarkSet(unittest.TestCase):
                 "pickle_nodes": "all",
                 "VTK": False,
                 "VTK_binary": True,
+                "write_GNN": False,
                 "output_interval": 2}
 
         # boundary conditions

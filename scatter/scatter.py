@@ -9,6 +9,7 @@ from scatter import system_matrix
 from scatter import force_external
 from scatter import random_fields
 from scatter import export_results
+from scatter import utils
 from scatter import validator
 from scatter.rose_utils import RoseUtils
 
@@ -121,6 +122,7 @@ def scatter(mesh_file: str, outfile_folder: str, materials: dict, boundaries: di
     results.pickle(write=inp_settings["pickle"], nodes=inp_settings["pickle_nodes"])
     # export results to VTK
     results.vtk(write=inp_settings["VTK"], binary=inp_settings["VTK_binary"])
+    results.generate_gnn_files(model, matrix, F, write=inp_settings["write_GNN"])
 
     # print end statement
     print("\n\n\n\x1B[3m" + "  Never tell me the odds. " + "\x1B[0m")

@@ -30,7 +30,9 @@ class GenerateMatrix:
         # order of the Gauss integration
         self.order = order
 
-        return
+        # Rayleigh damping coefficients
+        self.alpha = None
+        self.beta = None
 
     def generate_stiffness_and_mass(self, data: classmethod, material:dict) -> None:
         r"""
@@ -132,8 +134,6 @@ class GenerateMatrix:
         :param rose_model: rose coupled train track system
 
         """
-
-
         combined_k = self.add_rose_matrix(self.K, rose_model.global_stiffness_matrix, data.eq_nb_dof_rose_nodes,
                                           data.rose_eq_nb)
 
@@ -195,6 +195,9 @@ class GenerateMatrix:
         # solution
         coefs = np.linalg.solve(damp_mat, damp_qsi)
 
+        self.alpha = coefs[1]
+        self.beta = coefs[0]
+        
         self.C = self.C + (self.M.tocsr() * coefs[0] + self.K.tocsr() * coefs[1]).tolil()
 
     def add_rose_damping(self, data, rose_model):
