@@ -42,6 +42,7 @@ class TestBenchmarkSet2:
                 "pickle_nodes": [3],
                 "VTK": False,
                 "VTK_binary": True,
+                "write_GNN": False,
                 "output_interval": 10
                 }
 
@@ -98,7 +99,7 @@ class TestBenchmarkSet2:
 
         # remove output directory
         shutil.rmtree(output_dir)
-        
+
         # compare velocity with analytical solution if CHECK_RESULTS is true
         if CHECK_RESULT:
 
