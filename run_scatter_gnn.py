@@ -89,14 +89,16 @@ def critical_time_step(mesh_file: Path, mat: Dict, RF_props: Dict, element_size:
     model = mesher.ReadMesh(mesh_file)
     model.read_gmsh()
     rf = random_fields.RF(RF_props, mat, str(mesh_file.parent), model.element_type)
-    # same element selection as scatter, the field is evaluated at the element centroids
-    material_idx = [m[1] for m in model.materials if m[2] == RF_props["material"]][0]
-    rf.generate_gstools_rf(model.nodes, model.elem[model.materials_index == material_idx], model.dimension,
-                           angles=0.0)
+    # one random field material per run; unpacking fails loudly if that ever changes
+    (name, rf_props), = RF_props.items()
+    # same elements and arguments as RF.generate_random_fields, which mutates mat, so it is not called
+    material_idx = [m[1] for m in model.materials if m[2] == name][0]
+    field = rf.generate_gstools_rf(model.nodes, model.elem[model.materials_index == material_idx], model.dimension,
+                                   rf_props, mat[name][rf_props["key_material"]], angles=0.0)
 
-    props = mat[RF_props["material"]]
+    props = mat[name]
     nu = props["poisson"]
-    constrained_modulus = np.max(rf.fields[0]) * (1 - nu) / ((1 + nu) * (1 - 2 * nu))
+    constrained_modulus = np.max(field) * (1 - nu) / ((1 + nu) * (1 - 2 * nu))
     p_wave_speed = np.sqrt(constrained_modulus / props["density"])
     x, y, z = (float(np.ptp(model.nodes[:, k])) for k in (1, 2, 3))
     return min(element_dimensions(x, y, z, element_size)) / p_wave_speed
@@ -176,20 +178,19 @@ def random_field(i: int, p: Dict[str, float]) -> Dict:
         p: parameters of the run, from sample_run.
 
     Returns:
-        Random field properties of the Young modulus.
+        Random field properties of the Young modulus, keyed by the name of the material they apply to.
     """
-    return {"number_realisations": 1,
-            "element_size": p["element_size"],
-            "theta": p["theta"],
-            "seed_number": i,
-            "material": "solid",
-            "key_material": "Young",
-            # relative to the mean, an absolute value would give a different contrast in every run
-            "std_value": p["young_cov"] * p["young"],
-            "aniso_x": 1,
-            "aniso_z": p["aniso_z"],
-            "model_name": "Gaussian",
-            }
+    return {"solid": {"number_realisations": 1,
+                      "element_size": p["element_size"],
+                      "theta": p["theta"],
+                      "seed_number": i,
+                      "key_material": "Young",
+                      # relative to the mean, an absolute value would give a different contrast in every run
+                      "std_value": p["young_cov"] * p["young"],
+                      "aniso_x": 1,
+                      "aniso_z": p["aniso_z"],
+                      "model_name": "Gaussian",
+                      }}
 
 
 def run(i: int, output: Path) -> None:

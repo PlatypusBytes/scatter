@@ -224,6 +224,9 @@ class GenerateMatrix:
         # solution
         coefs = np.linalg.solve(damp_mat, damp_qsi)
 
+        self.alpha = coefs[0]
+        self.beta = coefs[1]
+
         self.C = csr_matrix(self.C + self.M.tocsr() * coefs[0] + self.K.tocsr() * coefs[1])
 
     def add_rose_damping(self, data, rose_model):
