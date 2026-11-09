@@ -1,440 +1,319 @@
-import numpy as np
-import numpy.typing as npt
+"""Shape functions and Gauss integration of single elements and batches of elements."""
+import itertools
 import math
 import sys
-# import scatter packages
-from scatter.element_types import HexEight, HexTwenty, TetraFour, TetraTen, QuadFour, QuadEight, TriThree, TriSix
+from typing import List, Tuple, Union
+
+import numpy as np
+import numpy.typing as npt
+
+from scatter.element_types import create_element
+
+VOLUME_ELEMENTS = ("hexa8", "hexa20", "tetra4", "tetra10")
+PLANE_ELEMENTS = ("quad4", "quad8", "tri3", "tri6")
+BOUNDARY_ELEMENTS = ("line2", "line3", "quad4", "quad8", "tri3", "tri6")
+
+
+def Gauss_weights(n: int, integration_type: str) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Get the coordinates and weights of the Gauss integration rule.
+
+    Args:
+        n: order of the integration: the number of points per direction for quad, the rule index for tri and tetra.
+        integration_type: quad (1D Gauss-Legendre rule), tri or tetra.
+
+    Returns:
+        Natural coordinates of the points, with shape (point,) for quad and (direction, point) for tri and tetra
+        [-], and the weights of the points [-].
+
+    Raises:
+        SystemExit: if the order is not supported for a quad rule.
+        SystemExit: if the order is not supported for a tri rule.
+        SystemExit: if the order is not supported for a tetra rule.
+        SystemExit: if the integration type is not supported.
+    """
+    x: Union[List[float], List[List[float]]]
+    w: List[float]
+    if integration_type == "quad":
+        if n == 1:
+            x = [0.]
+            w = [2.]
+        elif n == 2:
+            x = [-math.sqrt(1. / 3.), math.sqrt(1. / 3.)]
+            w = [1., 1.]
+        elif n == 3:
+            x = [-math.sqrt(3. / 5.), 0, math.sqrt(3. / 5.)]
+            w = [5. / 9., 8. / 9., 5. / 9.]
+        else:
+            sys.exit("ERROR: integration order not supported")
+    elif integration_type == "tri":
+        if n == 1:
+            x = [[1 / 3], [1 / 3]]
+            w = [1 / 2]
+        elif n == 2:
+            x = [[1 / 6, 2 / 3, 1 / 6], [1 / 6, 1 / 6, 2 / 3]]
+            w = [1 / 6, 1 / 6, 1 / 6]
+        elif n == 3:
+            x = [[1 / 3, 1 / 5, 3 / 5, 1 / 5], [1 / 3, 1 / 5, 1 / 5, 3 / 5]]
+            w = [-27 / 96, 25 / 96, 25 / 96, 25 / 96]
+        else:
+            sys.exit("ERROR: integration order not supported")
+    elif integration_type == "tetra":
+        if n == 1:
+            x = [[1 / 4], [1 / 4], [1 / 4]]
+            w = [1 / 6]
+        elif n == 2:
+            constant_1 = 1 / 4 - 1 / 20 * math.sqrt(5)
+            constant_2 = 1 / 4 + 3 / 20 * math.sqrt(5)
+            x = [[constant_1, constant_1, constant_1, constant_2], [constant_1, constant_1, constant_2, constant_1],
+                 [constant_1, constant_2, constant_1, constant_1]]
+            w = [1 / 24, 1 / 24, 1 / 24, 1 / 24]
+        else:
+            sys.exit(f"ERROR: integration order not supported for type {integration_type}")
+    else:
+        sys.exit("ERROR: integration type not supported")
+
+    return np.array(x, dtype=float), np.array(w, dtype=float)
+
+
+def gauss_points(integration_type: str, order: int) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Get the Gauss points and weights of a reference element.
+
+    Args:
+        integration_type: line, quad, hexa, tri or tetra.
+        order: order of the Gauss integration.
+
+    Returns:
+        Natural coordinates of the points, with shape (point, direction) [-], and the weights of the points [-].
+    """
+    # line, quad and hexa rules are tensor products of the 1D rule, with the first direction varying slowest
+    nb_directions = {"line": 1, "quad": 2, "hexa": 3}
+    if integration_type in nb_directions:
+        coordinates, weights = Gauss_weights(order, "quad")
+        indices = list(itertools.product(range(len(weights)), repeat=nb_directions[integration_type]))
+        points = np.array([[coordinates[i] for i in index] for index in indices])
+        point_weights = np.array([np.prod([weights[i] for i in index]) for index in indices])
+        return points, point_weights
+
+    coordinates, weights = Gauss_weights(order, integration_type)
+    return coordinates.T, weights
+
+
+def reference_integration(
+        elem_type: str, order: int) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Evaluate the shape functions of a reference element at its Gauss points.
+
+    Args:
+        elem_type: element type, see `element_types.create_element`.
+        order: order of the Gauss integration.
+
+    Returns:
+        Shape functions, with shape (point, node), their derivatives in natural coordinates, with shape (point, node,
+        direction), and the Gauss weights.
+    """
+    element = create_element(elem_type)
+    points, weights = gauss_points(element.integration_type, order)
+
+    N = []
+    dN = []
+    for point in points:
+        element.shape_functions(point)
+        # the element overwrites its arrays at every point
+        N.append(element.N.copy())
+        dN.append(element.dN.copy())
+    return np.array(N), np.array(dN), weights
+
+
+def integrate_scalar_mass(N: npt.NDArray[np.float64], weights: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Integrate N^T N over each element, for a single degree of freedom per node.
+
+    Args:
+        N: shape functions at the Gauss points, with shape (point, node).
+        weights: Gauss weight times Jacobian determinant (times density) of each point of each element, with shape
+            (element, point).
+
+    Returns:
+        Scalar mass matrices, with shape (element, node, node).
+    """
+    return np.einsum("gi,gj,eg->eij", N, N, weights)
 
 
 class VolumeElement:
+    """Shape functions and numerical integration of a single 3D element.
+
+    Reference implementation; the assembly uses the vectorised `ElementBatch`.
+    """
+
     def __init__(self, elem_type: str = "hexa8", order: int = 2) -> None:
-        """
-        Shape function and numerical integration functions for volume elements.
-        Supported 8 and 20 node volume elements.
+        """Evaluate the shape functions at the Gauss points of the reference element.
 
-        Parameters
-        ----------
-        :param elem_type: element type (optional: default "linear")
-        :param order: order of Gaussian integration  (optional: default 2)
+        Args:
+            elem_type: element type: hexa8, hexa20, tetra4 or tetra10.
+            order: order of the Gauss integration.
+
+        Raises:
+            ValueError: if the element type is not a volume element.
         """
-        # element type
+        if elem_type not in VOLUME_ELEMENTS:
+            raise ValueError(f"Element type {elem_type} is not a volume element.")
         self.type = elem_type
-        self.n = order  # number of Gauss points
-        self.N = []  # shape functions
-        self.dN = []  # derivative of the shape functions
-        self.W = []  # weight of the Gauss integration
-        self.d_jacob = []  # determinant of Jacobian
-        self.dN_global = []  # derivative shape function in global coordinates
-        self.B_matrix = []  # strain displacement matrix
-        self.N_matrix = []  # displacement interpolation matrix
+        self.n = order
+        self.N, self.dN, self.W = reference_integration(elem_type, order)
+        self.d_jacob = np.empty(0)  # determinant of the Jacobian per Gauss point
+        self.dN_global = np.empty((0, 0, 0))  # derivative of the shape functions in global coordinates
+        self.B_matrix = np.empty((0, 0, 0))  # strain displacement matrix per Gauss point
+        self.N_matrix = np.empty((0, 0, 0))  # displacement interpolation matrix per Gauss point
 
-        return
+    def generate(self, coordinates: npt.NDArray[np.float64]) -> None:
+        """Compute the Jacobian, the B matrix and the N matrix of the element.
 
-    def hex_integration(self):
-        coords, weights = Gauss_weights(self.n, type='quad')
-        for i1 in range(self.n):
-            for i2 in range(self.n):
-                for i3 in range(self.n):
-                    X = [coords[i1], coords[i2], coords[i3]]
-                    Wt = np.prod([weights[i1], weights[i2], weights[i3]])
-
-                    # call shape functions depending on the type of element
-                    if self.type == 'hexa8':
-                        hex = HexEight()
-                        hex.shape_functions(X)
-                    elif self.type == 'hexa20':
-                        hex = HexTwenty()
-                        hex.shape_functions(X)
-
-                    # shape functions
-                    N = hex.N
-                    dN = hex.dN
-
-                    # add to self
-                    self.N.append(N)
-                    self.dN.append(dN)
-                    self.W.append(Wt)
-
-    def tetra_integration(self):
-        coords, weights = Gauss_weights(self.n, type='tetra')
-        n_points = len(weights)
-
-        for i1 in range(n_points):
-
-            X = coords[:, i1]
-            Wt = weights[i1]
-            # call shape functions depending on the type of element
-            if self.type == 'tetra4':
-                tetra = TetraFour()
-                tetra.shape_functions(X)
-            elif self.type == 'tetra10':
-                tetra = TetraTen()
-                tetra.shape_functions(X)
-
-            # shape functions
-            N = tetra.N
-            dN = tetra.dN
-
-            # add to self
-            self.N.append(N)
-            self.dN.append(dN)
-            self.W.append(Wt)
-
-
-    def generate(self, coordinates: list) -> None:
-        r"""
-        Generate shape functions, Jacobian, *B* and *N* matrix for solid element
-
-        Parameters
-        ----------
-        :param coordinates: list of coordinates of nodes in one element
+        Args:
+            coordinates: coordinates of the nodes of the element [m].
         """
-
-        # natural coordinates and integration weights: Gauss integration
-
-        if self.type =='hexa8' or self.type =='hexa20':
-            self.hex_integration()
-
-        elif self.type == 'tetra4' or self.type == 'tetra10':
-            self.tetra_integration()
-
-        # compute jacobian
         self.jacob(coordinates)
-        # compute B matrix
         self.matrix_B()
-        # compute N matrix
         self.matrix_N()
 
-    def jacob(self, xyz: list) -> None:
+    def jacob(self, xyz: npt.NDArray[np.float64]) -> None:
+        """Compute the determinant of the Jacobian and the global derivatives of the shape functions.
+
+        Args:
+            xyz: coordinates of the nodes of the element [m].
         """
-        Computes the Jacobian and the derivative of the Jacobian
-
-        Parameters
-        ----------
-        :param xyz: list of coordinates of nodes in one element
-        """
-
-        # transpose dN
-        dN_array = np.transpose(self.dN, (0, 2, 1))
-
-        # calculate Jacobians
-        jcbs = np.transpose(np.einsum('ijk,kl', dN_array, xyz), (0, 2, 1))
-
-        # invert Jacobians
-        inv_jcbs = np.linalg.inv(jcbs)
-
-        # calculate determinant Jacobians
-        self.d_jacob = np.linalg.det(jcbs)
-
-        # generate global dN array, by doing a dotproduct of the dN with the inverse Jacobian at each point
-        self.dN_global = np.einsum("ijk, ikl -> ijl", np.transpose(dN_array, (0, 2, 1)), inv_jcbs)
-
-        # Above procedure is equivalent to procedure as shown below, however, the above procedure is more efficient
-        #
-        #
-        # for deriv in self.dN:
-        #     jcb = np.transpose(deriv).dot(xyz)
-        #     self.d_jacob.append(np.linalg.det(jcb))
-        #     self.dN_global.append(np.dot(deriv, np.linalg.inv(np.transpose(jcb))))
+        jacobian = np.einsum("gnd,nk->gdk", self.dN, xyz)
+        self.d_jacob = np.linalg.det(jacobian)
+        self.dN_global = np.einsum("gnd,gkd->gnk", self.dN, np.linalg.inv(jacobian))
 
     def matrix_B(self) -> None:
-        """
-        Computes B matrix (strain-displacement matrix): the derivative of the shape functions
-        """
-
-        self.B_matrix = np.zeros((self.dN_global.shape[0],6,self.dN_global.shape[1] * self.dN_global.shape[2]))
-
-        for i in range(self.dN_global.shape[1]):
+        """Compute the B matrix (strain-displacement matrix) from the global shape function derivatives."""
+        nb_points, nb_nodes, _ = self.dN_global.shape
+        self.B_matrix = np.zeros((nb_points, 6, nb_nodes * 3))
+        for i in range(nb_nodes):
             idx = i * 3
-            self.B_matrix[:, 0, idx + 0] = self.dN_global[:,i, 0]
-            self.B_matrix[:, 1, idx + 1] = self.dN_global[:,i, 1]
-            self.B_matrix[:, 2, idx + 2] = self.dN_global[:,i, 2]
-            self.B_matrix[:, 3, idx + 0] = self.dN_global[:,i, 1]
-            self.B_matrix[:, 3, idx + 1] = self.dN_global[:,i, 0]
-            self.B_matrix[:, 4, idx + 1] = self.dN_global[:,i, 2]
-            self.B_matrix[:, 4, idx + 2] = self.dN_global[:,i, 1]
-            self.B_matrix[:, 5, idx + 0] = self.dN_global[:,i, 2]
-            self.B_matrix[:, 5, idx + 2] = self.dN_global[:,i, 0]
+            self.B_matrix[:, 0, idx + 0] = self.dN_global[:, i, 0]
+            self.B_matrix[:, 1, idx + 1] = self.dN_global[:, i, 1]
+            self.B_matrix[:, 2, idx + 2] = self.dN_global[:, i, 2]
+            self.B_matrix[:, 3, idx + 0] = self.dN_global[:, i, 1]
+            self.B_matrix[:, 3, idx + 1] = self.dN_global[:, i, 0]
+            self.B_matrix[:, 4, idx + 1] = self.dN_global[:, i, 2]
+            self.B_matrix[:, 4, idx + 2] = self.dN_global[:, i, 1]
+            self.B_matrix[:, 5, idx + 0] = self.dN_global[:, i, 2]
+            self.B_matrix[:, 5, idx + 2] = self.dN_global[:, i, 0]
 
-        return
+    def matrix_N(self) -> None:
+        """Compute the N matrix (displacement interpolation matrix) per Gauss point."""
+        nb_points, nb_nodes = self.N.shape
+        self.N_matrix = np.zeros((nb_points, 3, nb_nodes * 3))
+        for direction in range(3):
+            self.N_matrix[:, direction, direction::3] = self.N
 
-    def matrix_N(self):
+    def compute_stiffness(self, D: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Compute the stiffness matrix of the element.
+
+        Args:
+            D: material matrix [Pa].
+
+        Returns:
+            Stiffness matrix [N/m].
         """
-        Computes N matrix: matrix with the shape functions
+        BtD = np.einsum("ikj,kl->ijl", self.B_matrix, D)
+        return np.einsum("ijk,ikl,i->jl", BtD, self.B_matrix, self.d_jacob * self.W)
+
+    def compute_mass(self, rho: float) -> npt.NDArray[np.float64]:
+        """Compute the consistent mass matrix of the element.
+
+        Args:
+            rho: density of the element [kg/m^3].
+
+        Returns:
+            Mass matrix [kg].
         """
-        ndof = 3
-
-        for nx in self.N:
-            N = np.zeros((self.dN_global.shape[2], nx.shape[0] * self.dN_global.shape[2]))
-
-            N[0, 0::ndof] = nx
-            N[1, 1::ndof] = nx
-            N[2, 2::ndof] = nx
-
-            self.N_matrix.append(N)
-
-        return
-
-    def compute_stiffness(self, D: np.ndarray) -> np.ndarray:
-        """
-        Compute the stiffness matrix over one element
-
-        Parameters
-        ----------
-        :param D: Material matrix
-        :return: Stiffness matrix
-        """
-
-        # B_transpose dot D
-        BtD = np.einsum("ikj,kl-> ijl", self.B_matrix, D)
-
-        #Ke = BtDB * det_jacobian * weight
-        Ke = np.einsum("ijk,ikl, i-> jl", BtD, self.B_matrix, self.d_jacob * self.W)
-
-
-        # above einstein summation is equivalent to the code as stated below
-
-        # Ke = np.zeros((self.B_matrix[0].shape[1], self.B_matrix[0].shape[1]))
-        # for i in range(len(self.B_matrix)):
-        #     #Ke += np.dot(np.dot(np.transpose(b), D), b) * self.d_jacob[i] * self.W[i]
-        #     Ke += BtDB[i,:,:] * self.d_jacob[i] * self.W[i]
-
-        return Ke
-
-    def compute_mass(self, rho: float) -> np.ndarray:
-        """
-        Compute the mass matrix over one element
-
-        Parameters
-        ----------
-        :param rho: Material density
-        :return: Mass matrix
-        """
-
-        np_N_matrix = np.array(self.N_matrix)
-        Me = np.einsum("ikj, ikl, i -> jl", np_N_matrix, np_N_matrix, self.d_jacob * self.W) * rho
-
-        # above einstein summation is equivalent to the code below
-
-        # Me = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
-        # for i, N in enumerate(self.N_matrix):
-        #     Me += np.dot(np.dot(np.transpose(N), rho), N) * self.d_jacob[i] * self.W[i]
-
-        return Me
-
-    def compute_abs_bound(self) -> np.ndarray:
-        """
-        Compute the absorbing boundary unitary force matrix over one element.
-        Following Lysmer and Kuhlemyer.
-
-        Parameters
-        ----------
-        :return: Absorbing force
-        """
-
-        f_abs = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
-        for i, N in enumerate(self.N_matrix):
-            f_abs = f_abs + np.dot(np.dot(np.transpose(N), 1), N) * self.d_jacob[i] * self.W[i]
-
-        return f_abs
+        return np.einsum("ikj,ikl,i->jl", self.N_matrix, self.N_matrix, self.d_jacob * self.W) * rho
 
 
 class SurfaceElement:
+    """Shape functions and numerical integration of a single 2D plane strain element.
+
+    Reference implementation; the assembly uses the vectorised `ElementBatch`.
+    """
+
     def __init__(self, elem_type: str = "quad4", order: int = 2) -> None:
-        """
-        Shape function and numerical integration functions for surface elements.
-        Supported 4 and 8 node quad elements.
+        """Evaluate the shape functions at the Gauss points of the reference element.
 
-        Parameters
-        ----------
-        :param elem_type: element type (optional: default "linear")
-        :param order: order of Gaussian integration  (optional: default 2)
+        Args:
+            elem_type: element type: quad4, quad8, tri3 or tri6.
+            order: order of the Gauss integration.
+
+        Raises:
+            ValueError: if the element type is not a plane element.
         """
-        # element type
+        if elem_type not in PLANE_ELEMENTS:
+            raise ValueError(f"Element type {elem_type} is not a plane element.")
         self.type = elem_type
-        self.n = order  # number of Gauss points
-        self.N = []  # shape functions
-        self.dN = []  # derivative of the shape functions
-        self.W = []  # weight of the Gauss integration
-        self.d_jacob = []  # determinant of Jacobian
-        self.dN_global = []  # derivative shape function in global coordinates
-        self.B_matrix = []  # strain displacement matrix
-        self.N_matrix = []  # displacement interpolation matrix
+        self.n = order
+        self.N, self.dN, self.W = reference_integration(elem_type, order)
+        self.d_jacob = np.empty(0)  # determinant of the Jacobian per Gauss point
+        self.dN_global = np.empty((0, 0, 0))  # derivative of the shape functions in global coordinates
+        self.B_matrix = np.empty((0, 0, 0))  # strain displacement matrix per Gauss point
+        self.N_matrix = np.empty((0, 0, 0))  # displacement interpolation matrix per Gauss point
 
-        return
+    def generate(self, coordinates: npt.NDArray[np.float64]) -> None:
+        """Compute the Jacobian, the B matrix and the N matrix of the element.
 
-    def tri_integration(self):
-        coords, weights = Gauss_weights(self.n, type='tri')
-        n_points = len(weights)
-
-        for i1 in range(n_points):
-            X = coords[:, i1]
-            Wt = weights[i1]
-
-            # call shape functions depending on the type of element
-            if self.type == 'tri3':
-                tri = TriThree()
-                tri.shape_functions(X)
-            elif self.type == 'tri6':
-                tri = TriSix()
-                tri.shape_functions(X)
-
-            # shape functions
-            N = tri.N
-            dN = tri.dN
-
-            # add to self
-            self.N.append(N)
-            self.dN.append(dN)
-            self.W.append(Wt)
-
-    def quad_integration(self):
-        coords, weights = Gauss_weights(self.n, type='quad')
-        for i1 in range(self.n):
-            for i2 in range(self.n):
-                X = [coords[i1], coords[i2]]
-                Wt = np.prod([weights[i1], weights[i2]])
-
-                # call shape functions depending on the type of element
-                if self.type == 'quad4':
-                    quad = QuadFour()
-                    quad.shape_functions(X)
-                elif self.type == 'quad8':
-                    quad = QuadEight()
-                    quad.shape_functions(X)
-
-                # shape functions
-                N = quad.N
-                dN = quad.dN
-
-                # add to self
-                self.N.append(N)
-                self.dN.append(dN)
-                self.W.append(Wt)
-
-    def generate(self, coordinates):
-        r"""
-        Generate shape functions, Jacobian, *B* and *N* matrix for plane element
-
-        Parameters
-        ----------
-        :param coordinates: list of coordinates of nodes in one element
+        Args:
+            coordinates: coordinates of the nodes of the element; only x and y are used [m].
         """
-
-        # natural coordinates and integration weights: Gauss integration
-
-        if self.type == 'quad4' or self.type == 'quad8':
-            self.quad_integration()
-
-        elif self.type == 'tri3' or self.type == 'tri6':
-            self.tri_integration()
-
-        # compute jacobian
         self.jacob(coordinates[:, :2])
-        # compute B matrix
         self.matrix_B()
-        # compute N matrix
         self.matrix_N()
 
-        return
+    def jacob(self, xy: npt.NDArray[np.float64]) -> None:
+        """Compute the determinant of the Jacobian and the global derivatives of the shape functions.
 
-    def jacob(self, xy):
+        Args:
+            xy: x and y coordinates of the nodes of the element [m].
         """
-        Computes the Jacobian and the derivative of the Jacobian
+        jacobian = np.einsum("gnd,nk->gdk", self.dN, xy)
+        self.d_jacob = np.linalg.det(jacobian)
+        self.dN_global = np.einsum("gnd,gkd->gnk", self.dN, np.linalg.inv(jacobian))
 
-        Parameters
-        ----------
-        :param xy: list of coordinates of nodes in one element
+    def matrix_B(self) -> None:
+        """Compute the B matrix (strain-displacement matrix) from the global shape function derivatives."""
+        nb_points, nb_nodes, _ = self.dN_global.shape
+        self.B_matrix = np.zeros((nb_points, 3, nb_nodes * 2))
+        self.B_matrix[:, 0, 0::2] = self.dN_global[:, :, 0]
+        self.B_matrix[:, 1, 1::2] = self.dN_global[:, :, 1]
+        self.B_matrix[:, 2, 0::2] = self.dN_global[:, :, 1]
+        self.B_matrix[:, 2, 1::2] = self.dN_global[:, :, 0]
+
+    def matrix_N(self) -> None:
+        """Compute the N matrix (displacement interpolation matrix) per Gauss point."""
+        nb_points, nb_nodes = self.N.shape
+        self.N_matrix = np.zeros((nb_points, 2, nb_nodes * 2))
+        for direction in range(2):
+            self.N_matrix[:, direction, direction::2] = self.N
+
+    def compute_stiffness(self, D: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Compute the stiffness matrix of the element.
+
+        Args:
+            D: material matrix [Pa].
+
+        Returns:
+            Stiffness matrix [N/m].
         """
+        BtD = np.einsum("ikj,kl->ijl", self.B_matrix, D)
+        return np.einsum("ijk,ikl,i->jl", BtD, self.B_matrix, self.d_jacob * self.W)
 
-        for deriv in self.dN:
-            jcb = np.transpose(deriv).dot(xy)
-            self.d_jacob.append(np.linalg.det(jcb))
-            self.dN_global.append(np.dot(deriv, np.linalg.inv(np.transpose(jcb))))
+    def compute_mass(self, rho: float) -> npt.NDArray[np.float64]:
+        """Compute the consistent mass matrix of the element.
 
-        return
+        Args:
+            rho: density of the element [kg/m^3].
 
-    def matrix_B(self):
+        Returns:
+            Mass matrix [kg].
         """
-        Computes B matrix (strain-displacement matrix): the derivative of the shape functions
-        """
-
-        for dn in self.dN_global:
-            B = np.zeros((3, dn.shape[0] * dn.shape[1]))
-
-            for i in range(int(dn.shape[0])):
-                idx = i * 2
-                B[0, idx + 0] = dn[i, 0]
-                B[1, idx + 1] = dn[i, 1]
-                B[2, idx + 0] = dn[i, 1]
-                B[2, idx + 1] = dn[i, 0]
-
-            self.B_matrix.append(B)
-
-        return
-
-    def matrix_N(self):
-        """
-        Computes N matrix: matrix with the shape functions
-        """
-
-        for nx in self.N:
-            N = np.zeros((self.dN_global[0][0].shape[0], nx.shape[0] * self.dN_global[0][0].shape[0]))
-
-            for i in range(int(nx.shape[0])):
-                idx = i * 2
-                N[0, idx] = nx[i]
-                N[1, idx + 1] = nx[i]
-
-            self.N_matrix.append(N)
-
-        return
-
-    def compute_stiffness(self, D: np.ndarray) -> np.ndarray:
-        """
-        Compute the stiffness matrix over one element
-
-        Parameters
-        ----------
-        :param D: Material matrix
-        :return: Stiffness matrix
-        """
-        Ke = np.zeros((self.B_matrix[0].shape[1], self.B_matrix[0].shape[1]))
-        for i, b in enumerate(self.B_matrix):
-            Ke = Ke + np.dot(np.dot(np.transpose(b), D), b) * self.d_jacob[i] * self.W[i]
-
-        return Ke
-
-    def compute_mass(self, rho: float) -> np.ndarray:
-        """
-        Compute the mass matrix over one element
-
-        Parameters
-        ----------
-        :param rho: Material density
-        :return: Mass matrix
-        """
-        Me = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
-        for i, N in enumerate(self.N_matrix):
-            Me = Me + np.dot(np.dot(np.transpose(N), rho), N) * self.d_jacob[i] * self.W[i]
-
-        return Me
-
-    def compute_abs_bound(self) -> np.ndarray:
-        """
-        Compute the absorbing boundary unitary force matrix over one element.
-        Following Lysmer and Kuhlemyer.
-
-        Parameters
-        ----------
-        :return: Force vector
-        """
-
-        f_abs = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
-        for i, N in enumerate(self.N_matrix):
-            f_abs = f_abs + np.dot(np.dot(np.transpose(N), 1), N) * self.d_jacob[i] * self.W[i]
-
-        return f_abs
+        return np.einsum("ikj,ikl,i->jl", self.N_matrix, self.N_matrix, self.d_jacob * self.W) * rho
 
 
 class ElementBatch:
@@ -455,35 +334,24 @@ class ElementBatch:
         Raises:
             ValueError: if the element type is not supported.
         """
-        if elem_type in ("hexa8", "hexa20", "tetra4", "tetra10"):
-            reference = VolumeElement(elem_type, order)
-            if elem_type.startswith("hexa"):
-                reference.hex_integration()
-            else:
-                reference.tetra_integration()
+        if elem_type in VOLUME_ELEMENTS:
             self.dimension = 3
-        elif elem_type in ("quad4", "quad8", "tri3", "tri6"):
-            reference = SurfaceElement(elem_type, order)
-            if elem_type.startswith("quad"):
-                reference.quad_integration()
-            else:
-                reference.tri_integration()
+        elif elem_type in PLANE_ELEMENTS:
             self.dimension = 2
         else:
             raise ValueError(f"Element type {elem_type} is not supported.")
 
         self.type = elem_type
-        self.N = np.array(reference.N)  # shape functions (gauss point, node)
-        self.dN = np.array(reference.dN)  # local derivatives (gauss point, node, local direction)
-        self.W = np.array(reference.W)  # Gauss weights (gauss point)
-        self.d_jacob = np.empty((0, len(self.W)))  # determinant of Jacobian (element, gauss point)
-        self.dN_global = np.empty((0, ) + self.dN.shape)  # global derivatives (element, gauss point, node, direction)
+        # shape functions (point, node), local derivatives (point, node, direction) and Gauss weights (point)
+        self.N, self.dN, self.W = reference_integration(elem_type, order)
+        self.d_jacob = np.empty((0, len(self.W)))  # determinant of Jacobian (element, point)
+        self.dN_global = np.empty((0, ) + self.dN.shape)  # global derivatives (element, point, node, direction)
         self.B_matrix = np.empty((0, len(self.W), self.nb_strains, self.nb_dofs))  # strain displacement matrix
 
     @property
     def nb_dofs(self) -> int:
         """Number of degrees of freedom of one element."""
-        return self.N.shape[1] * self.dimension
+        return int(self.N.shape[1] * self.dimension)
 
     @property
     def nb_strains(self) -> int:
@@ -550,7 +418,7 @@ class ElementBatch:
         Returns:
             Scalar mass matrices, with shape (element, node, node) [kg].
         """
-        return np.einsum("gi,gj,eg->eij", self.N, self.N, self.d_jacob * self.W * rho[:, None])
+        return integrate_scalar_mass(self.N, self.d_jacob * self.W * rho[:, None])
 
     def compute_mass(self, rho: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Compute the consistent mass matrix of each element.
@@ -569,65 +437,47 @@ class ElementBatch:
         return mass
 
 
-def Gauss_weights(n: int, type: str) -> [np.array, np.array]:
-    r"""
-    Coordinates and weights in Gauss–Legendre quadrilateral integration formulae
+class BoundaryElementBatch:
+    """Numerical integration over a batch of boundary elements: surfaces in 3D or lines in 2D.
 
-    Parameters
-    ----------
-    :param n: number of Gauss points
-    :return:  points, weights
+    The Jacobian determinant is the measure of the element in the global space, sqrt(det(J^T J)), so the boundary
+    can have any orientation.
     """
 
-    if type == "quad":
+    def __init__(self, elem_type: str, order: int = 2) -> None:
+        """Evaluate the shape functions at the Gauss points of the reference element.
 
-        if n == 1:
-            x = [0.]
-            w = [2.]
-        elif n == 2:
-            x = [-math.sqrt(1. / 3.), math.sqrt(1. / 3.)]
-            w = [1., 1.]
-        elif n == 3:
-            x = [-math.sqrt(3. / 5.), 0, math.sqrt(3. / 5.)]
-            w = [5. / 9., 8. / 9., 5. / 9.]
-        else:
-            sys.exit("ERROR: integration order not supported")
-    elif type == "tri":
-        if n == 1:
-            x = [[1/3], [1/3]]
-            w = [1/2]
-        elif n == 2:
-            x = [[1/6, 2/3, 1/6], [1/6,1/6,2/3]]
-            w = [1/6, 1/6, 1/6]
-        elif n == 3:
-            x = [[1/3, 1/5, 3/5, 1/5], [1/3, 1/5, 1/5, 3/5]]
-            w = [-27/96, 25/96, 25/96, 25/96]
-        else:
-            sys.exit("ERROR: integration order not supported")
-    elif type == "tetra":
-        if n == 1:
-            x = [[1 / 4],
-                 [1 / 4],
-                 [1 / 4]]
-            w = [1 / 6]
-        elif n == 2:
+        Args:
+            elem_type: element type, one of line2, line3, quad4, quad8, tri3 or tri6.
+            order: order of the Gauss integration.
 
-            constant_1 = 1 / 4 - 1/20 * math.sqrt(5)
-            constant_2 = 1 / 4 + 3 / 20 * math.sqrt(5)
+        Raises:
+            ValueError: if the element type is not a boundary element.
+        """
+        if elem_type not in BOUNDARY_ELEMENTS:
+            raise ValueError(f"Element type {elem_type} is not a boundary element.")
+        self.type = elem_type
+        self.N, self.dN, self.W = reference_integration(elem_type, order)
+        self.d_jacob = np.empty((0, len(self.W)))  # area (3D) or length (2D) per unit natural area (element, point)
 
-            x = [[constant_1, constant_1, constant_1,
-                  constant_2],
-                 [constant_1, constant_1, constant_2,
-                  constant_1],
-                 [constant_1, constant_2, constant_1,
-                  constant_1]]
+    def generate(self, coordinates: npt.NDArray[np.float64]) -> None:
+        """Compute the measure of each boundary element at the Gauss points.
 
-            weight_constant = 1/24
-            w = [weight_constant, weight_constant, weight_constant, weight_constant]
-        else:
-            sys.exit(f"ERROR: integration order not supported for type {type}")
+        Args:
+            coordinates: coordinates of the nodes of each element, in gmsh order, with shape (element, node,
+                direction) [m].
+        """
+        tangents = np.einsum("gnd,enk->egkd", self.dN, coordinates)
+        metric = np.einsum("egki,egkj->egij", tangents, tangents)
+        self.d_jacob = np.sqrt(np.linalg.det(metric))
 
-    else:
-        sys.exit("ERROR: integration type not supported")
+    def compute_scalar_mass(self, rho: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Compute the integral of rho * N^T N over each boundary element.
 
-    return np.array(x), np.array(w)
+        Args:
+            rho: value per unit area (3D) or length (2D) of each element.
+
+        Returns:
+            Scalar mass matrices, with shape (element, node, node).
+        """
+        return integrate_scalar_mass(self.N, self.d_jacob * self.W * rho[:, None])
