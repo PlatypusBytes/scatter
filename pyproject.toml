@@ -1,6 +1,89 @@
 [build-system]
-requires = [
-    "setuptools>=42",
-    "wheel"
-]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "scatter"
+version = "1.2.4"
+description = "3D Dynamic FEM model"
+readme = "ReadMe.md"
+requires-python = ">=3.12"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Bruno Zuada Coelho", email = "bruno.zuadacoelho@deltares.nl"},
+    {name = "Aron Noordam", email = "aron.noordam@deltares.nl"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "matplotlib>=3.4.2",
+    "numpy>=1.21",
+    "scipy>=1.6.2",
+    "tqdm>=4.64.1",
+    "shapely>=1.7.0",
+    "gstools>=1.4.0",
+    "imageio>=2.29.0",
+    "VTK-tools @ git+https://github.com/PlatypusBytes/vtk_tools.git",
+    "rose @ git+https://github.com/PlatypusBytes/ROSE.git",
+    "PuggleSolvers>=1.3.2",
+]
+
+[project.optional-dependencies]
+testing = [
+    "pytest>=7.2",
+    "pytest-cov>=4.0",
+    "tox>=4.11",
+]
+
+[tool.setuptools]
+packages = ["scatter", "docs", "docs.static"]
+
+[tool.setuptools.package-data]
+"docs.static" = ["message.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["unit_test", "integration_tests"]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py312, py313, py314
+isolated_build = true
+
+[gh-actions]
+python =
+    3.12: py312
+    3.13: py313
+    3.14: py314
+
+[testenv]
+setenv =
+    PYTHONPATH = {toxinidir}
+deps =
+    -r{toxinidir}/requirements.txt
+commands =
+    pytest --basetemp={envtmpdir} unit_test
+    pytest --basetemp={envtmpdir} integration_tests
+"""
+
+[tool.yapf]
+based_on_style = "pep8"
+column_limit = 120
+
+[tool.mypy]
+python_version = "3.12"
+files = ["scatter"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+# third-party packages without type information
+[[tool.mypy.overrides]]
+module = ["gstools.*", "meshio.*", "mpl_toolkits.*", "rose.*", "scipy.*", "shapely.*", "solvers.*",
+          "tqdm.*", "vtk_tools.*"]
+ignore_missing_imports = true

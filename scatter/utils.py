@@ -1,10 +1,19 @@
-from typing import Tuple, Union
+"""Geometric helpers and gmsh file parsing."""
+from typing import List, Sequence, Tuple, Union
+
 import numpy as np
+import numpy.typing as npt
 
 
-def calculate_distance(p1: list, p2: list) -> float:
-    r"""
-    Calculates the distance between two points or array of points
+def calculate_distance(p1: npt.ArrayLike, p2: npt.ArrayLike) -> npt.NDArray[np.float64]:
+    """Calculate the distance between two points, or between each point of two arrays of points.
+
+    Args:
+        p1: one point, or an array of points with shape (point, direction) [m].
+        p2: one point, or an array of points with shape (point, direction) [m].
+
+    Returns:
+        Distance between the points [m].
     """
     p1 = np.array(p1)
     p2 = np.array(p2)
@@ -12,74 +21,68 @@ def calculate_distance(p1: list, p2: list) -> float:
         p1 = p1[None, :]
     if p2.size <= 3:
         p2 = p2[None, :]
-    dist = np.linalg.norm(p1-p2, axis=1)
-    return dist
+    return np.linalg.norm(p1 - p2, axis=1)
 
 
-def calculate_centroid(coordinates: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Calculate centroid of numpy array
-    :param coordinates: numpy array of coordinates in 3D
-    :return: centroid
+def calculate_centroid(coordinates: npt.NDArray[np.float64]) -> Tuple[float, float, float]:
+    """Calculate the centroid of a set of 3D points.
+
+    Args:
+        coordinates: coordinates of the points, with shape (point, direction) [m].
+
+    Returns:
+        x, y and z coordinates of the centroid [m].
     """
     length = coordinates.shape[0]
     sum_x = np.sum(coordinates[:, 0])
     sum_y = np.sum(coordinates[:, 1])
     sum_z = np.sum(coordinates[:, 2])
-    return sum_x / length, sum_y / length, sum_z / length
+    return float(sum_x / length), float(sum_y / length), float(sum_z / length)
 
 
-def define_plane(p1: list, p2: list, p3: list) -> Union[list, np.ndarray]:
-    r"""
-    Finds all the nodes that are within the plane containing the points p1, p2 and p3.
-    Assumes that the three points are non-collinear
+def define_plane(p1: Sequence[float], p2: Sequence[float],
+                 p3: Sequence[float]) -> Tuple[List[float], npt.NDArray[np.float64]]:
+    """Define the plane that contains three non-collinear points.
 
-    Parameters
-    ----------
-    :param p1: coordinate point p1
-    :param p2: coordinate point p2
-    :param p3: coordinate point p3
-    :return: 4 nodes that are in the plane; normal vector
+    Args:
+        p1: coordinates of the first point [m].
+        p2: coordinates of the second point [m].
+        p3: coordinates of the third point [m].
+
+    Returns:
+        Coefficients a, b, c and d of the plane a * x + b * y + c * z = d, and the absolute value of its unit normal.
     """
-    p1 = np.array(p1)
-    p2 = np.array(p2)
-    p3 = np.array(p3)
+    point_1 = np.array(p1)
+    point_2 = np.array(p2)
+    point_3 = np.array(p3)
 
-    # These two vectors are in the plane
-    v1 = p3 - p1
-    v2 = p2 - p1
-
-    # the cross product is a vector normal to the plane
-    cp = np.cross(v1, v2)
+    # these two vectors are in the plane, so their cross product is normal to it
+    cp = np.cross(point_3 - point_1, point_2 - point_1)
     a, b, c = cp
+    d = np.dot(cp, point_3)
 
-    # This evaluates a * x3 + b * y3 + c * z3 which equals d
-    d = np.dot(cp, p3)
-
-    return [a, b, c, d], np.abs(cp / np.linalg.norm(cp))
+    return [float(a), float(b), float(c), float(d)], np.abs(cp / np.linalg.norm(cp))
 
 
-def search_idx(data: list, string1: str, string2: str) -> Union[list, int]:
+def search_idx(data: List[str], string1: str, string2: str) -> Tuple[List[List[Union[float, str]]], int]:
+    """Parse the lines of a gmsh section, between the line that starts with string1 and the one with string2.
+
+    Args:
+        data: lines of the gmsh file.
+        string1: start of the opening line of the section.
+        string2: start of the closing line of the section.
+
+    Returns:
+        Entries of each line of the section, as floats where possible and as strings otherwise, and the number of
+        entries given on the line after the opening line.
     """
-    Search data for the text in between string1 and string2
-
-    Parameters
-    ----------
-    :param data: list with text
-    :param string1: initial string
-    :param string2: final string
-    :return: text in between strings, indexes
-    """
-    # search string1
     idx = [i for i, val in enumerate(data) if val.startswith(string1)][0]
     nb = int(data[idx + 1])
-
-    # search string2
-    idx_end_nodes = [i for i, val in enumerate(data) if val.startswith(string2)][0]
+    idx_end = [i for i, val in enumerate(data) if val.startswith(string2)][0]
 
     res = []
-    for i in range(idx + 2, idx_end_nodes):
-        aux = []
+    for i in range(idx + 2, idx_end):
+        aux: List[Union[float, str]] = []
         for j in data[i].split():
             try:
                 aux.append(float(j))
@@ -90,107 +93,93 @@ def search_idx(data: list, string1: str, string2: str) -> Union[list, int]:
     return res, nb
 
 
-def area_polygon(coords: list) -> float:
-    """
-    Compute area of 3D planar polygon with one common axis (transforms it into a 2D)
-    It sorts the points clockwise
+def area_polygon(coords: npt.ArrayLike) -> float:
+    """Compute the area of a planar 3D polygon that is perpendicular to one of the axes.
 
-    Parameters
-    ----------
-    :param coords: list with coordinates
-    :return: area
-    """
+    The points are sorted around their centroid before the area is computed.
 
-    # find common axis in coords
+    Args:
+        coords: coordinates of the corner points of the polygon, with shape (point, direction) [m].
+
+    Returns:
+        Area of the polygon [m^2].
+    """
     xyz = np.array(coords)
-    # index that it is common
+    # index of the axis along which all points have the same coordinate
     try:
         idx_xy = np.where((xyz == xyz[0, :]).all(0))[0][0]
     except IndexError:
         # ToDo: improve this assumption. related to the other todo.
         idx_xy = 1
 
-    xy = [np.delete(i, idx_xy) for i in xyz]
-
-    # determine centroid
+    xy = np.delete(xyz, idx_xy, axis=1)
     centroid = np.mean(xy, axis=0)
 
-    # compute angle between all points and centroid using origin
-    angle = []
-    for i in range(len(xy)):
-        angle.append(np.arctan2(xy[i][1] - centroid[1], xy[i][0] - centroid[0]))
+    # sort the points by their angle around the centroid
+    angle = np.arctan2(xy[:, 1] - centroid[1], xy[:, 0] - centroid[0])
+    sorted_coords = xyz[np.argsort(angle)]
 
-    # reorganise coordinates clock-wise
-    coords = np.array(coords)[np.argsort(angle)]
+    # unit normal of the plane
+    normal = np.cross(sorted_coords[1] - sorted_coords[0], sorted_coords[2] - sorted_coords[0])
+    normal = normal / np.linalg.norm(normal)
 
-    # These two vectors are in the plane
-    vec1 = coords[1] - coords[0]
-    vec2 = coords[2] - coords[0]
-
-    # the cross product is a vector normal to the plane
-    n = np.cross(vec1, vec2) / np.linalg.norm(np.cross(vec1, vec2))
-
-    # compute area
-    area = 0
-    for i in range(len(coords) - 1):
-        area += np.dot(n, np.cross(coords[i], coords[i + 1]))
+    area = 0.
+    for i in range(len(sorted_coords) - 1):
+        area += float(np.dot(normal, np.cross(sorted_coords[i], sorted_coords[i + 1])))
 
     return area / 2
 
 
-def clockwise_sort_2D_elements(points: np.ndarray) -> np.ndarray:
+def order_face_nodes(coordinates: npt.NDArray[np.float64], is_corner: npt.NDArray[np.bool_]) -> npt.NDArray[np.int64]:
+    """Find the gmsh node order of boundary faces: corners in cyclic order, then the midside node of each edge.
+
+    Edge k of a face runs from corner k to corner k + 1. A line has one edge, from corner 0 to corner 1.
+
+    Args:
+        coordinates: coordinates of the nodes of each face, in any order, with shape (face, node, direction) [m].
+        is_corner: whether each node is a corner node, with shape (face, node).
+
+    Returns:
+        Position of each node in `coordinates` in gmsh order, with shape (face, node).
+
+    Raises:
+        ValueError: if the faces do not all have the same number of corner nodes.
+        ValueError: if the number of midside nodes does not match the number of edges.
+        ValueError: if the midside nodes cannot be matched one to one with the edges.
     """
-    Sorts a list of 2D coordinates clockwise, following the gmsh node numbering convention
+    nb_faces, nb_nodes = is_corner.shape
+    nb_corners = int(is_corner[0].sum()) if nb_faces > 0 else 0
+    if np.any(is_corner.sum(axis=1) != nb_corners):
+        raise ValueError("All faces must have the same number of corner nodes.")
 
-    Parameters
-    ----------
-    :param points: list of 2D coordinates
-    :return: clockwise sorted list of 2D coordinates following gmsh node numbering convention
-    """
-    # find the reference point (the point with the lowest y-coordinate)
-    ref_point = min(points, key=lambda p: p[1])
+    face = np.arange(nb_faces)[:, None]
+    corners = np.nonzero(is_corner)[1].reshape(nb_faces, nb_corners)
+    midsides = np.nonzero(~is_corner)[1].reshape(nb_faces, nb_nodes - nb_corners)
 
-    # define a custom key function that computes the angle of each point with respect to the reference point
-    def angle_key(point):
-        x, y = point[0] - ref_point[0], point[1] - ref_point[1]
-        return np.arctan2(y, x)
+    if nb_corners > 2:
+        # sort the corners by their angle around the centroid, in the best-fit plane of the face
+        centred = coordinates[face, corners] - coordinates[face, corners].mean(axis=1, keepdims=True)
+        plane_directions = np.linalg.svd(centred)[2][:, :2, :]
+        in_plane = np.einsum("fcd,fkd->fck", centred, plane_directions)
+        angle = np.arctan2(in_plane[..., 1], in_plane[..., 0])
+        corners = np.take_along_axis(corners, np.argsort(angle, axis=1), axis=1)
+        nb_edges = nb_corners
+    else:
+        nb_edges = 1
 
-    # sort the points by angle
-    sorted_points = sorted(points, key=angle_key)
+    nb_midsides = nb_nodes - nb_corners
+    if nb_midsides == 0:
+        return corners
+    if nb_midsides != nb_edges:
+        raise ValueError(f"A face with {nb_corners} corner nodes must have 0 or {nb_edges} midside nodes, "
+                         f"not {nb_midsides}.")
 
-    # after points being sorted, find corners of the element
+    # the midside node of an edge is the one closest to the middle of its corners
+    corner_xyz = coordinates[face, corners]
+    edge_middle = ((corner_xyz + np.roll(corner_xyz, -1, axis=1)) / 2)[:, :nb_edges]
+    distance = np.linalg.norm(edge_middle[:, :, None, :] - coordinates[face, midsides][:, None, :, :], axis=-1)
+    nearest = np.argmin(distance, axis=2)
+    if np.any(np.sort(nearest, axis=1) != np.arange(nb_midsides)):
+        raise ValueError("The midside nodes of a face cannot be matched to its edges.")
 
-    corner = [sorted_points[0]]
-    basic_idx = 0
-    for i in range(len(sorted_points) - 1):
-        if not are_collinear(sorted_points[basic_idx:i + 2]):
-            corner.append(sorted_points[i])
-            basic_idx = i
-
-    set1 = set(map(tuple, sorted_points))
-    set2 = set(map(tuple, corner))
-    middle = list(map(list, set1.symmetric_difference(set2)))
-    corner.extend(middle)
-
-    return np.array(corner)
-
-
-def are_collinear(coords: np.ndarray) -> bool:
-    """
-    Check if a list of coordinates are collinear
-
-    Parameters
-    ----------
-    :param coords: list of coordinates
-    :return: True if collinear, False otherwise
-    """
-    x1, y1 = coords[0]
-    x2, y2 = coords[1]
-    slope = (y2 - y1) / (x2 - x1) if x2 != x1 else float('inf')
-    for i in range(2, len(coords)):
-        x1, y1 = coords[i-1]
-        x2, y2 = coords[i]
-        new_slope = (y2 - y1) / (x2 - x1) if x2 != x1 else float('inf')
-        if new_slope != slope:
-            return False
-    return True
+    return np.concatenate((corners, np.take_along_axis(midsides, nearest, axis=1)), axis=1)
