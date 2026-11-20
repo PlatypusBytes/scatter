@@ -35,7 +35,7 @@ dependencies = [
 testing = [
     "pytest>=7.2",
     "pytest-cov>=4.0",
-    "tox>=4.11",
+    "tox>=4.21",
 ]
 
 [tool.setuptools]
@@ -48,26 +48,23 @@ packages = ["scatter", "docs", "docs.static"]
 testpaths = ["unit_test", "integration_tests"]
 
 [tool.tox]
-legacy_tox_ini = """
-[tox]
-envlist = py312, py313, py314
-isolated_build = true
+env_list = ["py312", "py313", "py314"]
 
-[gh-actions]
-python =
-    3.12: py312
-    3.13: py313
-    3.14: py314
-
-[testenv]
-setenv =
-    PYTHONPATH = {toxinidir}
-deps =
-    -r{toxinidir}/requirements.txt
-commands =
-    pytest --basetemp={envtmpdir} unit_test
-    pytest --basetemp={envtmpdir} integration_tests
+# tox-gh-actions parses this value as "version: env" lines, so it must stay a string, not a table
+[tool.tox.gh-actions]
+python = """
+3.12: py312
+3.13: py313
+3.14: py314
 """
+
+[tool.tox.env_run_base]
+set_env = { PYTHONPATH = "{tox_root}" }
+deps = ["-r{tox_root}/requirements.txt"]
+commands = [
+    ["pytest", "--basetemp={env_tmp_dir}", "unit_test"],
+    ["pytest", "--basetemp={env_tmp_dir}", "integration_tests"],
+]
 
 [tool.yapf]
 based_on_style = "pep8"

@@ -19,7 +19,7 @@ def Gauss_weights(n: int, integration_type: str) -> Tuple[npt.NDArray[np.float64
 
     Args:
         n: order of the integration: the number of points per direction for quad, the rule index for tri and tetra.
-        integration_type: quad (1D Gauss-Legendre rule), tri or tetra.
+        integration_type: quad, tri or tetra.
 
     Returns:
         Natural coordinates of the points, with shape (point,) for quad and (direction, point) for tri and tetra
@@ -179,6 +179,13 @@ class VolumeElement:
         Args:
             xyz: coordinates of the nodes of the element [m].
         """
+
+        # Equivalent to procedure as shown below
+        # for deriv in self.dN:
+        #     jcb = np.transpose(deriv).dot(xyz)
+        #     self.d_jacob.append(np.linalg.det(jcb))
+        #     self.dN_global.append(np.dot(deriv, np.linalg.inv(np.transpose(jcb))))
+
         jacobian = np.einsum("gnd,nk->gdk", self.dN, xyz)
         self.d_jacob = np.linalg.det(jacobian)
         self.dN_global = np.einsum("gnd,gkd->gnk", self.dN, np.linalg.inv(jacobian))
@@ -215,8 +222,15 @@ class VolumeElement:
         Returns:
             Stiffness matrix [N/m].
         """
+
+        # Ke = np.zeros((self.B_matrix[0].shape[1], self.B_matrix[0].shape[1]))
+        # for i in range(len(self.B_matrix)):
+        #     #Ke += np.dot(np.dot(np.transpose(b), D), b) * self.d_jacob[i] * self.W[i]
+        #     Ke += BtDB[i,:,:] * self.d_jacob[i] * self.W[i]
+
         BtD = np.einsum("ikj,kl->ijl", self.B_matrix, D)
-        return np.einsum("ijk,ikl,i->jl", BtD, self.B_matrix, self.d_jacob * self.W)
+        Ke = np.einsum("ijk,ikl,i->jl", BtD, self.B_matrix, self.d_jacob * self.W)
+        return Ke
 
     def compute_mass(self, rho: float) -> npt.NDArray[np.float64]:
         """Compute the consistent mass matrix of the element.
@@ -227,7 +241,23 @@ class VolumeElement:
         Returns:
             Mass matrix [kg].
         """
+
+        # Me = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
+        # for i, N in enumerate(self.N_matrix):
+        #     Me += np.dot(np.dot(np.transpose(N), rho), N) * self.d_jacob[i] * self.W[i]
         return np.einsum("ikj,ikl,i->jl", self.N_matrix, self.N_matrix, self.d_jacob * self.W) * rho
+
+    def compute_abs_bound(self) -> npt.NDArray[np.float64]:
+        """Compute the  absorbing boundary unitary force matrix of the element.
+
+        Returns:
+            Absorbing boundary unitary force matrix.
+        """
+
+        # f_abs = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
+        # for i, N in enumerate(self.N_matrix):
+        #     f_abs += np.dot(np.dot(np.transpose(N), 1), N) * self.d_jacob[i] * self.W[i]
+        return np.einsum("ikj,ikl,i->jl", self.N_matrix, self.N_matrix, self.d_jacob * self.W)
 
 
 class SurfaceElement:
@@ -315,6 +345,17 @@ class SurfaceElement:
         """
         return np.einsum("ikj,ikl,i->jl", self.N_matrix, self.N_matrix, self.d_jacob * self.W) * rho
 
+    def compute_abs_bound(self) -> npt.NDArray[np.float64]:
+        """Compute the  absorbing boundary unitary force matrix of the element.
+
+        Returns:
+            Absorbing boundary unitary force matrix.
+        """
+
+        # f_abs = np.zeros((self.N_matrix[0].shape[1], self.N_matrix[0].shape[1]))
+        # for i, N in enumerate(self.N_matrix):
+        #     f_abs += np.dot(np.dot(np.transpose(N), 1), N) * self.d_jacob[i] * self.W[i]
+        return np.einsum("ikj,ikl,i->jl", self.N_matrix, self.N_matrix, self.d_jacob * self.W)
 
 class ElementBatch:
     """Shape functions and numerical integration for a batch of elements of the same type.
