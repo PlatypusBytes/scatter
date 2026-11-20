@@ -58,7 +58,7 @@ class GenerateMatrix:
 
         Args:
             nb_equations: number of equations in the system.
-            order: order of the Gauss integration.
+            order: order of the Gauss integration of the volume elements; the absorbing boundaries use their own.
         """
         self.M = csr_matrix((nb_equations, nb_equations))
         self.C = csr_matrix((nb_equations, nb_equations))
@@ -260,6 +260,10 @@ class GenerateMatrix:
         absorbing in that direction: a surface in 3D, a line in 2D. The dashpots and springs act on the dof in that
         direction, with the P-wave terms where the boundary is perpendicular to the dof and the S-wave terms otherwise.
 
+        Dashpots and springs share the consistent boundary matrix, the integral of N^T N over the boundary element. It
+        is integrated with the rule that is exact for the boundary element type, independently of the integration
+        order of the volume elements.
+
         Args:
             data: mesh and geometry data.
             material: material properties per material name.
@@ -281,7 +285,8 @@ class GenerateMatrix:
         coordinates = data.nodes[:, 1:1 + data.dimension]
         is_absorbing = data.type_BC == "Absorb"
         nb_corner_nodes = create_element(data.element_type).n_corner_nodes
-        boundary = discretisation.BoundaryElementBatch(data.lower_element_type, self.order)
+        # the volume integration order would under-integrate N^T N of quadratic boundary elements
+        boundary = discretisation.BoundaryElementBatch(data.lower_element_type)
         shape = self.C.shape
         absorbing_damping = SparseAccumulator(shape)
         absorbing_stiffness = SparseAccumulator(shape)
@@ -310,8 +315,10 @@ class GenerateMatrix:
             stiffness_factor = np.where(is_perpendicular, constrained_modulus[elements, None], shear_modulus[elements,
                                                                                                              None])
 
+            # the negative entries of quadratic elements belong to the consistent matrix: taking their absolute value
+            # would inflate the springs, and make them inconsistent with the dashpots
             absorbing_damping.add(self.__assemble(eq_nb, abs_bound * damping_factor[:, None, :], shape))
-            absorbing_stiffness.add(self.__assemble(eq_nb, np.abs(abs_bound) * stiffness_factor[:, None, :], shape))
+            absorbing_stiffness.add(self.__assemble(eq_nb, abs_bound * stiffness_factor[:, None, :], shape))
 
         self.C = csr_matrix(self.C + absorbing_damping.total())
         self.K = csr_matrix(self.K + absorbing_stiffness.total() / parameters_stiff)

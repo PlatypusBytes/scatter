@@ -2,7 +2,7 @@
 import itertools
 import math
 import sys
-from typing import List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -11,14 +11,17 @@ from scatter.element_types import create_element
 
 VOLUME_ELEMENTS = ("hexa8", "hexa20", "tetra4", "tetra10")
 PLANE_ELEMENTS = ("quad4", "quad8", "tri3", "tri6")
-BOUNDARY_ELEMENTS = ("line2", "line3", "quad4", "quad8", "tri3", "tri6")
+# boundary element types, with the order of the Gauss integration that integrates N^T N exactly when the Jacobian is
+# constant: N^T N is of degree 2 for linear and of degree 4 for quadratic elements
+BOUNDARY_ELEMENTS: Dict[str, int] = {"line2": 2, "line3": 3, "quad4": 2, "quad8": 3, "tri3": 2, "tri6": 4}
 
 
 def Gauss_weights(n: int, integration_type: str) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """Get the coordinates and weights of the Gauss integration rule.
 
     Args:
-        n: order of the integration: the number of points per direction for quad, the rule index for tri and tetra.
+        n: order of the integration: the number of points per direction for quad, the degree of the polynomials that
+            are integrated exactly for tri (1 to 4) and tetra (1 to 2).
         integration_type: quad, tri or tetra.
 
     Returns:
@@ -55,6 +58,14 @@ def Gauss_weights(n: int, integration_type: str) -> Tuple[npt.NDArray[np.float64
         elif n == 3:
             x = [[1 / 3, 1 / 5, 3 / 5, 1 / 5], [1 / 3, 1 / 5, 1 / 5, 3 / 5]]
             w = [-27 / 96, 25 / 96, 25 / 96, 25 / 96]
+        elif n == 4:
+            # Dunavant's 6-point rule: two orbits of three points, all weights positive
+            a = (8 - math.sqrt(10) + math.sqrt(38 - 44 * math.sqrt(2 / 5))) / 18
+            b = (8 - math.sqrt(10) - math.sqrt(38 - 44 * math.sqrt(2 / 5))) / 18
+            weight_a = (620 + math.sqrt(213125 - 53320 * math.sqrt(10))) / 7440
+            weight_b = (620 - math.sqrt(213125 - 53320 * math.sqrt(10))) / 7440
+            x = [[a, 1 - 2 * a, a, b, 1 - 2 * b, b], [a, a, 1 - 2 * a, b, b, 1 - 2 * b]]
+            w = [weight_a, weight_a, weight_a, weight_b, weight_b, weight_b]
         else:
             sys.exit("ERROR: integration order not supported")
     elif integration_type == "tetra":
@@ -485,12 +496,13 @@ class BoundaryElementBatch:
     can have any orientation.
     """
 
-    def __init__(self, elem_type: str, order: int = 2) -> None:
+    def __init__(self, elem_type: str, order: Optional[int] = None) -> None:
         """Evaluate the shape functions at the Gauss points of the reference element.
 
         Args:
             elem_type: element type, one of line2, line3, quad4, quad8, tri3 or tri6.
-            order: order of the Gauss integration.
+            order: order of the Gauss integration. By default, the order that integrates N^T N exactly when the
+                Jacobian is constant; a lower order makes N^T N rank deficient for quadratic elements.
 
         Raises:
             ValueError: if the element type is not a boundary element.
@@ -498,7 +510,8 @@ class BoundaryElementBatch:
         if elem_type not in BOUNDARY_ELEMENTS:
             raise ValueError(f"Element type {elem_type} is not a boundary element.")
         self.type = elem_type
-        self.N, self.dN, self.W = reference_integration(elem_type, order)
+        self.N, self.dN, self.W = reference_integration(elem_type,
+                                                        BOUNDARY_ELEMENTS[elem_type] if order is None else order)
         self.d_jacob = np.empty((0, len(self.W)))  # area (3D) or length (2D) per unit natural area (element, point)
 
     def generate(self, coordinates: npt.NDArray[np.float64]) -> None:

@@ -1,4 +1,5 @@
 """Tests of the element routines, the assembly of the global matrices and the absorbing boundaries."""
+import math
 import os
 import re
 from typing import Any, Dict, List, Tuple
@@ -242,6 +243,46 @@ class TestElementBatch:
             element_class(elem_type, 2)
 
 
+class TestGaussWeights:
+    """Gauss integration rules."""
+
+    @pytest.mark.parametrize("order", [1, 2, 3, 4])
+    def test_triangle_rule_is_exact_up_to_its_order(self, order: int):
+        """The tri rule of order n integrates every monomial u^a v^b with a + b <= n exactly."""
+        points, weights = discretisation.Gauss_weights(order, "tri")
+        for a in range(order + 1):
+            for b in range(order + 1 - a):
+                # integral of u^a v^b over the reference triangle
+                exact = math.factorial(a) * math.factorial(b) / math.factorial(a + b + 2)
+                np.testing.assert_allclose(np.sum(weights * points[0]**a * points[1]**b), exact, rtol=1e-12)
+
+    def test_unsupported_triangle_order(self):
+        """A tri rule of order 5 raises a SystemExit."""
+        with pytest.raises(SystemExit, match=re.escape("ERROR: integration order not supported")):
+            discretisation.Gauss_weights(5, "tri")
+
+
+# quadratic boundary elements with a quadratic field u at their nodes, and the integral of u^2 over the element
+QUADRATIC_BOUNDARY_ELEMENTS = [
+    # u = s^2 along a line of length 5, with s the distance to the first node: integral of s^4 is 5^5 / 5
+    ("line3", [[1, 1], [4, 5], [2.5, 3]], [0, 25, 6.25], 625.),
+    # u = x^2 on a rectangle 2 m along x and 3 * sqrt(2) m across: integral of x^4 is 2^5 / 5 * 3 * sqrt(2)
+    (
+        "quad8",
+        [[0, 0, 0], [2, 0, 0], [2, 3, 3], [0, 3, 3], [1, 0, 0], [2, 1.5, 1.5], [1, 3, 3], [0, 1.5, 1.5]],
+        [0, 4, 4, 0, 1, 4, 1, 0],
+        19.2 * np.sqrt(2),
+    ),
+    # u = x^2 on the triangle (2s, 3t, 3t), with area element 6 * sqrt(2): integral of 16 s^4 is 6 * sqrt(2) * 16 / 30
+    (
+        "tri6",
+        [[0, 0, 0], [2, 0, 0], [0, 3, 3], [1, 0, 0], [1, 1.5, 1.5], [0, 1.5, 1.5]],
+        [0, 4, 0, 1, 1, 0],
+        3.2 * np.sqrt(2),
+    ),
+]
+
+
 class TestBoundaryElementBatch:
     """Integration over boundary elements."""
 
@@ -266,10 +307,33 @@ class TestBoundaryElementBatch:
         boundary.generate(np.array([coordinates], dtype=float))
         np.testing.assert_allclose(boundary.compute_scalar_mass(np.ones(1)).sum(), 5.)
 
+    @pytest.mark.parametrize("elem_type, coordinates, u, integral", QUADRATIC_BOUNDARY_ELEMENTS)
+    def test_quadratic_field_integrated_exactly(self, elem_type: str, coordinates: List[List[float]], u: List[float],
+                                                integral: float):
+        """By default u^T (integral of N^T N) u equals the integral of u^2 for a quadratic u, a degree 4 polynomial."""
+        boundary = discretisation.BoundaryElementBatch(elem_type)
+        boundary.generate(np.array([coordinates], dtype=float))
+        mass = boundary.compute_scalar_mass(np.ones(1))[0]
+        np.testing.assert_allclose(np.array(u) @ mass @ np.array(u), integral, rtol=1e-12)
+
+    @pytest.mark.parametrize("elem_type, coordinates, u, integral", QUADRATIC_BOUNDARY_ELEMENTS)
+    def test_quadratic_element_positive_definite(self, elem_type: str, coordinates: List[List[float]], u: List[float],
+                                                 integral: float):
+        """By default the integral of N^T N of a quadratic element is positive definite: no node motion is undamped."""
+        boundary = discretisation.BoundaryElementBatch(elem_type)
+        boundary.generate(np.array([coordinates], dtype=float))
+        mass = boundary.compute_scalar_mass(np.ones(1))[0]
+        assert np.linalg.eigvalsh(mass).min() > 1e-6 * np.abs(mass).max()
+
     def test_unsupported_element(self):
         """A volume element type raises a ValueError."""
         with pytest.raises(ValueError, match=re.escape("Element type hexa8 is not a boundary element.")):
             discretisation.BoundaryElementBatch("hexa8", 2)
+
+    def test_unsupported_order(self):
+        """An explicit integration order without a Gauss rule raises a SystemExit."""
+        with pytest.raises(SystemExit, match=re.escape("ERROR: integration order not supported")):
+            discretisation.BoundaryElementBatch("tri6", 5)
 
 
 class TestOrderFaceNodes:
@@ -414,9 +478,38 @@ class TestAbsorbingBoundaries:
         np.testing.assert_allclose(u @ (matrix.C @ u), impedance * depth * (x1**3 - x0**3) / 3)
         np.testing.assert_allclose(matrix.C.toarray(), matrix.C.toarray().T, atol=1e-9)
 
-    @pytest.mark.parametrize("element_type", ["hexa8", "tetra4", "quad4", "tri3"])
+    @pytest.mark.parametrize("element_type", ["hexa20", "tetra10", "tri6"])
+    def test_quadratic_motion_of_bottom(self, element_type: str):
+        """For u = x^2 on the bottom, u^T C u is rho * vp * integral of x^4, which needs an exact boundary rule."""
+        model = read_mesh(element_type, boundary="absorbing_bottom", two_materials=False)
+        matrix = system_matrix.GenerateMatrix(model.number_eq, 2)
+        matrix.absorbing_boundaries(model, MATERIALS, [1, 1], 1e3)
+
+        x0, x1, depth = bottom_extent(model)
+        _, _, vp, _ = wave_properties(MATERIALS["soft"])
+        impedance = MATERIALS["soft"]["density"] * vp
+
+        is_bottom = np.isclose(model.nodes[:, 2], model.nodes[:, 2].min())
+        u = np.zeros(model.number_eq)
+        u[model.eq_nb_dof[is_bottom, 1].astype(int)] = model.nodes[is_bottom, 1]**2
+        np.testing.assert_allclose(u @ (matrix.C @ u), impedance * depth * (x1**5 - x0**5) / 5, rtol=1e-10)
+
+    @pytest.mark.parametrize("element_type", ["hexa20", "tetra10", "tri6"])
+    def test_independent_of_integration_order(self, element_type: str):
+        """The absorbing boundaries do not depend on the integration order of the volume elements."""
+        model = read_mesh(element_type, boundary="absorbing_bottom_all", two_materials=False)
+        matrices = {}
+        for order in (1, 2, 3):
+            matrices[order] = system_matrix.GenerateMatrix(model.number_eq, order)
+            matrices[order].absorbing_boundaries(model, MATERIALS, [1, 1], 1e3)
+
+        for order in (1, 3):
+            for reference, other in ((matrices[2].C, matrices[order].C), (matrices[2].K, matrices[order].K)):
+                assert abs(other - reference).max() <= 1e-12 * abs(reference).max()
+
+    @pytest.mark.parametrize("element_type", list(MESHES))
     def test_springs_sum_over_bottom(self, element_type: str):
-        """For linear boundary elements, the bottom springs sum to Ec * area / parameters_stiff."""
+        """The bottom springs sum to Ec * area / parameters_stiff, for linear and quadratic boundary elements."""
         model = read_mesh(element_type, boundary="absorbing_bottom", two_materials=False)
         matrix = system_matrix.GenerateMatrix(model.number_eq, 2)
         matrix.absorbing_boundaries(model, MATERIALS, [1, 1], 1e3)
@@ -424,6 +517,19 @@ class TestAbsorbingBoundaries:
         x0, x1, depth = bottom_extent(model)
         constrained_modulus, _, _, _ = wave_properties(MATERIALS["soft"])
         np.testing.assert_allclose(matrix.K.sum(), constrained_modulus * (x1 - x0) * depth / 1e3)
+
+    @pytest.mark.parametrize("element_type", list(MESHES))
+    def test_springs_match_dashpots(self, element_type: str):
+        """Springs and dashpots are the same boundary matrix, scaled by Ec / parameters_stiff and by rho * vp."""
+        model = read_mesh(element_type, boundary="absorbing_bottom", two_materials=False)
+        matrix = system_matrix.GenerateMatrix(model.number_eq, 2)
+        matrix.absorbing_boundaries(model, MATERIALS, [1, 1], 1e3)
+
+        constrained_modulus, _, vp, _ = wave_properties(MATERIALS["soft"])
+        springs = matrix.K * (1e3 / constrained_modulus)
+        dashpots = matrix.C / (MATERIALS["soft"]["density"] * vp)
+        assert dashpots.nnz > 0
+        assert abs(springs - dashpots).max() <= 1e-12 * abs(dashpots).max()
 
     @pytest.mark.parametrize("element_type", ["hexa8", "tri6"])
     def test_tangential_dashpots(self, element_type: str):
